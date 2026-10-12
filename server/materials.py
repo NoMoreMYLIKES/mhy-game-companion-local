@@ -30,6 +30,20 @@ ZZZ_EXP_TOP = {'资深调查员记录': ('调查专项', 'c_xp'), '音擎能源�
 ZZZ_EXP_VALUE = 3000
 ZZZ_LOWER_EXP = ('见习调查员记录', '正式调查员记录', '音擎蓄电池', '音擎电源')
 COST = {'card': 20, 'claim20': 20, 'boss': 40, 'zzz_boss': 40, 'disc': 60}
+# Dataset typeText of Genshin series that convert 3:1 (talent books, weapon ascension, enemy drops, gems).
+GENSHIN_FAMILY_TYPES = ('角色天赋素材', '武器突破素材', '角色与武器培养素材', '角色突破素材')
+
+
+def tint(game: str, material: dict) -> str | None:
+    """UI category of a material: 'exp', 'family' (convertible series), 'core' (ZZZ core skill) or None."""
+    row = meta(game, material.get('id'))
+    if game == 'genshin':
+        kind = row.get('typeText') or ''
+        return 'exp' if '经验' in kind else 'family' if kind in GENSHIN_FAMILY_TYPES else None
+    kind = row.get('kind')
+    if kind == 'xp' or material.get('name') in ZZZ_EXP_TOP:
+        return 'exp'
+    return {'chip': 'family', 'seal_c': 'family', 'seal_w': 'family', 'boss': 'core', 'boss_weekly': 'core'}.get(kind)
 
 
 def unit_label(unit: str | None) -> str:
@@ -197,10 +211,11 @@ def items_for_goal(goal: dict, ctx: dict) -> list[dict]:
 
     result = []
     for key, item in items.items():
-        item['paused'] = key in paused
+        item['paused'] = item['key'] in paused or key in paused  # full item key (UI) or legacy short key
         item['units'], item['note'] = _units(goal, item)
         item['names'] = tr('sep').join(dict.fromkeys(m['name'] for m in item['materials']))
         item['done'] = item['units'] == 0
+        item['tint'] = tint(goal['game'], item['materials'][0])
         result.append(item)
     return sorted(result, key=lambda i: (i['rank'], i['kind'] == 'manual', i['key']))
 

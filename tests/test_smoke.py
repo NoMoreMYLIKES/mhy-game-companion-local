@@ -84,6 +84,29 @@ class SmokeTest(unittest.TestCase):
             used |= set(re.findall(r"\btr\('([a-z0-9_]+)'\s*[,)]", path.read_text(encoding='utf-8')))
         self.assertFalse(used - set(MESSAGES), f"unknown message keys: {used - set(MESSAGES)}")
 
+    def test_image_cache_is_bounded(self):
+        """Only HTTPS images from official hosts are cached, and keys cannot leave data/assets."""
+        from server import assets, core
+        self.assertTrue(assets.allowed('https://act-webstatic.mihoyo.com/icon.png'))
+        self.assertTrue(assets.allowed('https://upload-bbs.miyoushe.com/a.png'))
+        self.assertFalse(assets.allowed('http://act-webstatic.mihoyo.com/icon.png'))
+        self.assertFalse(assets.allowed('https://mihoyo.com.example.org/icon.png'))
+        self.assertFalse(assets.allowed('https://example.org/mihoyo.com/icon.png'))
+        self.assertIsNone(assets.file('../../etc/passwd'))
+        self.assertIsNone(assets.file('genshin/character/../../secret'))
+        assets.collect({'genshin/character/1': 'https://example.org/x.png', '../escape': 'https://act-webstatic.mihoyo.com/x.png'})
+        self.assertEqual(core.get('asset_sources', {}), {})
+
+    def test_paused_item_matches_ui_key(self):
+        """The UI pauses items by their full key (goal id + item key)."""
+        from server import materials
+        goal = {'id': 'g1', 'game': 'zzz', 'name': 'X', 'category_order': ['level', 'talents', 'weapon'],
+                'materials': [{'id': 'm1', 'name': 'Y', 'need': 5, 'owned': 0, 'remaining': 5, 'category': 'level'}],
+                'paused': ['g1:manual:m1']}
+        items = materials.items_for_goal(goal, {})
+        self.assertEqual(items[0]['key'], 'g1:manual:m1')
+        self.assertTrue(items[0]['paused'])
+
     def test_planner_empty(self):
         import server.planner as planner
         p = planner.plan('genshin')

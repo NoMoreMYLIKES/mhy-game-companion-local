@@ -16,7 +16,7 @@ from datetime import timedelta
 
 import genshin
 
-from . import core
+from . import assets, core
 from .i18n import MESSAGES, tr
 
 log = logging.getLogger('gcl.mihoyo')
@@ -235,7 +235,7 @@ def refresh_notes(game: str, force: bool = False) -> dict:
         current, cap = run(read(), 40)
         if type(current) is not int or type(cap) is not int or not 0 <= current <= 10000:
             raise ValueError(tr('bad_notes'))
-        core.add_sample(game, current, cap, tr('source_notes'))
+        core.add_sample(game, current, cap, 'source_notes')  # message key, translated when shown
         record(key, True, tr('notes_ok'))
         return {'current': current, 'cap': cap}
     except Exception as exc:
@@ -261,7 +261,17 @@ def roster(game: str) -> list[dict]:
 
     if not accounts().get(game):
         raise ValueError(tr('login_first'))
-    return run(read(), 60)
+    rows = run(read(), 60)
+    _collect_icons({assets.key(game, 'character', r['id']): r.get('icon') for r in rows})
+    return rows
+
+
+def _collect_icons(sources: dict) -> None:
+    """Images are a convenience: never let them break the official data flow."""
+    try:
+        assets.collect(sources)
+    except Exception:
+        log.exception('Image cache update failed')
 
 
 def observe(goal: dict) -> dict:
@@ -276,12 +286,14 @@ def observe(goal: dict) -> dict:
             char = next((x for x in chars if x.id == cid and x.level > 0), None)
             if char is None:
                 raise ValueError(tr('char_not_owned'))
+            _collect_icons({assets.key(game, 'character', cid): getattr(char, 'icon', None)})
             detail = await c.get_character_details(cid)
             current = {'level': char.level, 'weapon': detail.weapon.level}
             current.update({t.type: t.level for t in detail.talents if t.type in ('attack', 'skill', 'burst')})
             return {'current': current, 'weapon_id': str(detail.weapon.id), 'weapon_name': getattr(detail.weapon, 'name', '')}
         await c._login_upgrade_guide(int(accounts()['zzz']['uid']))
         guide = (await c.get_zzz_agent_upgrade_guide(cid))[0]
+        _collect_icons({assets.key(game, 'character', cid): getattr(guide.avatar, 'square_icon', None)})
         rank = int(getattr(guide.avatar, 'rank', 0) or 0)
         bonus = 4 if rank >= 5 else 2 if rank >= 3 else 0
         skills = {int(s.type): (s.level - 1 if int(s.type) == 5 else s.level - bonus) for s in guide.avatar.skills}
@@ -331,6 +343,8 @@ def calculate(goal: dict) -> list[dict]:
                         row.update(domain=group.domain.name, weekdays=list(group.domain.weekdays))
                     if group.monster:
                         row['monster'] = group.monster.name
+        _collect_icons({assets.key(game, 'material', item.id): getattr(item, 'icon', None)
+                        for item in result.total_materials})
         rows = []
         for item in result.total_materials:
             extra = info.get(str(item.id), {'categories': ['level']})
@@ -363,6 +377,8 @@ def calculate(goal: dict) -> list[dict]:
                 raise ValueError(tr('calc_format'))
             for item in raw[field]:
                 mid = str(item['id'])
+                if isinstance(item.get('icon'), str):
+                    _collect_icons({assets.key(game, 'material', mid): item['icon']})
                 row = merged.setdefault(mid, {'id': mid, 'name': item.get('name', mid), 'need': 0, 'categories': []})
                 row['need'] += int(item.get('num', item.get('amount', 0)))
                 if category not in row['categories']:

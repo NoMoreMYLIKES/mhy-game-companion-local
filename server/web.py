@@ -11,11 +11,17 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import core, goals, materials, mihoyo, notify, planner, runner, scheduler, tools
+from . import assets, core, goals, materials, mihoyo, notify, planner, runner, scheduler, tools
 from .i18n import tr
 
 log = logging.getLogger('gcl.web')
 _CHECK: dict = {}
+# Python reads MIME types from the Windows registry, which some installs map wrongly
+# (e.g. .js as text/plain, which browsers then refuse to run with nosniff).
+for _ext, _type in (('.html', 'text/html'), ('.js', 'text/javascript'), ('.css', 'text/css'),
+                    ('.svg', 'image/svg+xml'), ('.json', 'application/json'), ('.png', 'image/png'),
+                    ('.jpg', 'image/jpeg'), ('.webp', 'image/webp'), ('.gif', 'image/gif')):
+    mimetypes.add_type(_type, _ext)
 
 
 def env_check() -> dict:
@@ -34,9 +40,12 @@ def public_settings() -> dict:
 def goal_view(goal: dict, ctx: dict, weekday: int) -> dict:
     items = []
     for item in planner.goal_items(goal, ctx):
-        items.append({k: item.get(k) for k in ('key', 'label', 'names', 'kind', 'unit_label', 'units', 'available',
-                                               'executed', 'note', 'progress', 'paused', 'done', 'rank', 'weekdays')}
-                     | {'why': planner.blocker(item, weekday), 'days': planner.days_text(item['weekdays'])})
+        items.append({k: item.get(k) for k in ('key', 'label', 'names', 'kind', 'unit', 'unit_label', 'units', 'available',
+                                               'executed', 'note', 'progress', 'paused', 'done', 'rank', 'weekdays',
+                                               'tint', 'cost')}
+                     | {'why': planner.blocker(item, weekday), 'days': planner.days_text(item['weekdays']),
+                        'materials': [{k: m.get(k) for k in ('id', 'name', 'need', 'owned', 'remaining')}
+                                      for m in item['materials']]})
     view = {k: v for k, v in goal.items() if k not in ('allowance',)}
     view['items'] = items
     return view
@@ -57,6 +66,7 @@ def full_state() -> dict:
         'forecast': planner.forecast(3), 'runs': core.runs(20),
         'health': {k: mihoyo.health(k) for k in ('notes-genshin', 'notes-zzz', 'calc')},
         'settings': public_settings(), 'check': env_check(), 'notifications': notify.recent(10),
+        'assets': assets.cached(), 'assets_status': assets.status(),
         'catalog': {'bosses': ctx['bosses'], 'blessing': [d['name'] for d in ctx['domains'] if d['type'] == 'BlessDomain'],
                     'disc': materials.zzz_disc_missions(s['paths']['onedragon'])},
     }
@@ -77,10 +87,11 @@ class Handler(BaseHTTPRequestHandler):
 
     # ------------------------------------------------ helpers
     def _send(self, code: int, body: bytes, kind: str, extra: dict | None = None) -> None:
+        extra = dict(extra or {})
         self.send_response(code)
         self.send_header('Content-Type', kind)
         self.send_header('Content-Length', str(len(body)))
-        self.send_header('Cache-Control', 'no-store')
+        self.send_header('Cache-Control', extra.pop('Cache-Control', 'no-store'))
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('X-Frame-Options', 'DENY')
         for k, v in (extra or {}).items():
@@ -131,9 +142,19 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({'rows': core.runs(int(q.get('limit', 50)))})
             if url.path == '/api/health':
                 return self._json({'ok': True, 'version': core.VERSION})
+            if url.path.startswith('/assets/'):
+                return self._asset(url.path[len('/assets/'):])
         except Exception as exc:
             return self._json({'error': mihoyo.describe_error(exc)}, 400)
         self._static(url.path)
+
+    def _asset(self, name: str) -> None:
+        """A cached game image; IDs never change their image, so browsers may keep it."""
+        path = assets.file(name)
+        if not path:
+            return self._send(404, b'not found', 'text/plain')
+        kind = mimetypes.guess_type(path.name)[0] or 'application/octet-stream'
+        self._send(200, path.read_bytes(), kind, {'Cache-Control': 'public, max-age=604800'})
 
     def _static(self, path: str) -> None:
         name = 'index.html' if path in ('', '/') else path.lstrip('/')
@@ -141,7 +162,7 @@ class Handler(BaseHTTPRequestHandler):
         if core.WEB.resolve() not in target.parents or not target.is_file():
             return self._send(404, b'not found', 'text/plain')
         kind = mimetypes.guess_type(target.name)[0] or 'application/octet-stream'
-        if kind.startswith('text/') or kind in ('application/javascript',):
+        if kind.startswith('text/') or kind in ('application/javascript', 'application/json', 'image/svg+xml'):
             kind += '; charset=utf-8'
         self._send(200, target.read_bytes(), kind)
 
@@ -212,6 +233,8 @@ class Handler(BaseHTTPRequestHandler):
             return {'ok': True}
         if path == '/api/notes/refresh':
             return mihoyo.refresh_notes(b['game'], force=True)
+        if path == '/api/assets/sync':
+            return assets.sync()
         if path == '/api/equip/reset':
             core.put('equip_used:' + b['game'], 0)
             return {'ok': True}

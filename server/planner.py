@@ -15,7 +15,7 @@ import time
 from datetime import datetime, timedelta
 
 from . import core, materials
-from .i18n import tr
+from .i18n import MESSAGES, tr
 
 RECOVERY_MINUTES = {'genshin': 8, 'zzz': 6}
 DEFAULT_CAP = {'genshin': 200, 'zzz': 240}
@@ -92,7 +92,8 @@ def estimate(game: str, at: datetime | None = None) -> dict | None:
     value = int(sample['current'])
     if value < cap and at > seen:
         value = min(cap, value + int((at - seen).total_seconds() // (RECOVERY_MINUTES[game] * 60)))
-    return {'value': value, 'cap': cap, 'source': sample['source'], 'seen': sample['at']}
+    source = sample['source']  # a message key; older rows hold already translated text
+    return {'value': value, 'cap': cap, 'source': tr(source) if source in MESSAGES else source, 'seen': sample['at']}
 
 
 # ---------------------------------------------------------------- equipment continuation
@@ -174,8 +175,10 @@ def plan(game: str, at: datetime | None = None, stamina: int | None | str = 'est
     eq = equipment(game, consumed)
     if not chosen and not eq.get('why'):
         chosen, phase = _equip_item(game, eq), 'equipment'
+    daily = daily_tasks(game)
     result = {'game': game, 'at': core.stamp(at), 'weekday': weekday, 'stamina': est, 'phase': phase,
-              'item': None, 'waiting': waiting[:12], 'equipment': eq, 'daily': daily_tasks(game)}
+              'item': None, 'waiting': waiting[:12], 'equipment': eq,
+              'daily': [tr(k) for k in daily], 'daily_keys': daily}
     stamina_name = tr('stamina_' + game)
     if not chosen:
         result['reason'] = tr('reason_idle', stamina=stamina_name)
@@ -207,20 +210,13 @@ def claims_split(units: int) -> dict:
 
 
 def daily_tasks(game: str) -> list[str]:
+    """Message keys of the free daily tasks that run with every batch."""
     f = core.settings()['features']
     if game == 'genshin':
-        tasks = []
-        if f['genshin_mail']:
-            tasks.append(tr('daily_mail'))
-        if f['genshin_teapot']:
-            tasks.append(tr('daily_teapot'))
-        if f['genshin_daily_reward']:
-            tasks.append(tr('daily_commission'))
-        return tasks
-    tasks = [tr('daily_onedragon')]
-    if f['zzz_rewards']:
-        tasks.append(tr('daily_zzz_rewards'))
-    return tasks
+        keys = [('genshin_mail', 'daily_mail'), ('genshin_teapot', 'daily_teapot'),
+                ('genshin_daily_reward', 'daily_commission')]
+        return [key for feature, key in keys if f[feature]]
+    return ['daily_onedragon'] + (['daily_zzz_rewards'] if f['zzz_rewards'] else [])
 
 
 # ---------------------------------------------------------------- schedule & forecast
@@ -264,12 +260,16 @@ def forecast(days: int = 3) -> dict:
             item = p['item']
             row = {'game': game, 'at': core.stamp(slot), 'stamina': value, 'reason': p['reason'],
                    'label': item and f"{item['goal']} · {item['label']}", 'unit_label': item and item['unit_label'],
-                   'upper': item and item['upper'], 'expected': item and item['expected']}
+                   'upper': item and item['upper'], 'expected': item and item['expected'], 'phase': p['phase'],
+                   'goal': item and item['goal'], 'goal_id': item and item['goal_id'], 'task': item and item['label'],
+                   'names': item and item['names'], 'cost': item and item['cost'], 'spend': None, 'left': value}
             if item:
-                spend = item['expected'] if item['expected'] is not None else 0
-                consumed[item['key']] = consumed.get(item['key'], 0) + spend
+                units = item['expected'] if item['expected'] is not None else 0
+                consumed[item['key']] = consumed.get(item['key'], 0) + units
                 if value is not None:
-                    value -= spend * item['cost']
+                    row['spend'] = units * item['cost']
+                    value -= row['spend']
+                    row['left'] = value
             rows.append(row)
     rows.sort(key=lambda r: (r['at'], r['game']))
     return {'slots': [core.stamp(x) for x in slots], 'rows': rows, 'schedule_enabled': s['schedule']['enabled']}

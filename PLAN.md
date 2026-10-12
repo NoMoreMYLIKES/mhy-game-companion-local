@@ -101,17 +101,18 @@ Translates high-level farming targets into native commands and configuration pat
 
 ---
 
-## 3. Frontend Aesthetics: Swiss Style (International Typographic Style)
+## 3. Frontend Design
 
-The web dashboard is built upon the principles of **Swiss Design / International Typographic Style**:
+A calm, compact application for inspecting goals, understanding the next scheduled action and changing what affects it. From the International Typographic Style it keeps the grid, alignment and deliberate hierarchy, interpreted through these choices:
 
-1. **Strict Mathematical Grid & Asymmetric Layout**:
-   - Clear structural rhythm with hairline grid borders (`1px solid var(--line)`).
-   - Content-driven hierarchy that favors structured tabular layouts over whimsical or ornamental elements.
-2. **Typography-Centric Visual Language**:
-   - Neo-grotesque sans-serif (`Inter`, with Noto Sans SC / PingFang SC / Microsoft YaHei for Chinese).
-   - High-contrast typography with explicit tabular figures (`font-variant-numeric: tabular-nums`) for immediate numerical legibility.
-   - Light monochrome canvas (`#fff` paper, `#111` ink, `#6b6b6b` secondary labels) with one International Red accent (`#e2231a`) for active statuses and warnings.
+1. **Neutral surfaces with visible hierarchy**:
+   - Light gray page, white panels, dark text, 1px gray borders and dark primary buttons; a matching dark theme, selectable as System / Light / Dark.
+   - Color explains a state (with an icon and a label) or a material category (pale tint and a narrow edge); it is never decoration.
+2. **Restrained typography**:
+   - Local font stack (`Inter` when installed, `Segoe UI`, `Microsoft YaHei UI`, …); 20 / 16 / 14px at weights 400 / 700; tabular figures for counts that are compared.
+3. **Summary, control, evidence**:
+   - Each automatic choice shows what happens next, why, and where to change it; calculation details open on demand.
+   - Recognizable game images (circular portraits, material icons) cached locally from official API responses, with text fallbacks.
 3. **Bilingual Support with English as Base Language**:
    - English (`en`) serves as the core schema and default interface language (`<html lang="en">`).
    - Symmetrical, 1:1 mapped Chinese (`zh`) dictionary provides full native localization.

@@ -39,7 +39,7 @@ def start_batch(games: list[str], slot: str = 'manual', source: str = 'manual') 
         STOP.clear()
         STATE.clear()
         STATE.update(running=True, run_id=run_id, slot=slot, source=source, games=games, game=None,
-                     stage=tr('stage_prepare'), started=core.stamp())
+                     stage=tr('stage_prepare'), stage_key='stage_prepare', started=core.stamp())
         core.put('current_run', {'id': run_id, 'started': STATE['started'], 'slot': slot, 'source': source, 'games': games})
     threading.Thread(target=_batch, args=(run_id, games, slot, source), daemon=True, name='batch').start()
     return run_id
@@ -48,11 +48,12 @@ def start_batch(games: list[str], slot: str = 'manual', source: str = 'manual') 
 def request_stop() -> None:
     if STATE.get('running'):
         STOP.set()
-        STATE['stage'] = tr('stage_stopping')
+        _stage('stage_stopping')
 
 
-def _stage(text: str) -> None:
-    STATE['stage'] = text
+def _stage(key: str) -> None:
+    """Current stage: translated text for display, stable key for the UI stepper."""
+    STATE.update(stage=tr(key), stage_key=key)
 
 
 def _sleep(seconds: float) -> bool:
@@ -151,7 +152,7 @@ def _run_game(run_id: str, game: str) -> dict:
     baseline: dict = {}
     timed_out = False
     try:
-        _stage(tr('stage_config'))
+        _stage('stage_config')
         if game == 'genshin':
             profile = tools.bgi_prepare(item)
         else:
@@ -159,11 +160,11 @@ def _run_game(run_id: str, game: str) -> dict:
             if item and not tools.zzz_patch_ok():
                 result['notes'].append(tr('zzz_no_patch'))
         baseline = tools.log_baseline(game)
-        _stage(tr('stage_launch'))
+        _stage('stage_launch')
         tools.launch_game(game)
         if _sleep(5):
             raise InterruptedError
-        _stage(tr('stage_running'))
+        _stage('stage_running')
         if game == 'genshin':
             proc = tools.start(tool_exe, ['startOneDragon', profile], hidden=True)
         else:
@@ -186,7 +187,7 @@ def _run_game(run_id: str, game: str) -> dict:
     except Exception as exc:
         result['errors'].append(str(exc))
     finally:
-        _stage(tr('stage_collect'))
+        _stage('stage_collect')
         for path in (tool_exe, game_exe):
             try:
                 tools.kill_path(path)
@@ -223,7 +224,7 @@ def _receipt(result: dict, game: str, item: dict | None, text: str, receipt: dic
         stop = (receipt or {}).get('energy_stop')
         energy = stop.get('current') if stop else log_['last_energy']
         if type(energy) is int:
-            core.add_sample('zzz', energy, None, tr('source_onedragon'))
+            core.add_sample('zzz', energy, None, 'source_onedragon')  # message key, translated when shown
         ok = log_['one_dragon'] == 'success' and log_['charge'] != 'failed'
         if not ok:
             result['errors'] += log_['errors'][-3:]

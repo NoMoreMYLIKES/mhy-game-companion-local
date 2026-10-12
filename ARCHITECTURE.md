@@ -28,7 +28,9 @@ mhy-game-companion-local/
 │   ├── tools.py                # BetterGI / OneDragon configs, patch journal, processes, logs, audio
 │   ├── scheduler.py            # 20 s loop: slots with catch-up, notes polling, goal sync, outbox
 │   ├── notify.py               # Notification outbox and channels
-│   ├── web.py                  # ThreadingHTTPServer: static UI + JSON API, loopback/LAN guard
+│   ├── assets.py               # Local cache of portraits / material icons from official API responses
+│   ├── web.py                  # ThreadingHTTPServer: static UI + JSON API + cached images, loopback/LAN guard
+│   ├── templates/              # bettergi_morning.json (neutral BetterGI One Dragon template)
 │   └── datasets/               # genshin.json, zzz.json (offline game data)
 ├── tools/audio.ps1             # CoreAudio COM: get / mute / set the default playback device
 ├── web/                        # index.html, style.css, app.js (SPA with en/zh dictionaries)
@@ -47,6 +49,7 @@ mhy-game-companion-local/
 | `tools` | Everything that touches BetterGI / OneDragon / processes | tool folders | tool configs, `patch_journal` |
 | `scheduler` | Background loop and the logon task | everything above | `slot_done:*` |
 | `notify` | Outbox delivery with retries | channel endpoints | `outbox` table |
+| `assets` | Saves each image once, the first time an official API response names it | `core` | `data/assets/`, `asset_sources`, `asset_failed` |
 | `web` | HTTP API and static files | everything above | – |
 
 ---
@@ -63,6 +66,7 @@ All runtime data lives in `data/` (or `%GCL_HOME%`), which is git-ignored.
 | `settings-secrets.dpapi.json` | DPAPI-encrypted LAN password hash, relay URL, Telegram token, webhook URL |
 | `server.pid` | `{pid, port, started, exe}` for `Stop.ps1` |
 | `logs/app.log` | Rotating application log (2 MB × 3) |
+| `assets/<game>/<kind>/<id>.<ext>` | Cached character portraits and material icons (stable game IDs) |
 
 ### 2.1 SQLite schema (`core.SCHEMA`)
 
@@ -116,7 +120,9 @@ CREATE TABLE IF NOT EXISTS outbox  (id TEXT PRIMARY KEY, created TEXT, payload T
 }
 ```
 
-**KV keys**: `patch_journal`, `mute_journal`, `current_run`, `device` (Miyoushe device id/fingerprint), `accounts`, `account_candidates`, `health:<notes-genshin|notes-zzz|calc>`, `slot_done:<YYYY-MM-DD@HH:MM>`, `equip_used:<game>`.
+**KV keys**: `patch_journal`, `mute_journal`, `current_run`, `device` (Miyoushe device id/fingerprint), `accounts`, `account_candidates`, `health:<notes-genshin|notes-zzz|calc>`, `slot_done:<YYYY-MM-DD@HH:MM>`, `equip_used:<game>`, `asset_sources` (image URL per asset key), `asset_failed` (last failed download per key).
+
+Stamina samples store their source as a message key (`source_notes`, `source_onedragon`) and are translated when shown.
 
 ### 2.2 Secrets (DPAPI)
 
@@ -169,6 +175,7 @@ Loopback only by default. With `server.lan` enabled the server binds `0.0.0.0` a
 | `/api/roster` | GET | `?game=` | Characters from Miyoushe (needs login) |
 | `/api/characters` | GET | `?game=` | Characters from the offline dataset (UI fallback) |
 | `/api/runs` | GET | `?limit=50` | Run documents |
+| `/assets/<game>/<kind>/<id>` | GET | – | A cached image (`kind` is `character` or `material`); 404 when not saved |
 | `/api/login/start` | POST | `{}` | QR state (`status`, `svg`, `reason`) |
 | `/api/logout` | POST | `{}` | Clears cookies and accounts |
 | `/api/accounts/select` | POST | `{game, uid}` | Picks one of several game accounts |
@@ -184,8 +191,9 @@ Loopback only by default. With `server.lan` enabled the server binds `0.0.0.0` a
 | `/api/lang` | POST | `{lang: "en" \| "zh"}` | Language for backend-generated text |
 | `/api/notify/test` | POST | `{channel}` | Sends a test message |
 | `/api/equip/reset` | POST | `{game}` | Resets the equipment cap counter |
+| `/api/assets/sync` | POST | `{}` | Retries every known image that is not saved yet; returns the cache status |
 
-`/api/state` keys: `version, now, game_date, weekday, admin, logged_in, accounts, candidates, qr, runner, next_slot, plans, stamina, goals, forecast, runs, health, settings, check, notifications, catalog`. `stamina.<game>` is `{value, cap, source, seen}` or `null` (UNKNOWN); `plans.<game>` is `{item, reason, waiting, equipment, daily, phase, …}`.
+`/api/state` keys: `version, now, game_date, weekday, admin, logged_in, accounts, candidates, qr, runner, next_slot, plans, stamina, goals, forecast, runs, health, settings, check, notifications, catalog, assets, assets_status`. Goal items carry `materials` (per-material need / owned / remaining) and `tint` (`exp`, `family`, `core` or null); forecast rows carry `goal`, `task`, `spend` and `left` (stamina after the batch). `stamina.<game>` is `{value, cap, source, seen}` or `null` (UNKNOWN); `plans.<game>` is `{item, reason, waiting, equipment, daily, daily_keys, phase, …}`; `runner` carries `stage` (translated) and `stage_key` (stable, for the UI stepper).
 
 ---
 
@@ -237,7 +245,16 @@ Game executables are read from the tools' own configs unless `paths.genshin_exe`
 
 ---
 
-## 8. Internationalization
+## 8. Frontend
+
+`web/` is plain HTML, CSS and JavaScript served by the backend; there is no build step and no external request (no web fonts, no CDN images).
+
+- **Visual system**: neutral surfaces (light gray page, white panels, dark text, 1px gray borders, dark primary buttons), light / dark / system themes as separate token sets, text at 20 / 16 / 14px with weights 400 / 700, 6px control and 8px group radii. Color only explains a state (always with an icon and a label) or a material category (pale tint plus a narrow edge: experience, convertible family, ZZZ core-skill material).
+- **Information order**: summary first (what runs next, planned spend, status), then the control that changes it (Target settings, pause, order, Adjust links), then evidence behind a Details disclosure (per-tier quantities, conversion, the planner's reasoning).
+- **Images**: circular character portraits and material icons come only from `/assets/…` and only when `/api/state.assets` lists them; otherwise a text fallback is drawn, so a missing image never causes a request.
+- **Refresh without loss**: `/api/state` is polled every 5 s. Re-renders keep open details, keyboard focus and busy buttons; dialogs and the settings form are not redrawn while they hold a draft; a late older response is discarded; after a write the confirmation appears only once the fresh state is drawn, and "saved but not reloaded" is reported separately.
+
+## 9. Internationalization
 
 - English is the base language; Simplified Chinese is the translation.
 - Frontend: `I18N.en` / `I18N.zh` in `web/app.js` must have identical keys (tested). The choice is kept in `localStorage` and sent to the backend with `POST /api/lang`.
@@ -247,7 +264,7 @@ Game executables are read from the tools' own configs unless `paths.genshin_exe`
 
 ---
 
-## 9. Extension Guides
+## 10. Extension Guides
 
 ### Adding a backend message
 1. Add `'key': ('English text {name}', '中文 {name}')` to `server/i18n.py`.
@@ -267,7 +284,7 @@ Game executables are read from the tools' own configs unless `paths.genshin_exe`
 
 ---
 
-## 10. Invariants for Contributors and AI Agents
+## 11. Invariants for Contributors and AI Agents
 
 1. **No personal data in the repository**: no real names, UIDs, account names, usernames, home-folder paths, host or tailnet names, IP addresses or e-mail addresses. Put terms you want guarded in the git-ignored `tests/pii_denylist.txt`; the smoke test also scans for generic patterns.
 2. **Never treat an unread stamina value as 0**: UNKNOWN is `None` end to end.
@@ -275,10 +292,11 @@ Game executables are read from the tools' own configs unless `paths.genshin_exe`
 4. **English base language**: comments, logs and new strings in English; every UI string in both `I18N.en` and `I18N.zh`, every backend message in `server/i18n.py`.
 5. **PowerShell 7 only** (`C:\Program Files\PowerShell\7\pwsh.exe`), never Windows PowerShell 5.1.
 6. **Runtime data stays local**: never commit `data/`.
+7. **No request without a user action or a scheduled job**: opening a page never calls the official API or downloads images; images are saved once from responses the app already requested.
 
 ---
 
-## 11. Verification
+## 12. Verification
 
 ```powershell
 python -m unittest tests/test_smoke.py      # imports, planner, i18n symmetry, anonymization

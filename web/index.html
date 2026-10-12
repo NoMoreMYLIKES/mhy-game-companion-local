@@ -3,47 +3,54 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Game Companion · Local</title>
-  <meta name="description" content="Local cultivation planning, stamina management, and automated execution for Genshin Impact and Zenless Zone Zero.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap">
+  <meta name="description" content="Local stamina planning and farming automation for Genshin Impact and Zenless Zone Zero.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23e2231a'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
+  <script>
+    // Apply the saved theme before the first paint (no flash of the wrong theme).
+    try {
+      var theme = localStorage.getItem('gcl_theme');
+      if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+    } catch (_) {}
+  </script>
 </head>
 <body>
+  <a class="skip" href="#main" data-i18n="skip_link">Skip to content</a>
+
   <header class="top">
     <div class="top-inner">
-      <div class="brand">
+      <a class="brand" href="#/today">
         <span class="mark" aria-hidden="true"></span>
-        <h1 id="brand-title">Game Companion</h1>
+        <span id="brand-title">Game Companion</span>
         <small id="brand-edition">Local</small>
-      </div>
-      <div class="header-right">
-        <div class="lang-switch" role="group" aria-label="Language selection">
-          <button type="button" data-lang="en" id="btn-lang-en" class="active">EN</button>
-          <span aria-hidden="true">/</span>
-          <button type="button" data-lang="zh" id="btn-lang-zh">中文</button>
+      </a>
+      <nav class="tabs" id="tabs" aria-label="Sections"></nav>
+      <div class="top-tools">
+        <div class="seg lang" role="group" id="lang-switch" aria-label="Language">
+          <button type="button" data-lang="en">EN</button>
+          <button type="button" data-lang="zh" lang="zh-CN">中文</button>
         </div>
-        <nav role="tablist" aria-label="Navigation">
-          <button role="tab" id="tab-today" data-tab="today" aria-selected="true" data-i18n="tab_today">Today</button>
-          <button role="tab" id="tab-goals" data-tab="goals" aria-selected="false" data-i18n="tab_goals">Goals</button>
-          <button role="tab" id="tab-plan" data-tab="plan" aria-selected="false" data-i18n="tab_plan">Schedule</button>
-          <button role="tab" id="tab-runs" data-tab="runs" aria-selected="false" data-i18n="tab_runs">Runs</button>
-          <button role="tab" id="tab-settings" data-tab="settings" aria-selected="false" data-i18n="tab_settings">Settings</button>
-        </nav>
+        <details class="menu" id="theme-menu"></details>
       </div>
-      <div class="status-line" id="status-line">Connecting to backend…</div>
+    </div>
+    <div class="strip">
+      <div class="strip-inner" id="status-strip" aria-live="polite">Connecting to the backend…</div>
     </div>
   </header>
 
-  <main>
-    <section id="view-today" role="tabpanel" aria-labelledby="tab-today"></section>
-    <section id="view-goals" role="tabpanel" aria-labelledby="tab-goals" hidden></section>
-    <section id="view-plan" role="tabpanel" aria-labelledby="tab-plan" hidden></section>
-    <section id="view-runs" role="tabpanel" aria-labelledby="tab-runs" hidden></section>
-    <section id="view-settings" role="tabpanel" aria-labelledby="tab-settings" hidden></section>
+  <main id="main" tabindex="-1">
+    <section id="view-today" aria-labelledby="tab-today"></section>
+    <section id="view-goals" aria-labelledby="tab-goals" hidden></section>
+    <section id="view-plan" aria-labelledby="tab-plan" hidden></section>
+    <section id="view-runs" aria-labelledby="tab-runs" hidden></section>
+    <section id="view-settings" aria-labelledby="tab-settings" hidden></section>
   </main>
 
-  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <div class="savebar" id="savebar" hidden></div>
+  <dialog id="modal" class="modal-shell" aria-labelledby="modal-title"></dialog>
+  <div id="toasts" aria-live="polite"></div>
   <script src="app.js"></script>
 </body>
 </html>
