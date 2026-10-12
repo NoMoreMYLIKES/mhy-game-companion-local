@@ -1,0 +1,19 @@
+{
+  "Name": "morning",
+  "TaskEnabledList": {
+    "领取邮件": true,
+    "合成树脂": false,
+    "自动秘境": false,
+    "自动首领讨伐": false,
+    "自动幽境危战": false,
+    "自动地脉花": false,
+    "领取每日奖励": true,
+    "领取尘歌壶奖励": true
+  },
+  "PartyName": "",
+  "DomainName": "",
+  "CraftingBenchCountry": "枫丹",
+  "AdventurersGuildCountry": "枫丹",
+  "SereniteaPotTpType": "地图传送",
+  "CompletionAction": ""
+}

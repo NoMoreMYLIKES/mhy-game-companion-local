@@ -1,0 +1,230 @@
+"""HTTP server: static web UI + JSON API. Loopback by default; LAN needs a password."""
+from __future__ import annotations
+
+import base64
+import ipaddress
+import json
+import logging
+import mimetypes
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
+
+from . import core, goals, materials, mihoyo, notify, planner, runner, scheduler, tools
+from .i18n import tr
+
+log = logging.getLogger('gcl.web')
+_CHECK: dict = {}
+
+
+def env_check() -> dict:
+    if time.monotonic() - _CHECK.get('at', -999) > 60:
+        _CHECK.update(at=time.monotonic(), value=tools.check())
+    return _CHECK['value']
+
+
+def public_settings() -> dict:
+    s = core.settings()
+    secrets = core.secrets_store()
+    s['secrets_set'] = {k: bool(secrets.get(k)) for k in core.SECRET_FIELDS}
+    return s
+
+
+def goal_view(goal: dict, ctx: dict, weekday: int) -> dict:
+    items = []
+    for item in planner.goal_items(goal, ctx):
+        items.append({k: item.get(k) for k in ('key', 'label', 'names', 'kind', 'unit_label', 'units', 'available',
+                                               'executed', 'note', 'progress', 'paused', 'done', 'rank', 'weekdays')}
+                     | {'why': planner.blocker(item, weekday), 'days': planner.days_text(item['weekdays'])})
+    view = {k: v for k, v in goal.items() if k not in ('allowance',)}
+    view['items'] = items
+    return view
+
+
+def full_state() -> dict:
+    ctx = planner.tool_context()
+    weekday = core.game_date().weekday()
+    s = core.settings()
+    plans = {g: planner.plan(g) for g in ('zzz', 'genshin')}
+    return {
+        'version': core.VERSION, 'now': core.stamp(), 'game_date': str(core.game_date()), 'weekday': weekday,
+        'admin': core.is_admin(), 'logged_in': mihoyo.logged_in(), 'accounts': mihoyo.accounts(),
+        'candidates': core.get('account_candidates', {}), 'qr': mihoyo.qr_state(),
+        'runner': runner.state(), 'next_slot': scheduler.next_slot(),
+        'plans': plans, 'stamina': {g: planner.estimate(g) for g in ('zzz', 'genshin')},
+        'goals': {g: [goal_view(x, ctx, weekday) for x in core.goals(g)] for g in ('zzz', 'genshin')},
+        'forecast': planner.forecast(3), 'runs': core.runs(20),
+        'health': {k: mihoyo.health(k) for k in ('notes-genshin', 'notes-zzz', 'calc')},
+        'settings': public_settings(), 'check': env_check(), 'notifications': notify.recent(10),
+        'catalog': {'bosses': ctx['bosses'], 'blessing': [d['name'] for d in ctx['domains'] if d['type'] == 'BlessDomain'],
+                    'disc': materials.zzz_disc_missions(s['paths']['onedragon'])},
+    }
+
+
+def _is_loopback(host: str) -> bool:
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = 'GameCompanionLocal'
+
+    def log_message(self, fmt, *args):  # quiet; errors still go to the app log
+        pass
+
+    # ------------------------------------------------ helpers
+    def _send(self, code: int, body: bytes, kind: str, extra: dict | None = None) -> None:
+        self.send_response(code)
+        self.send_header('Content-Type', kind)
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('X-Frame-Options', 'DENY')
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _json(self, value, code: int = 200) -> None:
+        self._send(code, json.dumps(value, ensure_ascii=False, default=str).encode(), 'application/json; charset=utf-8')
+
+    def _allowed(self) -> bool:
+        host = self.client_address[0]
+        if _is_loopback(host):
+            return True
+        if not core.settings()['server']['lan']:
+            self._json({'error': tr('lan_off')}, 403)
+            return False
+        stored = core.secrets_store().get('password')
+        if not stored:
+            self._json({'error': tr('lan_no_password')}, 403)
+            return False
+        header = self.headers.get('Authorization', '')
+        if header.startswith('Basic '):
+            try:
+                _, password = base64.b64decode(header[6:]).decode().split(':', 1)
+                if core.check_password(password, stored):
+                    return True
+            except Exception:
+                pass
+        self._send(401, tr('password_required').encode(), 'text/plain; charset=utf-8',
+                   {'WWW-Authenticate': 'Basic realm="game-companion", charset="UTF-8"'})
+        return False
+
+    # ------------------------------------------------ GET
+    def do_GET(self):
+        if not self._allowed():
+            return
+        url = urlparse(self.path)
+        q = {k: v[0] for k, v in parse_qs(url.query).items()}
+        try:
+            if url.path == '/api/state':
+                return self._json(full_state())
+            if url.path == '/api/roster':
+                return self._json({'rows': mihoyo.roster(q.get('game', ''))})
+            if url.path == '/api/characters':
+                return self._json({'rows': materials.characters(q.get('game', ''))})
+            if url.path == '/api/runs':
+                return self._json({'rows': core.runs(int(q.get('limit', 50)))})
+            if url.path == '/api/health':
+                return self._json({'ok': True, 'version': core.VERSION})
+        except Exception as exc:
+            return self._json({'error': mihoyo.describe_error(exc)}, 400)
+        self._static(url.path)
+
+    def _static(self, path: str) -> None:
+        name = 'index.html' if path in ('', '/') else path.lstrip('/')
+        target = (core.WEB / name).resolve()
+        if core.WEB.resolve() not in target.parents or not target.is_file():
+            return self._send(404, b'not found', 'text/plain')
+        kind = mimetypes.guess_type(target.name)[0] or 'application/octet-stream'
+        if kind.startswith('text/') or kind in ('application/javascript',):
+            kind += '; charset=utf-8'
+        self._send(200, target.read_bytes(), kind)
+
+    # ------------------------------------------------ POST
+    def do_POST(self):
+        if not self._allowed():
+            return
+        if self.headers.get('X-GC') != '1':  # custom header → cross-site forms cannot post
+            return self._json({'error': tr('bad_origin')}, 403)
+        try:
+            length = int(self.headers.get('Content-Length') or 0)
+            body = json.loads(self.rfile.read(min(length, 1_000_000)) or b'{}')
+            result = self.route(urlparse(self.path).path, body)
+            return self._json(result if result is not None else {'ok': True})
+        except ValueError as exc:
+            return self._json({'error': str(exc)}, 400)
+        except Exception as exc:
+            log.exception('API error')
+            return self._json({'error': mihoyo.describe_error(exc)}, 500)
+
+    def route(self, path: str, b: dict):
+        if path == '/api/login/start':
+            return mihoyo.start_login()
+        if path == '/api/logout':
+            return mihoyo.logout()
+        if path == '/api/accounts/select':
+            return mihoyo.select_account(b['game'], b['uid'])
+        if path == '/api/goals/create':
+            return goals.create(b['game'], b['character_id'], b['name'], b.get('target'), b.get('current'))
+        if path == '/api/goals/update':
+            return goals.update(b['id'], b.get('patch') or {})
+        if path == '/api/goals/delete':
+            return goals.remove(b['id'])
+        if path == '/api/goals/order':
+            return goals.set_order(b['game'], b['ids'])
+        if path == '/api/goals/sync':
+            return goals.sync(b['id'], observe=b.get('observe', True))
+        if path == '/api/run':
+            if runner.busy():
+                raise ValueError(tr('batch_running'))
+            return {'run_id': runner.start_batch(b.get('games') or [], 'manual', 'manual')}
+        if path == '/api/stop':
+            return runner.request_stop()
+        if path == '/api/settings':
+            before = core.settings()
+            if b.get('secrets'):
+                core.save_secrets(b['secrets'])
+            lan = (b.get('settings') or {}).get('server', {}).get('lan', before['server']['lan'])
+            if lan and not core.secrets_store().get('password'):
+                raise ValueError(tr('lan_needs_password'))
+            after = core.save_settings(b.get('settings') or {})
+            if after['schedule']['enabled'] and not before['schedule']['enabled']:
+                scheduler.mark_past_slots_done()
+            if after['schedule']['autostart'] != before['schedule']['autostart']:
+                try:
+                    scheduler.set_autostart(after['schedule']['autostart'])
+                except ValueError:
+                    core.save_settings({'schedule': {'autostart': before['schedule']['autostart']}})
+                    raise
+            _CHECK.clear()
+            restart = after['server'] != before['server']
+            return {'ok': True, 'restart_needed': restart}
+        if path == '/api/notify/test':
+            notify.send(b['channel'], tr('test_title'), tr('test_body'))
+            return {'ok': True}
+        if path == '/api/lang':  # UI language for backend-generated text
+            core.save_settings({'ui': {'lang': b['lang']}})
+            return {'ok': True}
+        if path == '/api/notes/refresh':
+            return mihoyo.refresh_notes(b['game'], force=True)
+        if path == '/api/equip/reset':
+            core.put('equip_used:' + b['game'], 0)
+            return {'ok': True}
+        raise ValueError(tr('unknown_api'))
+
+
+def serve() -> ThreadingHTTPServer:
+    s = core.settings()['server']
+    host = '0.0.0.0' if s['lan'] else '127.0.0.1'
+    httpd = ThreadingHTTPServer((host, int(s['port'])), Handler)
+    httpd.daemon_threads = True
+    return httpd
+
+
+def run_forever(httpd: ThreadingHTTPServer) -> None:
+    threading.Thread(target=httpd.serve_forever, daemon=True, name='http').start()

@@ -1,0 +1,42 @@
+# --------------------------------------------------
+# Runtime data and personal information (never commit)
+# --------------------------------------------------
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.dpapi.json
+settings.json
+server.pid
+*.log
+logs/
+# Local-only list of personal terms checked by tests/test_smoke.py
+tests/pii_denylist.txt
+
+# --------------------------------------------------
+# Python virtual environments and caches
+# --------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# --------------------------------------------------
+# Temporary and backup files
+# --------------------------------------------------
+*.tmp
+*.bak
+scratch/
+
+# --------------------------------------------------
+# Editor and OS files
+# --------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
