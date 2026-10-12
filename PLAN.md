@@ -8,10 +8,10 @@
 
 ### 1.1 The "SillyTavern" Inspiration
 Instead of a multi-machine setup (a remote relay server, external databases, cross-network synchronization, and scattered local runners), **Game Companion Local** consolidates all responsibilities into a single self-contained desktop application on Windows:
-- **Single-Script Startup (`Start.bat` / `Start.ps1`)**: Handles virtual environment setup, installs lightweight dependencies on first run, silently spawns the background server without leaving an intrusive command prompt open, and launches the dashboard in the default browser.
+- **Single-Script Startup (`Start.bat` / `Start.ps1`)**: Sets up the virtual environment and its dependencies, starts the backend in the background without leaving a console window open, waits until it answers, explains any failure with a nonzero exit code, and opens the dashboard in the default browser.
 - **Headless Background Daemon**: Runs in the background (started manually or by a single Windows Task Scheduler logon task) and evaluates schedule slots, stamina polling, goal sync and the notification outbox every 20 seconds.
-- **Local Web Interface**: Standard browser access at `http://127.0.0.1:18800/` with loopback protection by default, and an optional LAN-access toggle secured with password authentication.
-- **Clean Teardown (`Stop.ps1`)**: Stops the backend by the PID recorded in `data/server.pid`, then frees port 18800 if anything still holds it.
+- **Local Web Interface**: Standard browser access at `http://127.0.0.1:18800/` (the port is configurable) with loopback protection by default, and an optional LAN-access toggle secured with password authentication.
+- **Clean Teardown (`Stop.ps1`)**: Stops only this installation's backend, identified by its PID file and process creation time; other programs on the same port are never touched.
 
 ---
 

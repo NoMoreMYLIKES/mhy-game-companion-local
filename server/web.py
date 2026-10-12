@@ -6,6 +6,7 @@ import ipaddress
 import json
 import logging
 import mimetypes
+import os
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -16,6 +17,10 @@ from .i18n import tr
 
 log = logging.getLogger('gcl.web')
 _CHECK: dict = {}
+APP_ID = 'game-companion-local'
+READY = threading.Event()      # set once recovery and the scheduler have started; until then only health answers
+SHUTDOWN = threading.Event()   # set by /api/shutdown; the main thread then exits cleanly
+IDENTITY: dict = {}            # instance id, launch token, shutdown token, process creation time
 # Python reads MIME types from the Windows registry, which some installs map wrongly
 # (e.g. .js as text/plain, which browsers then refuse to run with nosniff).
 for _ext, _type in (('.html', 'text/html'), ('.js', 'text/javascript'), ('.css', 'text/css'),
@@ -131,6 +136,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         url = urlparse(self.path)
         q = {k: v[0] for k, v in parse_qs(url.query).items()}
+        if not READY.is_set() and url.path.startswith('/api/') and url.path != '/api/health':
+            return self._json({'error': tr('starting')}, 503)
         try:
             if url.path == '/api/state':
                 return self._json(full_state())
@@ -141,7 +148,9 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/runs':
                 return self._json({'rows': core.runs(int(q.get('limit', 50)))})
             if url.path == '/api/health':
-                return self._json({'ok': True, 'version': core.VERSION})
+                return self._json({'ok': True, 'app': APP_ID, 'version': core.VERSION, 'pid': os.getpid(),
+                                   'instance': IDENTITY.get('instance'), 'launch': IDENTITY.get('launch'),
+                                   'created': IDENTITY.get('created'), 'ready': READY.is_set(), 'busy': runner.busy()})
             if url.path.startswith('/assets/'):
                 return self._asset(url.path[len('/assets/'):])
         except Exception as exc:
@@ -172,6 +181,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.headers.get('X-GC') != '1':  # custom header → cross-site forms cannot post
             return self._json({'error': tr('bad_origin')}, 403)
+        if not READY.is_set() and urlparse(self.path).path != '/api/shutdown':
+            return self._json({'error': tr('starting')}, 503)
         try:
             length = int(self.headers.get('Content-Length') or 0)
             body = json.loads(self.rfile.read(min(length, 1_000_000)) or b'{}')
@@ -233,6 +244,8 @@ class Handler(BaseHTTPRequestHandler):
             return {'ok': True}
         if path == '/api/notes/refresh':
             return mihoyo.refresh_notes(b['game'], force=True)
+        if path == '/api/shutdown':
+            return request_shutdown(b)
         if path == '/api/assets/sync':
             return assets.sync()
         if path == '/api/equip/reset':
@@ -241,12 +254,34 @@ class Handler(BaseHTTPRequestHandler):
         raise ValueError(tr('unknown_api'))
 
 
+def request_shutdown(body: dict) -> dict:
+    """Graceful stop for Stop.ps1. The token is in this instance's PID file, so only a caller that can read
+    the runtime folder can use it. A running batch is first stopped so its tool configs get restored."""
+    if not IDENTITY.get('token') or body.get('token') != IDENTITY['token']:
+        raise ValueError(tr('shutdown_mismatch'))
+    if runner.busy() and not body.get('force'):
+        raise ValueError(tr('shutdown_busy'))
+
+    def finish():
+        if runner.busy():
+            runner.request_stop()
+            deadline = time.monotonic() + 300
+            while runner.busy() and time.monotonic() < deadline:
+                time.sleep(0.5)
+        SHUTDOWN.set()
+    threading.Thread(target=finish, daemon=True, name='shutdown').start()
+    return {'ok': True}
+
+
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+    # On Windows SO_REUSEADDR would let this server bind a port another program already listens on,
+    # and then either one may get the connections. Without it a used port fails to bind, as it should.
+    allow_reuse_address = os.name != 'nt'
+
+
 def serve() -> ThreadingHTTPServer:
-    s = core.settings()['server']
-    host = '0.0.0.0' if s['lan'] else '127.0.0.1'
-    httpd = ThreadingHTTPServer((host, int(s['port'])), Handler)
-    httpd.daemon_threads = True
-    return httpd
+    return Server(core.listen_address(), Handler)
 
 
 def run_forever(httpd: ThreadingHTTPServer) -> None:

@@ -36,6 +36,7 @@ MESSAGES: dict[str, tuple[str, str]] = {
     # settings validation
     'bad_times': ('Schedule times must use the HH:MM format', '执行时间格式应为 HH:MM'),
     'bad_port': ('Invalid port', '端口无效'),
+    'bad_lan': ('LAN access must be true or false', '局域网访问只能为 true 或 false'),
     'bad_if_running': ('Invalid action for an already running game', '游戏已运行时的处理方式无效'),
     'bad_claim_mode': ('Invalid Genshin claim mode', '原神领奖方式无效'),
     'bad_timeout': ('The per-game timeout must be 10–480 minutes', '单游戏超时应在 10–480 分钟'),
@@ -210,6 +211,10 @@ MESSAGES: dict[str, tuple[str, str]] = {
     'bad_origin': ('Invalid request origin', '请求来源无效'),
     'lan_needs_password': ('Set an access password before enabling LAN access.', '开启局域网访问前请先设置访问密码。'),
     'unknown_api': ('Unknown API endpoint', '未知接口'),
+    'starting': ('The backend is still starting; try again in a moment.', '后台仍在启动，请稍后再试。'),
+    'shutdown_mismatch': ('This stop request does not match the running instance.', '停止请求与正在运行的实例不符。'),
+    'shutdown_busy': ('A batch is running. Stop it on the dashboard first, or stop with -Force.',
+                      '有批次正在执行。请先在控制台停止，或使用 -Force 停止。'),
 }
 
 

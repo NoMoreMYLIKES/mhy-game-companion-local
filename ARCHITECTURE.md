@@ -6,18 +6,20 @@ This document describes how **Game Companion Local** is built: modules, stored d
 
 ## 1. System Map & Module Responsibilities
 
-A headless Python backend (`server/`), a static Swiss Style frontend (`web/`), a PowerShell 7 audio helper (`tools/`) and a smoke test suite (`tests/`):
+A headless Python backend (`server/`), a static Swiss Style frontend (`web/`), a PowerShell 7 audio helper (`tools/`) and tests (`tests/`):
 
 ```
 mhy-game-companion-local/
-├── Start.bat / Start.ps1       # Elevation, .venv setup, hidden backend launch, browser
-├── Stop.ps1                    # Stop by PID file, then free port 18800
+├── Start.bat / Start.ps1       # .venv and packages, elevation, start through server.launcher, browser
+├── Stop.ps1                    # Stop this installation's verified backend through server.launcher
 ├── requirements.txt            # genshin, qrcode, PyYAML
 ├── migrate_legacy.py           # Optional import of goals/settings from a legacy state.sqlite
 ├── PLAN.md                     # Vision, the four pillars, roadmap
 ├── ARCHITECTURE.md             # This file
 ├── server/
-│   ├── __main__.py             # Entry point: bind port, write PID file, recover, start scheduler
+│   ├── __main__.py             # Entry point: check settings, bind, PID file, health, recover, scheduler
+│   ├── launcher.py             # start / stop / status with the backend's own settings; explains failures
+│   ├── procinfo.py             # Process identity (creation time, image) and the owner of a port
 │   ├── core.py                 # Paths, time (UTC+8, 04:00 reset), SQLite, settings, DPAPI secrets
 │   ├── i18n.py                 # Backend message catalog (English base, Chinese translation)
 │   ├── mihoyo.py               # Miyoushe QR login, accounts, Real-Time Notes, calculators
@@ -34,7 +36,7 @@ mhy-game-companion-local/
 │   └── datasets/               # genshin.json, zzz.json (offline game data)
 ├── tools/audio.ps1             # CoreAudio COM: get / mute / set the default playback device
 ├── web/                        # index.html, style.css, app.js (SPA with en/zh dictionaries)
-└── tests/test_smoke.py         # Imports, planner, i18n symmetry, anonymization scan
+└── tests/                      # test_smoke.py (imports, planner, i18n, anonymization), test_launcher.py
 ```
 
 | Module | Role | Depends on | Writes |
@@ -64,7 +66,10 @@ All runtime data lives in `data/` (or `%GCL_HOME%`), which is git-ignored.
 | `settings.json` | Non-secret settings; only the values the user changed (merged over `core.DEFAULTS`) |
 | `mihoyo.dpapi.json` | DPAPI-encrypted Miyoushe cookies |
 | `settings-secrets.dpapi.json` | DPAPI-encrypted LAN password hash, relay URL, Telegram token, webhook URL |
-| `server.pid` | `{pid, port, started, exe}` for `Stop.ps1` |
+| `server.pid` | `{app, pid, host, port, version, started, image, exe, instance, launch, token, created}`, written once the port is bound. `created` (process creation time) lets Stop tell the backend from a process that reused its PID; `token` authorizes `POST /api/shutdown` |
+| `instance.json` | `{id, path, created}`: opaque id of this runtime folder at this location (a copied folder gets a new id). `/api/health` reports it so the launcher can tell installations apart |
+| `startup-error.json` | `{kind, message, code, …}` when startup fails (`settings`, `exception`, `bind`); the launcher reads it to explain the failure |
+| `logs/startup.log` | Output of the backend process started by the launcher (tracebacks from before logging starts) |
 | `logs/app.log` | Rotating application log (2 MB × 3) |
 | `assets/<game>/<kind>/<id>.<ext>` | Cached character portraits and material icons (stable game IDs) |
 
@@ -166,11 +171,11 @@ Status per game: `STOPPED` (user stop), `FAILED` (timeout, or errors without the
 
 ## 5. HTTP API (`web.py`)
 
-Loopback only by default. With `server.lan` enabled the server binds `0.0.0.0` and non-loopback clients need HTTP Basic auth with the LAN password. Every `POST` must carry `X-GC: 1` (a custom header, so cross-site forms cannot post). Errors return `{"error": "<message in the UI language>"}` with 400/403/500.
+Loopback only by default. With `server.lan` enabled the server binds `0.0.0.0` and non-loopback clients need HTTP Basic auth with the LAN password. Every `POST` must carry `X-GC: 1` (a custom header, so cross-site forms cannot post). Errors return `{"error": "<message in the UI language>"}` with 400/403/500, and 503 while the backend is still starting (only `/api/health`, `/api/shutdown` and static files answer then).
 
 | Endpoint | Method | Body / Query | Result |
 | :--- | :--- | :--- | :--- |
-| `/api/health` | GET | – | `{ok, version}` |
+| `/api/health` | GET | – | `{ok, app, version, pid, instance, launch, created, ready, busy}`; answers as soon as the port is bound, with `ready: false` until recovery and the scheduler have started |
 | `/api/state` | GET | – | Everything the dashboard renders (below) |
 | `/api/roster` | GET | `?game=` | Characters from Miyoushe (needs login) |
 | `/api/characters` | GET | `?game=` | Characters from the offline dataset (UI fallback) |
@@ -192,6 +197,7 @@ Loopback only by default. With `server.lan` enabled the server binds `0.0.0.0` a
 | `/api/notify/test` | POST | `{channel}` | Sends a test message |
 | `/api/equip/reset` | POST | `{game}` | Resets the equipment cap counter |
 | `/api/assets/sync` | POST | `{}` | Retries every known image that is not saved yet; returns the cache status |
+| `/api/shutdown` | POST | `{token, force?}` | `{ok}`; `token` comes from `server.pid`. Refused while a batch runs unless `force`, which stops the batch, waits up to 5 minutes for its configs to be restored, then exits |
 
 `/api/state` keys: `version, now, game_date, weekday, admin, logged_in, accounts, candidates, qr, runner, next_slot, plans, stamina, goals, forecast, runs, health, settings, check, notifications, catalog, assets, assets_status`. Goal items carry `materials` (per-material need / owned / remaining) and `tint` (`exp`, `family`, `core` or null); forecast rows carry `goal`, `task`, `spend` and `left` (stamina after the batch). `stamina.<game>` is `{value, cap, source, seen}` or `null` (UNKNOWN); `plans.<game>` is `{item, reason, waiting, equipment, daily, daily_keys, phase, …}`; `runner` carries `stage` (translated) and `stage_key` (stable, for the UI stepper).
 
@@ -242,6 +248,38 @@ Game executables are read from the tools' own configs unless `paths.genshin_exe`
 | Missed slot | Backend not running at slot time | Runs late within `schedule.catchup_hours`, otherwise marked skipped |
 | Notification delivery fails | Channel raises | Outbox retry with exponential delay, up to 6 attempts |
 | Mute fails | `audio.ps1` error | Note on the run; the batch continues |
+| Startup fails (port in use, exception, invalid settings) | Backend exit code and `startup-error.json` | `server.launcher` explains it and exits nonzero (7.1) |
+
+### 7.1 Starting and stopping
+
+`Start.ps1` and `Stop.ps1` are thin wrappers around `python -m server.launcher`, which reads the same runtime folder (`GCL_HOME`, default `data/`) and `settings.json` as the backend, so a custom port or folder applies to every command.
+
+**Start** (`Start.ps1`; `Start.bat` for a double-click):
+
+1. Creates `.venv` with Python 3.10+ (the `py` launcher, then `PATH`, then the usual install folders) and installs `requirements.txt` when its SHA-256 differs from `.venv/gcl-requirements.sha256` or a package is missing (`launcher check-deps`). Every step checks the native exit code.
+2. `-Port N` saves the port in `settings.json` first.
+3. If this installation already answers, it only opens the dashboard: no administrator prompt.
+4. Otherwise it restarts itself as administrator in a hidden window. That window runs `launcher start` and reports its output and exit code back through a temporary file; the original window shows them and opens the browser as the signed-in user. `-NonElevated` skips this step.
+5. `launcher start` refuses a port that answers for another program or installation, naming the owner when Windows reports it. It starts `pythonw -m server` detached, with its output in `logs/startup.log`, and waits until `/api/health` reports this runtime folder's instance id, this launch's token and `ready: true`. It returns as soon as the backend exits, with the reason from `startup-error.json`, and stops a backend that is not ready within `-Timeout` seconds (default 60).
+
+**Stop** (`Stop.ps1 [-Force]`) stops only the process in this runtime folder's `server.pid`, after checking its creation time so that a reused PID is never stopped: first with `POST /api/shutdown` and the token from the PID file, then by ending the process. A running batch is not interrupted unless `-Force` is given. Other programs that use the port are never touched. An out-of-date PID file is removed; one whose process cannot be verified is kept and reported.
+
+| Exit code | `Start.ps1` / `Start.bat` | `Stop.ps1` |
+| :--- | :--- | :--- |
+| 0 | Ready, or already running | Stopped, or not running |
+| 3 | `settings.json` cannot be used | – |
+| 4 | The port is used by another program or installation | – |
+| 5 | The backend exited while starting | – |
+| 6 | Not ready in time (it was stopped) | – |
+| 7 | – | A batch is running (use `-Force`) |
+| 8 | – | The backend could not be stopped |
+| 10 | Python 3.10+ not found (`Start.bat`: PowerShell 7 not found) | – |
+| 11 | `.venv` cannot be created or does not run | – |
+| 12 | The Python packages cannot be installed | – |
+| 13 | Administrator rights were not granted | – |
+| 14 | The administrator window reported no result | – |
+
+After a failure `Start.bat` waits for a key when it was opened by double-click; set `GCL_NO_PAUSE=1` to never wait. The backend itself (`python -m server`) exits with 1 (startup exception), 2 (cannot listen on the address) or 3 (invalid settings) and records the reason in `startup-error.json` and `logs/app.log`. The logon task starts it that way, with `GCL_HOME` set when the runtime folder is not the default.
 
 ---
 
@@ -300,7 +338,8 @@ Game executables are read from the tools' own configs unless `paths.genshin_exe`
 ## 12. Verification
 
 ```powershell
-python -m unittest tests/test_smoke.py      # imports, planner, i18n symmetry, anonymization
-python -m server                            # run in the foreground
+python -m unittest tests.test_smoke tests.test_launcher   # imports, planner, i18n, anonymization; start / stop cases
+python -m server                                          # run in the foreground
+python -m server.launcher status                          # address, runtime folder and PID, as Start and Stop see them
 Invoke-RestMethod http://127.0.0.1:18800/api/health
 ```

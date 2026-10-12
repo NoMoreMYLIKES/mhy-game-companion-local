@@ -103,8 +103,10 @@ def autostart_command() -> str:
 
 def set_autostart(enabled: bool) -> str:
     if enabled:
+        # the task must use this runtime folder too; the default one needs no variable
+        home = '' if core.DATA == core.APP / 'data' else f'set "GCL_HOME={core.DATA}" && '
         cmd = ['schtasks', '/Create', '/F', '/SC', 'ONLOGON', '/RL', 'HIGHEST', '/TN', TASK_NAME,
-               '/TR', f'cmd /c cd /d "{core.APP}" && {autostart_command()}']
+               '/TR', f'cmd /c cd /d "{core.APP}" && {home}{autostart_command()}']
     else:
         cmd = ['schtasks', '/Delete', '/F', '/TN', TASK_NAME]
     out = subprocess.run(cmd, capture_output=True, text=True, creationflags=0x08000000)

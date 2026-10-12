@@ -1,40 +1,46 @@
 #Requires -Version 7.0
+<#
+.SYNOPSIS
+    Stops Game Companion Local.
+
+.DESCRIPTION
+    Stops this installation's backend: the one using the runtime folder in GCL_HOME (default:
+    data next to this script), after checking that the process really is that backend.
+    Programs that merely use the same port are never touched. A running batch is not
+    interrupted unless -Force is given.
+
+.PARAMETER Force
+    Also stop a running batch: it is stopped first, its tool settings are restored, then the
+    backend exits.
+
+.NOTES
+    Exit codes:
+    0  stopped, or not running
+    7  a batch is running (use -Force)
+    8  the backend could not be stopped (for example: it runs as administrator and this
+       PowerShell does not)
+#>
 [CmdletBinding()]
-param()
-$ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+param([switch]$Force)
+$ErrorActionPreference = 'Continue'
+$PSNativeCommandUseErrorActionPreference = $false
+try { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) } catch {}
+$env:PYTHONIOENCODING = 'utf-8'
 
 $root = $PSScriptRoot
-$pidFile = Join-Path $root 'data\server.pid'
-
-if (Test-Path -LiteralPath $pidFile) {
-    try {
-        $meta = Get-Content -LiteralPath $pidFile -Raw | ConvertFrom-Json
-        $targetPid = [int]$meta.pid
-        if ($targetPid -gt 0) {
-            $proc = Get-Process -Id $targetPid -ErrorAction SilentlyContinue
-            if ($proc) {
-                Write-Host "Stopping the Game Companion Local backend (PID: $targetPid)..." -ForegroundColor Cyan
-                Stop-Process -Id $targetPid -Force
-                Start-Sleep -Milliseconds 500
-            }
-        }
-    } catch {
-        Write-Warning "Failed to read the PID file: $($_.Exception.Message)"
-    } finally {
-        Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
-    }
+$python = if ($IsWindows) { Join-Path $root '.venv\Scripts\python.exe' } else { Join-Path $root '.venv/bin/python' }
+if (-not (Test-Path -LiteralPath $python)) {
+    Write-Host 'Game Companion Local is not set up in this folder (.venv is missing), so it is not running.'
+    exit 0
 }
 
-# Fallback: stop whatever still listens on port 18800
+Push-Location -LiteralPath $root
 try {
-    $connections = Get-NetTCPConnection -LocalPort 18800 -State Listen -ErrorAction SilentlyContinue
-    foreach ($conn in $connections) {
-        if ($conn.OwningProcess -gt 0) {
-            Write-Host "Freeing the port (PID: $($conn.OwningProcess))..." -ForegroundColor Cyan
-            Stop-Process -Id $conn.OwningProcess -Force -ErrorAction SilentlyContinue
-        }
-    }
-} catch {}
-
-Write-Host 'Game Companion Local stopped.' -ForegroundColor Green
+    $arguments = @('-m', 'server.launcher', 'stop')
+    if ($Force) { $arguments += '--force' }
+    & $python @arguments
+    $code = $LASTEXITCODE
+} finally {
+    Pop-Location
+}
+exit $code

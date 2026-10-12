@@ -49,7 +49,9 @@ The planner follows four rules:
    - Turn on the schedule if you want one.
 3. In **Goals**, add characters and set their order.
 
-To stop the backend, run `./Stop.ps1` in PowerShell 7.
+To stop the backend, run `./Stop.ps1` in PowerShell 7. It stops only this installation's backend and refuses while a batch runs; `./Stop.ps1 -Force` stops the batch first and restores the tool settings.
+
+If the backend cannot start, the window says why and stays open. A common cause is another program using port 18800: `Start.bat -Port 18810` uses another port and saves it for this installation. Exit codes and details are in [ARCHITECTURE.md section 7.1](ARCHITECTURE.md#71-starting-and-stopping).
 
 ## Documentation
 
@@ -108,7 +110,9 @@ This is a personal automation and planning project. It is not affiliated with Ho
    - 按需开启定时。
 3. 在 **培养** 中添加角色并调整顺序。
 
-停止后台：在 PowerShell 7 中执行 `./Stop.ps1`。
+停止后台：在 PowerShell 7 中执行 `./Stop.ps1`。它只停止本安装的后台，有批次正在执行时会拒绝；`./Stop.ps1 -Force` 会先停止批次并还原工具配置。
+
+如果后台无法启动，窗口会说明原因并保持打开。常见原因是端口 18800 被其他程序占用：执行 `Start.bat -Port 18810` 即改用其他端口，并为本安装保存。退出码与细节见 [ARCHITECTURE.md 第 7.1 节](ARCHITECTURE.md#71-starting-and-stopping)（英文）。
 
 ## 文档
 

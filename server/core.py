@@ -20,7 +20,7 @@ from typing import Any
 from .i18n import LANGS, tr
 
 APP = Path(__file__).resolve().parent.parent
-DATA = Path(os.environ.get('GCL_HOME') or APP / 'data')
+DATA = Path(os.path.abspath(os.environ.get('GCL_HOME') or APP / 'data'))  # absolute: child processes get it as-is
 WEB = APP / 'web'
 DATASETS = Path(__file__).resolve().parent / 'datasets'
 CN = timezone(timedelta(hours=8))
@@ -292,7 +292,47 @@ def _merge(base: dict, patch: dict) -> dict:
 
 
 def settings() -> dict:
-    return _merge(DEFAULTS, read_json(DATA / 'settings.json', {}))
+    stored = read_json(DATA / 'settings.json', {})  # an unusable file is reported by check_settings_file()
+    return _merge(DEFAULTS, stored if isinstance(stored, dict) else {})
+
+
+class SettingsError(ValueError):
+    """settings.json exists but cannot be used."""
+
+
+def check_settings_file() -> None:
+    """Fail clearly at startup instead of silently falling back to defaults for a broken file."""
+    path = DATA / 'settings.json'
+    if not path.exists():
+        return
+    try:
+        raw = json.loads(path.read_text(encoding='utf-8-sig'))
+    except (OSError, ValueError) as exc:
+        raise SettingsError(f'{path} is not valid JSON ({exc})') from None
+    if not isinstance(raw, dict):
+        raise SettingsError(f'{path} must contain a JSON object')
+    try:
+        validate_settings(_merge(DEFAULTS, raw))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise SettingsError(f'{path} has an invalid value: {exc}') from None
+
+
+def listen_address(value: dict | None = None) -> tuple[str, int]:
+    """Host and port the backend binds; the launcher and Stop use the same answer."""
+    server = (value or settings())['server']
+    return ('0.0.0.0' if server['lan'] else '127.0.0.1'), int(server['port'])
+
+
+def instance_id() -> str:
+    """Opaque id of this runtime folder, so the launcher can tell installations apart. It belongs to the
+    folder's location: a copy of the folder (with its PID file) gets an id of its own."""
+    path = DATA / 'instance.json'
+    where = os.path.normcase(os.path.realpath(DATA))
+    data = read_json(path, {})
+    if not isinstance(data, dict) or not data.get('id') or data.get('path') != where:
+        data = {'id': secrets.token_hex(8), 'path': where, 'created': stamp()}
+        write_json(path, data)
+    return data['id']
 
 
 def save_settings(patch: dict) -> dict:
@@ -309,8 +349,11 @@ def validate_settings(value: dict) -> None:
     times = value['schedule']['times']
     if not isinstance(times, list) or not all(isinstance(t, str) and re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d', t) for t in times):
         raise ValueError(tr('bad_times'))
-    if not 1 <= int(value['server']['port']) <= 65535:
+    port = value['server']['port']
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
         raise ValueError(tr('bad_port'))
+    if not isinstance(value['server']['lan'], bool):
+        raise ValueError(tr('bad_lan'))
     if value['execution']['if_game_running'] not in ('restart', 'skip'):
         raise ValueError(tr('bad_if_running'))
     if value['planning']['genshin_claim_mode'] not in ('double', 'single'):
