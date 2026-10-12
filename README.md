@@ -24,7 +24,7 @@ The planner follows four rules:
 ## Features
 
 - **Goals**: targets per character (level, talents / skills, weapon or W-Engine). Material gaps come from the official Enhancement Progression Calculator, and you set the order.
-- **Plan and forecast**: the dashboard shows what the next batch will farm and why. A 3-day forecast uses the same rule.
+- **Plan and forecast**: the dashboard shows what the next batch will farm and why, with a 48-hour stamina chart per game. A 3-day forecast uses the same rule.
 - **Runs**: run now, or use the built-in schedule (off by default; 05:00 and 18:00) with catch-up after missed slots. Optionally start at Windows logon, and mute audio during morning runs.
 - **Free dailies**: Genshin Mail, Serenitea Pot and Daily Commission Rewards; OneDragon dailies, Engagement and New Eridu City Fund rewards.
 - **Notifications**: one summary per batch through Windows toast, Telegram, a webhook or a JSON relay.
@@ -83,7 +83,7 @@ This is a personal automation and planning project. It is not affiliated with Ho
 ## 功能
 
 - **养成目标**：按角色设定等级、天赋/技能、武器/音擎目标；材料缺口来自官方养成计算器；顺序由你决定。
-- **计划与预测**：控制台显示下一批刷什么、为什么；未来三天的预测使用同一规则。
+- **计划与预测**：控制台显示下一批刷什么、为什么，并为每款游戏绘制未来 48 小时的体力曲线；未来三天的预测使用同一规则。
 - **执行**：可立即执行，或使用内置定时（默认关闭，05:00 与 18:00），错过时段可在限定时间内补跑；可选开机登录自启、早间批次自动静音。
 - **免费日常**：原神领取邮件、尘歌壶奖励、每日委托奖励；绝区零一条龙日常、活跃度与丽都城募奖励。
 - **通知**：每批一条摘要，可通过 Windows 气泡通知、Telegram、Webhook 或 JSON 中转服务发送。
