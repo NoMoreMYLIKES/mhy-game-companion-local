@@ -81,6 +81,16 @@ const I18N = {
     full_idle: 'Without runs, full in ≈ {0} ({1}).',
     full_now: 'Full: natural recovery is being wasted',
     notes_issue: 'Real-Time Notes: {0}',
+    btn_verify: 'Verify',
+    btn_new_captcha: 'New captcha',
+    dlg_verify_title: 'Miyoushe verification',
+    verify_hint: 'Miyoushe wants a person to confirm this account before it shows the notes. Solve its captcha below; the notes are then read again.',
+    verify_loading: 'Loading the captcha from Miyoushe…',
+    verify_solve: 'Solve the captcha.',
+    verify_checking: 'Sending the answer to Miyoushe…',
+    verify_closed: 'The captcha was closed. Choose New captcha to try again.',
+    verify_failed: 'The captcha did not load: {0}',
+    verify_rejected: 'Not verified: {0}',
     next_batch: 'Next batch',
     next_batch_at: 'Next batch at {0}',
     phase_equipment: 'Equipment continuation',
@@ -354,6 +364,7 @@ const I18N = {
     toast_batch_started: 'Run started',
     toast_stop_sent: 'Stopping the current run…',
     toast_notes: 'Real-Time Notes refreshed',
+    toast_verified: 'Verified; Real-Time Notes read again',
     toast_logged_out: 'Logged out',
     toast_goal_added: '{0} added',
     toast_goal_canceled: 'Cultivation canceled for {0}',
@@ -454,6 +465,16 @@ const I18N = {
     full_idle: '若不执行，约 {0}后回满（{1}）。',
     full_now: '已满：自然恢复正在溢出',
     notes_issue: '实时便笺：{0}',
+    btn_verify: '验证',
+    btn_new_captcha: '换一个验证码',
+    dlg_verify_title: '米游社人机验证',
+    verify_hint: '米游社需要先确认是本人在查看，才会返回便笺。请完成下方的验证码，完成后会重新读取便笺。',
+    verify_loading: '正在从米游社加载验证码…',
+    verify_solve: '请完成验证码。',
+    verify_checking: '正在向米游社提交验证结果…',
+    verify_closed: '验证码已关闭。点击“换一个验证码”重试。',
+    verify_failed: '验证码未能加载：{0}',
+    verify_rejected: '验证未通过：{0}',
     next_batch: '下一批',
     next_batch_at: '下一批 {0}',
     phase_equipment: '装备接续',
@@ -727,6 +748,7 @@ const I18N = {
     toast_batch_started: '已开始执行',
     toast_stop_sent: '正在停止当前执行…',
     toast_notes: '实时便笺已刷新',
+    toast_verified: '验证通过，已重新读取实时便笺',
     toast_logged_out: '已退出登录',
     toast_goal_added: '已添加{0}',
     toast_goal_canceled: '已取消{0}的培养',
@@ -1235,7 +1257,8 @@ function gameCard(game) {
         </div>
       </header>
       ${staminaBlock(game, st, nf)}
-      ${health && health.ok === false ? alertBox('warn', 'alert', t('notes_issue', health.reason || '')) : ''}
+      ${health && health.ok === false ? alertBox('warn', 'alert', t('notes_issue', health.reason || ''),
+        health.captcha && acc ? button('verify', 'shield', t('btn_verify'), 'sm', `data-game="${game}"`) : '') : ''}
       ${item ? nextBlock(game, plan, item, nf) : idleBlock(game, plan)}
       ${waitingBlock(plan)}
       ${dailiesBlock(plan)}
@@ -1647,6 +1670,80 @@ function dialogShell(title, body, foot, form) {
       <footer class="modal-foot">${foot}</footer>
     </form>`;
 }
+
+/** Miyoushe's captcha after a 1034. Geetest's script runs in a sandboxed frame with an opaque origin, so it
+ *  can neither read this page nor call the API (POST needs the X-GC header, which a cross-origin page cannot
+ *  send without CORS); only its answer is posted back, and the backend hands it to Miyoushe. */
+async function openVerify(game) {
+  MODAL = { kind: 'verify', game, frame: null };
+  openDialog(dialogShell(t('dlg_verify_title'), `
+      ${help(t('verify_hint'), 'shield')}
+      <div class="captcha-box" id="captcha-box"></div>
+      <p class="captcha-status ink-2" id="captcha-status" role="status">${t('verify_loading')}</p>`,
+    button('verify', 'refresh', t('btn_new_captcha'), 'sm', `data-game="${game}"`), 'verify'));
+  const modal = MODAL;
+  try {
+    const challenge = await api('/api/verify/start', 'POST', { game });
+    if (MODAL !== modal) return;  // closed or replaced meanwhile
+    const frame = document.createElement('iframe');
+    frame.className = 'captcha-frame';
+    frame.title = t('dlg_verify_title');
+    frame.setAttribute('sandbox', 'allow-scripts');
+    frame.srcdoc = captchaPage(challenge);
+    modal.frame = frame;
+    document.getElementById('captcha-box').replaceChildren(frame);
+  } catch (err) {
+    if (MODAL === modal) captchaStatus(tp('verify_failed', err.message));
+  }
+}
+
+function captchaStatus(text) {
+  const el = document.getElementById('captcha-status');
+  if (el) el.textContent = text;
+}
+
+function captchaPage(c) {
+  const config = JSON.stringify({
+    gt: c.gt, challenge: c.challenge, new_captcha: c.new_captcha !== false, offline: false, product: 'bind',
+    https: true, api_server: 'api.geetest.com', lang: CURRENT_LANG === 'zh' ? 'zh-cn' : 'en',
+  }).replace(/</g, '\\u003c');
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<style>html, body { margin: 0; height: 100%; background: transparent; }</style>
+<script src="https://static.geetest.com/static/js/gt.0.5.2.js"></script></head><body><script>
+const send = (kind, result) => parent.postMessage({ gclCaptcha: kind, result }, '*');
+if (typeof initGeetest !== 'function') send('error', 'static.geetest.com');
+else initGeetest(${config}, c => {
+  c.onReady(() => { send('ready'); c.verify(); });
+  c.onSuccess(() => send('success', c.getValidate()));
+  c.onError(e => send('error', String((e && (e.msg || e.error_code)) || '')));
+  c.onClose(() => send('close'));
+});
+</script></body></html>`;
+}
+
+window.addEventListener('message', async event => {
+  const modal = MODAL;
+  if (modal?.kind !== 'verify' || !modal.frame || event.source !== modal.frame.contentWindow) return;
+  const { gclCaptcha: kind, result } = event.data || {};
+  if (kind === 'ready') captchaStatus(t('verify_solve'));
+  else if (kind === 'close') captchaStatus(t('verify_closed'));
+  else if (kind === 'error') captchaStatus(tp('verify_failed', String(result || '')));
+  else if (kind === 'success' && result && typeof result === 'object') {
+    captchaStatus(t('verify_checking'));
+    try {
+      const answer = {};
+      ['geetest_challenge', 'geetest_validate', 'geetest_seccode'].forEach(k => { answer[k] = String(result[k] || ''); });
+      const res = await api('/api/verify/finish', 'POST', { game: modal.game, answer });
+      if (res && res.error) throw new Error(res.error);
+      if (MODAL === modal) closeDialog();
+      await refreshState(true);
+      toast(tp('toast_verified'));
+    } catch (err) {
+      if (MODAL === modal) captchaStatus(tp('verify_rejected', err.message));
+      await refreshState(true);
+    }
+  }
+});
 
 function openTargets(goal) {
   MODAL = { kind: 'targets', id: goal.id, error: '', dirty: false };
@@ -2150,6 +2247,7 @@ const ACTIONS = {
   },
   run: btn => commit(btn, () => api('/api/run', 'POST', { games: btn.dataset.games.split(',') }), tp('toast_batch_started'), 'starting'),
   stop: btn => commit(btn, () => api('/api/stop', 'POST', {}), tp('toast_stop_sent')),
+  verify: btn => openVerify(btn.dataset.game),
   'refresh-notes': btn => commit(btn, async () => {
     const res = await api('/api/notes/refresh', 'POST', { game: btn.dataset.game });
     if (res && res.error) throw new Error(res.error);

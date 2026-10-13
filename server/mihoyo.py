@@ -205,14 +205,14 @@ def allowed(key: str, force: bool = False) -> bool:
     return retry is None or core.now() >= retry
 
 
-def record(key: str, ok: bool, reason: str = '') -> None:
+def record(key: str, ok: bool, reason: str = '', captcha: bool = False) -> None:
     h = health(key)
     if ok:
         h = {'ok': True, 'at': core.stamp(), 'reason': reason, 'failures': 0}
     else:
         failures = int(h.get('failures', 0)) + 1
         delay = min(6 * 3600, 900 * 2 ** min(failures - 1, 5))
-        h = {'ok': False, 'at': core.stamp(), 'reason': reason, 'failures': failures,
+        h = {'ok': False, 'at': core.stamp(), 'reason': reason, 'failures': failures, 'captcha': captcha,
              'retry_at': core.stamp(core.now() + timedelta(seconds=delay))}
         if reason in MESSAGES['err_login_expired'] and failures == 1:  # either language
             from . import notify
@@ -222,7 +222,8 @@ def record(key: str, ok: bool, reason: str = '') -> None:
 
 # ---------------------------------------------------------------- stamina notes
 
-def refresh_notes(game: str, force: bool = False) -> dict:
+def refresh_notes(game: str, force: bool = False, challenge: str | None = None) -> dict:
+    """Read the stamina from Real-Time Notes; challenge is the token of a solved captcha (finish_verification)."""
     key = 'notes-' + game
     account = accounts().get(game)
     if not account or not logged_in():
@@ -233,6 +234,8 @@ def refresh_notes(game: str, force: bool = False) -> dict:
     async def read():
         await _ensure_fp()
         c = client(game)
+        if challenge:
+            c.custom_headers['x-rpc-challenge'] = challenge
         uid = int(account['uid'])
         if game == 'genshin':
             n = await c.get_genshin_notes(uid, autoauth=False)
@@ -249,8 +252,61 @@ def refresh_notes(game: str, force: bool = False) -> dict:
         return {'current': current, 'cap': cap}
     except Exception as exc:
         reason = describe_error(exc)
-        record(key, False, reason)
+        record(key, False, reason, captcha=getattr(exc, 'retcode', None) in CAPTCHA_CODES)
         return {'error': reason}
+
+
+# ---------------------------------------------------------------- human verification
+# Real-Time Notes answers 1034 (or another Geetest code) when Miyoushe wants a person to confirm the request.
+# The dashboard then shows Miyoushe's own Geetest captcha; the person solves it, the answer goes back to
+# Miyoushe, and the notes are read again with the token it returns. Nothing is solved automatically.
+
+CAPTCHA_CODES = genshin.constants.GEETEST_RETCODES
+CARD_WAPI = 'https://api-takumi-record.mihoyo.com/game_record/app/card/wapi/'
+CHALLENGE = {  # game: (x-rpc-challenge_game, the request the verification is for)
+    'genshin': ('2', 'https://api-takumi-record.mihoyo.com/game_record/app/genshin/api/dailyNote'),
+    'zzz': ('8', 'https://api-takumi-record.mihoyo.com/event/game_record_zzz/api/zzz/note'),
+}
+
+
+def _challenge_headers(game: str) -> dict:
+    code, path = CHALLENGE[game]
+    return {'x-rpc-challenge_game': code, 'x-rpc-challenge_path': path}
+
+
+def start_verification(game: str) -> dict:
+    """A captcha for this account, created by Miyoushe, for the dashboard to show."""
+    if game not in CHALLENGE or not accounts().get(game) or not logged_in():
+        raise ValueError(tr('login_first'))
+
+    async def create():
+        await _ensure_fp()
+        try:
+            return await client(game).request_hoyolab(CARD_WAPI + 'createVerification', params={'is_high': 'true'},
+                                                       headers=_challenge_headers(game))
+        except genshin.errors.DailyGeetestTriggered as exc:  # genshin.py raises on any answer that holds a captcha
+            return {'gt': exc.gt, 'challenge': exc.challenge, 'new_captcha': True}
+
+    data = run(create(), 30)
+    if not data.get('gt') or not data.get('challenge'):
+        raise ValueError(tr('captcha_unavailable'))
+    return {'gt': str(data['gt']), 'challenge': str(data['challenge']), 'new_captcha': bool(data.get('new_captcha', True))}
+
+
+def finish_verification(game: str, answer: dict) -> dict:
+    """Send the person's captcha answer to Miyoushe, then read the notes again with the token it returns."""
+    fields = {k: answer.get(k) for k in ('geetest_challenge', 'geetest_validate', 'geetest_seccode')}
+    if game not in CHALLENGE or not all(isinstance(v, str) and 0 < len(v) <= 200 for v in fields.values()):
+        raise ValueError(tr('captcha_incomplete'))
+
+    async def verify():
+        return await client(game).request_hoyolab(CARD_WAPI + 'verifyVerification', method='POST', data=fields,
+                                                   headers=_challenge_headers(game))
+
+    token = run(verify(), 30).get('challenge')
+    if not token:
+        raise ValueError(tr('captcha_rejected'))
+    return refresh_notes(game, force=True, challenge=str(token))
 
 
 # ---------------------------------------------------------------- roster and character state

@@ -191,6 +191,8 @@ Loopback only by default. With `server.lan` enabled the server binds `0.0.0.0` a
 | `/api/goals/order` | POST | `{game, ids}` | – |
 | `/api/goals/sync` | POST | `{id, observe}` | Goal after official sync |
 | `/api/notes/refresh` | POST | `{game}` | `{current, cap}` or `{error}` |
+| `/api/verify/start` | POST | `{game}` | `{gt, challenge, new_captcha}`: a Miyoushe captcha for this account (after a 1034) |
+| `/api/verify/finish` | POST | `{game, answer}` | The solved captcha (`geetest_challenge`, `geetest_validate`, `geetest_seccode`) goes to Miyoushe; then `{current, cap}` or `{error}` as for a notes refresh |
 | `/api/run` | POST | `{games}` | `{run_id}` |
 | `/api/stop` | POST | `{}` | – |
 | `/api/settings` | POST | `{settings, secrets}` | `{ok, restart_needed}`; toggles the logon task when `schedule.autostart` changes |
@@ -250,6 +252,8 @@ Game executables are read from the tools' own configs unless `paths.genshin_exe`
 | Notification delivery fails | Channel raises | Outbox retry with exponential delay, up to 6 attempts |
 | Mute fails | `audio.ps1` error | Note on the run; the batch continues |
 | Startup fails (port in use, exception, invalid settings) | Backend exit code and `startup-error.json` | `server.launcher` explains it and exits nonzero (7.1) |
+
+**Captcha (1034).** Miyoushe answers Real-Time Notes with a Geetest code (1034, 5003, 10035, 10041) when it wants a person to confirm the account. The notes health then carries `captcha: true` and the dashboard offers **Verify**: `/api/verify/start` asks `game_record/app/card/wapi/createVerification` for a captcha, the dashboard shows it, the person solves it, and `/api/verify/finish` sends the answer to `verifyVerification` and reads the notes again with the returned token as `x-rpc-challenge`. Geetest's script (`static.geetest.com`) runs only in a sandboxed frame with an opaque origin, so it can neither read the dashboard nor call the API. Nothing is solved automatically, and the request identity is genshin.py's own.
 
 ### 7.1 Starting and stopping
 

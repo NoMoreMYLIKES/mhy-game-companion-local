@@ -179,5 +179,48 @@ class SmokeTest(unittest.TestCase):
         self.assertIn('--service', usage.stdout)
         self.assertNotIn('set -u', usage.stdout)
 
+    def test_captcha_verification_flow(self):
+        """A 1034 on Real-Time Notes offers the captcha; a solved one's token reaches the notes request."""
+        import base64
+        import json
+        from unittest import mock
+        import genshin
+        import server.core as core
+        import server.mihoyo as mihoyo
+        from server.i18n import tr
+        raw = json.dumps({'cookies': {'ltuid_v2': '1', 'ltoken_v2': 'x'}}).encode()
+        core.write_json(core.DATA / 'mihoyo.dpapi.json', {'encrypted': base64.b64encode(raw).decode()})
+        core.put('accounts', {'genshin': {'uid': '100000001', 'name': 'T', 'server': 'cn_gf01'}})
+        sent = {}
+
+        class FakeClient:
+            def __init__(self):
+                self.custom_headers = {}
+
+            async def get_genshin_notes(self, uid, autoauth=False):
+                sent['challenge'] = self.custom_headers.get('x-rpc-challenge')
+                raise genshin.GenshinException({'retcode': 1034, 'message': 'verification required'})
+
+            async def request_hoyolab(self, url, method=None, params=None, data=None, headers=None):
+                sent.update(url=url, method=method, data=data, headers=headers)
+                return {'challenge': 'token-from-miyoushe'}
+
+        async def no_fp():
+            return {}
+
+        with mock.patch.object(mihoyo, 'client', lambda game=None: FakeClient()), \
+                mock.patch.object(mihoyo, '_ensure_fp', no_fp):
+            self.assertIn('error', mihoyo.refresh_notes('genshin', force=True))
+            self.assertTrue(mihoyo.health('notes-genshin')['captcha'])
+            with self.assertRaises(ValueError) as caught:
+                mihoyo.finish_verification('genshin', {'geetest_challenge': 'c'})
+            self.assertEqual(str(caught.exception), tr('captcha_incomplete'))
+            answer = {'geetest_challenge': 'c', 'geetest_validate': 'v', 'geetest_seccode': 'v|jordan'}
+            mihoyo.finish_verification('genshin', answer)
+        self.assertTrue(sent['url'].endswith('/card/wapi/verifyVerification'))
+        self.assertEqual((sent['method'], sent['data']), ('POST', answer))
+        self.assertEqual(sent['headers']['x-rpc-challenge_game'], '2')
+        self.assertEqual(sent['challenge'], 'token-from-miyoushe')  # the retry carried the token
+
 if __name__ == '__main__':
     unittest.main()

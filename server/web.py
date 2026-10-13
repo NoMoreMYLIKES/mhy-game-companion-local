@@ -244,6 +244,10 @@ class Handler(BaseHTTPRequestHandler):
             return {'ok': True}
         if path == '/api/notes/refresh':
             return mihoyo.refresh_notes(b['game'], force=True)
+        if path == '/api/verify/start':  # Miyoushe's captcha, shown on the dashboard after a 1034
+            return mihoyo.start_verification(b['game'])
+        if path == '/api/verify/finish':
+            return mihoyo.finish_verification(b['game'], b.get('answer') or {})
         if path == '/api/shutdown':
             return request_shutdown(b)
         if path == '/api/assets/sync':

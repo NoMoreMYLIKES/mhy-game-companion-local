@@ -28,6 +28,7 @@ The planner follows four rules:
 - **Runs**: run now, or use the built-in schedule (off by default; 05:00 and 18:00) with catch-up after missed slots. Optionally start at Windows logon, and mute audio during morning runs.
 - **Free dailies**: Genshin Mail, Serenitea Pot and Daily Commission Rewards; OneDragon dailies, Engagement and New Eridu City Fund rewards.
 - **Notifications**: one summary per batch through Windows toast, Telegram, a webhook or a JSON relay.
+- **Captcha**: when Miyoushe asks for human verification (1034), **Verify** on the dashboard shows its captcha; once you solve it, the notes are read again.
 - **Bilingual, light and dark**: English and Simplified Chinese (`EN / 中文` in the header); System, Light or Dark theme.
 - **Game images**: character portraits and material icons are saved locally the first time the official API returns them; the dashboard never downloads images itself.
 - **Privacy**: listens on `127.0.0.1` only by default, and LAN access requires a password. Credentials are encrypted with Windows DPAPI (on Linux: files only your user can read).
@@ -100,6 +101,7 @@ This is a personal automation and planning project. It is not affiliated with Ho
 - **执行**：可立即执行，或使用内置定时（默认关闭，05:00 与 18:00），错过时段可在限定时间内补跑；可选开机登录自启、早间批次自动静音。
 - **免费日常**：原神领取邮件、尘歌壶奖励、每日委托奖励；绝区零一条龙日常、活跃度与丽都城募奖励。
 - **通知**：每批一条摘要，可通过 Windows 气泡通知、Telegram、Webhook 或 JSON 中转服务发送。
+- **人机验证**：米游社要求人机验证（1034）时，在控制台点击 **验证** 即可显示其验证码；完成后会重新读取便笺。
 - **双语与深浅色**：英文与简体中文（页面顶部 `EN / 中文` 切换）；主题可选跟随系统、浅色或深色。
 - **游戏图片**：角色头像与材料图标在官方接口首次返回时保存到本地，控制台页面本身不会下载图片。
 - **隐私**：默认只监听 `127.0.0.1`，局域网访问必须设置密码；凭据使用 Windows DPAPI 加密保存（Linux 上为仅当前用户可读的文件）。

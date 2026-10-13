@@ -191,6 +191,9 @@ MESSAGES: dict[str, tuple[str, str]] = {
                          '创建登录自启任务失败（需要管理员权限）：{detail}'),
     'autostart_windows': ('Start with Windows needs Windows Task Scheduler. On Linux, run ./start.sh --service.',
                           '开机登录自启依赖 Windows 任务计划程序。Linux 上请运行 ./start.sh --service。'),
+    'captcha_unavailable': ('Miyoushe did not provide a captcha; try again later.', '米游社未提供验证码，请稍后再试。'),
+    'captcha_incomplete': ('The captcha answer is incomplete; solve it again.', '验证结果不完整，请重新验证。'),
+    'captcha_rejected': ('Miyoushe did not accept the captcha answer; try a new one.', '米游社未通过此次验证，请换一个验证码重试。'),
     'runs_need_windows': ('Runs need Windows: BetterGI, OneDragon and the games are Windows programs. '
                           'This host plans and reads Miyoushe data only.',
                           '执行需要 Windows：BetterGI、一条龙与游戏都是 Windows 程序。此主机只做规划与米游社数据读取。'),
