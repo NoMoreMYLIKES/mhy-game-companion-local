@@ -39,6 +39,12 @@ GAME_ARGS = '-screen-width {w} -screen-height {h} -screen-fullscreen 0'
 NO_WINDOW = 0x08000000
 
 
+def automation() -> bool:
+    """Runs drive BetterGI, ZZZ OneDragon and the games, which are Windows programs. On other systems (a Linux
+    host) the backend still plans, reads Miyoushe data and serves the dashboard."""
+    return os.name == 'nt'
+
+
 # ---------------------------------------------------------------- paths
 
 def bgi_root() -> Path:

@@ -10,6 +10,7 @@ import atexit
 import logging
 import os
 import secrets
+import signal
 import sys
 import traceback
 
@@ -57,6 +58,8 @@ def main() -> int:
             'started': core.stamp(), 'image': procinfo.image(os.getpid()), 'exe': sys.executable, **identity})
         atexit.register(_remove_pid_file)
         web.run_forever(httpd)  # health answers from here on; other API calls wait for READY
+        if os.name != 'nt':  # systemd and kill send SIGTERM: leave the way Stop does
+            signal.signal(signal.SIGTERM, lambda *_: web.stop_soon())
         for note in runner.recover():
             log.warning(note)
         if not web.SHUTDOWN.is_set():  # a stop that arrived during recovery skips the scheduler

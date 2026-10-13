@@ -63,7 +63,7 @@ def full_state() -> dict:
     plans = {g: planner.plan(g) for g in ('zzz', 'genshin')}
     return {
         'version': core.VERSION, 'now': core.stamp(), 'game_date': str(core.game_date()), 'weekday': weekday,
-        'admin': core.is_admin(), 'logged_in': mihoyo.logged_in(), 'accounts': mihoyo.accounts(),
+        'admin': core.is_admin(), 'automation': tools.automation(), 'logged_in': mihoyo.logged_in(), 'accounts': mihoyo.accounts(),
         'candidates': core.get('account_candidates', {}), 'qr': mihoyo.qr_state(),
         'runner': runner.state(), 'next_slot': scheduler.next_slot(),
         'plans': plans, 'stamina': {g: planner.estimate(g) for g in ('zzz', 'genshin')},
@@ -255,13 +255,18 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def request_shutdown(body: dict) -> dict:
-    """Graceful stop for Stop.ps1. The token is in this instance's PID file, so only a caller that can read
-    the runtime folder can use it. A running batch is first stopped so its tool configs get restored."""
+    """Graceful stop for Stop.ps1 and stop.sh. The token is in this instance's PID file, so only a caller
+    that can read the runtime folder can use it. A running batch is first stopped so its tool configs get restored."""
     if not IDENTITY.get('token') or body.get('token') != IDENTITY['token']:
         raise ValueError(tr('shutdown_mismatch'))
     if runner.busy() and not body.get('force'):
         raise ValueError(tr('shutdown_busy'))
+    stop_soon()
+    return {'ok': True}
 
+
+def stop_soon() -> None:
+    """Stop a running batch first, so its tool settings get restored, then let the main thread exit."""
     def finish():
         if runner.busy():
             runner.request_stop()
@@ -270,7 +275,6 @@ def request_shutdown(body: dict) -> dict:
                 time.sleep(0.5)
         SHUTDOWN.set()
     threading.Thread(target=finish, daemon=True, name='shutdown').start()
-    return {'ok': True}
 
 
 class Server(ThreadingHTTPServer):

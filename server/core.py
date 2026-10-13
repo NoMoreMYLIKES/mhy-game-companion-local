@@ -32,6 +32,10 @@ log = logging.getLogger('gcl')
 
 def setup_logging() -> None:
     (DATA / 'logs').mkdir(parents=True, exist_ok=True)
+    if os.name != 'nt':  # it holds credentials that only file permissions protect here
+        DATA.chmod(0o700)
+        for secret in DATA.glob('*.dpapi.json'):  # files written before this rule
+            secret.chmod(0o600)
     handler = logging.handlers.RotatingFileHandler(DATA / 'logs' / 'app.log', maxBytes=2_000_000, backupCount=3, encoding='utf-8')
     handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s'))
     root = logging.getLogger()
@@ -73,11 +77,14 @@ def read_json(path: Path, default: Any = None) -> Any:
         return default
 
 
-def write_json(path: Path, value: Any) -> None:
+def write_json(path: Path, value: Any, private: bool = False) -> None:
+    """Atomic write; a private file is readable by this user only (outside Windows, where ACLs apply)."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_name(f'{path.name}.{os.getpid()}.{threading.get_ident()}.tmp')
-    temp.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding='utf-8')
+    mode = 0o600 if private and os.name != 'nt' else 0o666
+    with os.fdopen(os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode), 'w', encoding='utf-8') as out:
+        out.write(json.dumps(value, ensure_ascii=False, indent=2))
     os.replace(temp, path)
 
 
@@ -176,14 +183,14 @@ def latest_sample(game: str) -> dict | None:
     return dict(row) if row else None
 
 
-# ---------------------------------------------------------------- credentials (DPAPI)
+# ---------------------------------------------------------------- credentials (DPAPI on Windows)
 
 class _Blob(ctypes.Structure):
     _fields_ = [('size', ctypes.c_ulong), ('data', ctypes.POINTER(ctypes.c_ubyte))]
 
 
 def _dpapi(raw: bytes, decrypt: bool) -> bytes:
-    if os.name != 'nt':  # development fallback only; the app targets Windows
+    if os.name != 'nt':  # no DPAPI: stored as is, in a file only this user can read (write_json private)
         return raw
     buffer = ctypes.create_string_buffer(raw, len(raw))
     source = _Blob(len(raw), ctypes.cast(buffer, ctypes.POINTER(ctypes.c_ubyte)))
@@ -201,7 +208,7 @@ def _dpapi(raw: bytes, decrypt: bool) -> bytes:
 
 def save_secret(name: str, value: dict) -> None:
     raw = _dpapi(json.dumps(value).encode(), decrypt=False)
-    write_json(DATA / f'{name}.dpapi.json', {'encrypted': base64.b64encode(raw).decode()})
+    write_json(DATA / f'{name}.dpapi.json', {'encrypted': base64.b64encode(raw).decode()}, private=True)
 
 
 def load_secret(name: str) -> dict:
@@ -272,7 +279,7 @@ DEFAULTS: dict = {
             'relay': {'enabled': False},
             'telegram': {'enabled': False, 'chat_id': '', 'api_base': 'https://api.telegram.org'},
             'webhook': {'enabled': False},
-            'toast': {'enabled': True},
+            'toast': {'enabled': os.name == 'nt'},  # Windows balloon tips
         },
     },
 }

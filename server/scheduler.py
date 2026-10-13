@@ -9,7 +9,7 @@ import time
 from datetime import timedelta
 from pathlib import Path
 
-from . import core, goals, mihoyo, notify, planner, runner
+from . import core, goals, mihoyo, notify, planner, runner, tools
 from .i18n import tr
 
 log = logging.getLogger('gcl.scheduler')
@@ -57,7 +57,9 @@ def next_slot():
 def tick() -> None:
     s = core.settings()
     at = due_slot()
-    if at and not runner.busy():
+    if at and not tools.automation():  # a host that cannot run (Linux) lets the slot pass
+        core.put(slot_key(at), {'skipped': tr('runs_need_windows')})
+    elif at and not runner.busy():
         core.put(slot_key(at), {'started': core.stamp()})
         try:
             runner.start_batch(s['schedule']['games'], at.strftime('%H:%M'), 'schedule')
@@ -102,6 +104,10 @@ def autostart_command() -> str:
 
 
 def set_autostart(enabled: bool) -> str:
+    if not tools.automation():  # Task Scheduler is Windows-only; Linux has start.sh --service
+        if enabled:
+            raise ValueError(tr('autostart_windows'))
+        return ''
     if enabled:
         # the task must use this runtime folder too; the default one needs no variable
         home = '' if core.DATA == core.APP / 'data' else f'set "GCL_HOME={core.DATA}" && '
@@ -116,5 +122,7 @@ def set_autostart(enabled: bool) -> str:
 
 
 def autostart_installed() -> bool:
+    if not tools.automation():
+        return False
     out = subprocess.run(['schtasks', '/Query', '/TN', TASK_NAME], capture_output=True, text=True, creationflags=0x08000000)
     return out.returncode == 0

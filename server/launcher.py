@@ -1,6 +1,6 @@
 """Start, stop and inspect the backend with exactly the configuration the backend uses.
 
-Run with the virtual environment's Python (Start.ps1 and Stop.ps1 do this):
+Run with the virtual environment's Python (Start.ps1 / Stop.ps1, or start.sh / stop.sh on Linux, do this):
 
     python -m server.launcher start [--no-browser] [--timeout SECONDS]
     python -m server.launcher stop [--force]
@@ -47,6 +47,9 @@ APP_ID = 'game-companion-local'
 REQUIRED_MODULES = {'genshin': 'genshin', 'qrcode': 'qrcode', 'yaml': 'PyYAML'}
 # Requests to our own backend must never go through a system or environment proxy.
 _LOCAL = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+# What users type on this platform; messages name these.
+START, STOP, PORT_OPTION, FORCE_OPTION = (('Start.bat', 'Stop.ps1', '-Port', '-Force') if procinfo.WINDOWS
+                                          else ('./start.sh', './stop.sh', '--port', '--force'))
 
 
 def say(text: str = '') -> None:
@@ -143,7 +146,7 @@ def explain_busy_port(rt: dict, answer) -> list[str]:
 
 
 def port_advice(rt: dict) -> list[str]:
-    return [f"To use another port, run: Start.bat -Port {suggest_port(rt['port'])}",
+    return [f"To use another port, run: {START} {PORT_OPTION} {suggest_port(rt['port'])}",
             f"(it is saved in settings.json in the runtime folder: {rt['data']})"]
 
 
@@ -220,7 +223,7 @@ def start(no_browser: bool, timeout: float) -> int:
         started_on = meta.get('port') if meta and meta.get('instance') == rt['instance'] else None
         if isinstance(started_on, int) and started_on != rt['port'] and ours(previous := health(started_on), rt):
             say(f"Game Companion Local runs on port {started_on}; the port setting is now {rt['port']}. "
-                'Restart it (Stop.ps1, then Start.bat) to use the new port.')
+                f'Restart it ({STOP}, then {START}) to use the new port.')
             rt = dict(rt, port=started_on, url=url(started_on))
             answer = previous
     if ours(answer, rt) and answer.get('ready'):
@@ -233,11 +236,12 @@ def start(no_browser: bool, timeout: float) -> int:
                     and procinfo.same_process(meta['pid'], meta.get('created'), meta.get('image')))
     if recorded and (answer is None or procinfo.port_owner(rt['port']) in (None, meta['pid'])):
         say(f"This installation's backend is running (PID {meta['pid']}) but does not answer on port {meta.get('port')}.")
-        say('Stop it with Stop.ps1, then start again.')
+        say(f'Stop it with {STOP}, then start again.')
         return 4
     if answer is not None and older_version(meta) and meta['port'] == rt['port']:
         say(f"An older version of Game Companion Local is running from this runtime folder (PID {meta['pid']}).")
-        say('Stop it with Stop.ps1 (from an administrator PowerShell if it runs as administrator), then start again.')
+        say(f'Stop it with {STOP}' + (' (from an administrator PowerShell if it runs as administrator)' if procinfo.WINDOWS else '')
+            + ', then start again.')
         return 4
     if answer is not None:
         for line in explain_busy_port(rt, answer):
@@ -385,8 +389,8 @@ def _request_shutdown(port: int, token: str, force: bool) -> str | None:
 
 
 def _busy() -> int:
-    say('A batch is running. Stop it on the dashboard first, or run: Stop.ps1 -Force')
-    say('(-Force stops the batch, waits for its tool settings to be restored, then stops the backend.)')
+    say(f'A batch is running. Stop it on the dashboard first, or run: {STOP} {FORCE_OPTION}')
+    say(f'({FORCE_OPTION} stops the batch, waits for its tool settings to be restored, then stops the backend.)')
     return 7
 
 

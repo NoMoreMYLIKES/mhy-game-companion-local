@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -29,6 +30,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from server import procinfo  # noqa: E402  (standard library only; reads no runtime folder)
+
+# What the launcher tells users to type on this platform.
+START, STOP = ('Start.bat -Port', 'Stop.ps1 -Force') if procinfo.WINDOWS else ('./start.sh --port', './stop.sh --force')
 
 LOCAL = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 HOOK = '''
@@ -231,7 +235,7 @@ class LauncherTest(unittest.TestCase):
         self.assertEqual(code, 4, out)
         self.assertIn(f'127.0.0.1:{app.port} is already in use', out)
         self.assertIn(f'PID {os.getpid()}', out)  # the owner, read from the system
-        self.assertIn('Start.bat -Port', out)
+        self.assertIn(START, out)
         self.assertFalse((app.home / 'server.pid').exists())
         code, out = app.run('stop')
         self.assertEqual(code, 0, out)
@@ -335,6 +339,19 @@ class LauncherTest(unittest.TestCase):
 
     # ------------------------------------------------------------ stopping only what is ours
 
+    @unittest.skipIf(procinfo.WINDOWS, 'systemd and kill stop the backend with SIGTERM on Linux')
+    def test_sigterm_stops_like_stop(self):
+        app = Installation(self)
+        self.assertEqual(app.start()[0], 0)
+        pid = app.meta()['pid']
+        os.kill(pid, signal.SIGTERM)
+        deadline = time.monotonic() + 15
+        while procinfo.alive(pid) and time.monotonic() < deadline:
+            time.sleep(0.2)
+        self.assertFalse(procinfo.alive(pid))
+        self.assertFalse((app.home / 'server.pid').exists())  # a clean exit removes it; a killed process would not
+        self.assertIn('Stopping on request', (app.home / 'logs' / 'app.log').read_text(encoding='utf-8'))
+
     def test_running_batch_needs_force(self):
         app = Installation(self)
         env = app.doubles(hook='busy')
@@ -342,7 +359,7 @@ class LauncherTest(unittest.TestCase):
         pid = app.meta()['pid']
         code, out = app.run('stop')
         self.assertEqual(code, 7, out)
-        self.assertIn('Stop.ps1 -Force', out)
+        self.assertIn(STOP, out)
         self.assertTrue(procinfo.alive(pid))
         code, out = app.run('stop', '--force')
         self.assertEqual(code, 0, out)

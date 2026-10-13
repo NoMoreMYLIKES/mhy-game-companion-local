@@ -25,6 +25,8 @@ def busy() -> bool:
 
 
 def start_batch(games: list[str], slot: str = 'manual', source: str = 'manual') -> str:
+    if not tools.automation():
+        raise ValueError(tr('runs_need_windows'))
     games = [g for g in ('zzz', 'genshin') if g in games]
     if not games:
         raise ValueError(tr('select_game'))

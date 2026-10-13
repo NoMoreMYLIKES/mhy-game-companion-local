@@ -53,6 +53,7 @@ const I18N = {
     strip_running: 'Running: {0}',
     strip_signed_out: 'Miyoushe not signed in',
     strip_not_admin: 'Not running as administrator',
+    strip_plan_only: 'Plans only: runs need Windows',
 
     // Games and terms
     game_genshin: 'Genshin Impact',
@@ -109,6 +110,7 @@ const I18N = {
     exc_signed_out: 'Miyoushe is not signed in, so stamina and material gaps cannot be read.',
     exc_sign_in: 'Sign in',
     exc_not_admin: 'The backend is not running as administrator, so runs cannot control the game window. Start it with Start.bat.',
+    exc_plan_only: 'This host runs on Linux: it plans and reads Miyoushe data. Runs need BetterGI and OneDragon, which are Windows programs, so they start from the Windows copy.',
     exc_tool_genshin: 'BetterGI was not found, so Genshin Impact cannot run.',
     exc_tool_zzz: 'ZZZ OneDragon was not found, so Zenless Zone Zero cannot run.',
     exc_set_paths: 'Set paths',
@@ -230,6 +232,7 @@ const I18N = {
 
     // Settings
     settings_sub: 'Changes are saved together. Secrets are encrypted with Windows DPAPI.',
+    settings_sub_linux: 'Changes are saved together. Secrets are stored in files only this user can read.',
     set_account: 'Miyoushe account',
     set_env: 'Environment',
     set_schedule: 'Schedule',
@@ -252,6 +255,7 @@ const I18N = {
     env_admin: 'Administrator rights',
     env_admin_ok: 'Running as administrator',
     env_admin_no: 'Not elevated',
+    env_plan_only: 'BetterGI and OneDragon are Windows programs; these checks apply to the Windows copy.',
     env_bgi: 'BetterGI',
     env_bgi_template: 'BetterGI template',
     env_od: 'ZZZ OneDragon',
@@ -268,6 +272,8 @@ const I18N = {
     sched_enable_sub: 'Runs at the times below. A missed slot still runs within the catch-up limit.',
     autostart: 'Start with Windows',
     autostart_sub: 'One Task Scheduler logon task with highest privileges; no console window.',
+    sched_plan_only: 'Runs need Windows; this host only plans.',
+    autostart_linux: 'Windows only. On Linux, ./start.sh --service starts the backend with the machine.',
     sched_times: 'Times',
     sched_times_hint: 'HH:MM, comma-separated, China time (UTC+8)',
     sched_games: 'Games on schedule',
@@ -329,6 +335,7 @@ const I18N = {
     ev_goal_done: 'A goal’s materials are complete',
     notify_channels: 'Channels',
     ch_toast: 'Windows notification',
+    windows_only: 'Windows only.',
     ch_telegram: 'Telegram bot',
     ch_webhook: 'Webhook',
     ch_relay: 'Relay service',
@@ -419,6 +426,7 @@ const I18N = {
     strip_running: '执行中：{0}',
     strip_signed_out: '米游社未登录',
     strip_not_admin: '未以管理员身份运行',
+    strip_plan_only: '仅规划：执行需要 Windows',
 
     // Games and terms
     game_genshin: '原神',
@@ -475,6 +483,7 @@ const I18N = {
     exc_signed_out: '米游社未登录，无法读取体力与材料缺口。',
     exc_sign_in: '去登录',
     exc_not_admin: '后台未以管理员身份运行，执行时无法控制游戏窗口。请通过 Start.bat 启动。',
+    exc_plan_only: '此主机运行在 Linux 上，负责规划与读取米游社数据。执行需要 BetterGI 与一条龙这两个 Windows 程序，请在 Windows 端执行。',
     exc_tool_genshin: '未找到 BetterGI，原神无法执行。',
     exc_tool_zzz: '未找到绝区零一条龙，绝区零无法执行。',
     exc_set_paths: '设置路径',
@@ -596,6 +605,7 @@ const I18N = {
 
     // Settings
     settings_sub: '所有更改统一保存。敏感信息使用 Windows DPAPI 加密。',
+    settings_sub_linux: '所有更改统一保存。敏感信息保存在仅当前用户可读的文件中。',
     set_account: '米游社账号',
     set_env: '运行环境',
     set_schedule: '定时',
@@ -618,6 +628,7 @@ const I18N = {
     env_admin: '管理员权限',
     env_admin_ok: '已以管理员身份运行',
     env_admin_no: '未提权',
+    env_plan_only: 'BetterGI 与一条龙是 Windows 程序，以下检查仅适用于 Windows 端。',
     env_bgi: 'BetterGI',
     env_bgi_template: 'BetterGI 模板',
     env_od: '绝区零一条龙',
@@ -634,6 +645,8 @@ const I18N = {
     sched_enable_sub: '在以下时间执行。错过的时段在补跑时限内仍会执行。',
     autostart: '开机登录自启',
     autostart_sub: '创建一个以最高权限运行的登录任务，无控制台窗口。',
+    sched_plan_only: '执行需要 Windows，此主机只做规划。',
+    autostart_linux: '仅限 Windows。Linux 上运行 ./start.sh --service 即可随系统启动。',
     sched_times: '执行时间',
     sched_times_hint: 'HH:MM，用逗号分隔，北京时间（UTC+8）',
     sched_games: '定时执行的游戏',
@@ -695,6 +708,7 @@ const I18N = {
     ev_goal_done: '培养材料收齐',
     notify_channels: '渠道',
     ch_toast: 'Windows 通知',
+    windows_only: '仅限 Windows。',
     ch_telegram: 'Telegram 机器人',
     ch_webhook: 'Webhook',
     ch_relay: '中转服务',
@@ -1086,10 +1100,11 @@ function renderStrip() {
   const r = STATE.runner || {};
   const chips = [chip('calendar', tp('strip_game_day', gameDayLabel()))];
   if (r.running) chips.push(chip('pulse', tp('strip_running', r.stage || ''), 'info'));
+  else if (STATE.automation === false) chips.push(chip('monitor', tp('strip_plan_only')));
   else if (STATE.settings?.schedule?.enabled && STATE.next_slot) chips.push(chip('clock', tp('strip_next_run', whenLabel(STATE.next_slot), relative(STATE.next_slot))));
   else chips.push(chip('pause', tp('strip_schedule_off')));
   if (!STATE.logged_in) chips.push(chip('user', tp('strip_signed_out'), 'warn'));
-  if (!STATE.admin) chips.push(chip('shield', tp('strip_not_admin'), 'warn'));
+  if (!STATE.admin && STATE.automation !== false) chips.push(chip('shield', tp('strip_not_admin'), 'warn'));
   if (LAST_ERROR) chips.push(chip('alert', tp('connect_failed', LAST_ERROR), 'bad'));
   el.innerHTML = chips.join('');
 }
@@ -1143,7 +1158,7 @@ function renderToday() {
   const el = document.getElementById('view-today');
   const r = STATE.runner || {};
   el.innerHTML = `
-    ${pageHead(t('nav_today'), '', button('run', 'play', t('btn_run_both'), '', `data-games="zzz,genshin"${r.running ? ' disabled' : ''}`))}
+    ${pageHead(t('nav_today'), '', button('run', 'play', t('btn_run_both'), '', `data-games="zzz,genshin"${r.running || STATE.automation === false ? ' disabled' : ''}`))}
     ${exceptions()}
     ${r.running ? runningPanel(r) : ''}
     <div class="grid two">${GAMES.map(gameCard).join('')}</div>
@@ -1154,11 +1169,13 @@ function exceptions() {
   const list = [];
   const c = STATE.check || {};
   if (!STATE.logged_in) list.push(alertBox('warn', 'user', t('exc_signed_out'), linkButton('#/settings/set-account', 'user', t('exc_sign_in'))));
-  if (!STATE.admin) list.push(alertBox('warn', 'shield', t('exc_not_admin')));
+  const plansOnly = STATE.automation === false;
+  if (plansOnly) list.push(alertBox('info', 'monitor', t('exc_plan_only')));
+  else if (!STATE.admin) list.push(alertBox('warn', 'shield', t('exc_not_admin')));
   const scheduled = STATE.settings?.schedule?.games || [];
   GAMES.forEach(g => {
     const hasGoals = (STATE.goals?.[g] || []).some(x => x.enabled);
-    if (c[g] && !c[g].tool_ok && (hasGoals || scheduled.includes(g))) {
+    if (!plansOnly && c[g] && !c[g].tool_ok && (hasGoals || scheduled.includes(g))) {
       list.push(alertBox('bad', 'alert', t('exc_tool_' + g), linkButton('#/settings/set-paths', 'folder', t('exc_set_paths'))));
     }
   });
@@ -1214,7 +1231,7 @@ function gameCard(game) {
         <div><h2>${t('game_' + game)}</h2><p class="ink-2">${acc ? t('account_line', acc.name || '–', acc.uid) : t('no_account')}</p></div>
         <div class="actions">
           ${button('refresh-notes', 'refresh', t('btn_refresh'), 'sm', `data-game="${game}"${STATE.logged_in && acc ? '' : ' disabled'}`)}
-          ${button('run', 'play', t('btn_run_now'), 'sm primary', `data-games="${game}"${running ? ' disabled' : ''}`)}
+          ${button('run', 'play', t('btn_run_now'), 'sm primary', `data-games="${game}"${running || STATE.automation === false ? ' disabled' : ''}`)}
         </div>
       </header>
       ${staminaBlock(game, st, nf)}
@@ -1798,7 +1815,7 @@ function renderSettings(force) {
   }
   const s = STATE.settings;
   el.innerHTML = `
-    ${pageHead(t('nav_settings'), t('settings_sub'))}
+    ${pageHead(t('nav_settings'), t(STATE.automation === false ? 'settings_sub_linux' : 'settings_sub'))}
     <div class="settings">
       <nav class="settings-nav" aria-label="${t('nav_settings')}">${SETTINGS_SECTIONS.map(([id, ic]) =>
         `<button type="button" data-action="scroll-to" data-key="${id}">${icon(ic)}<span>${t(id.replace('-', '_'))}</span></button>`).join('')}</nav>
@@ -1869,7 +1886,7 @@ function envPanel() {
   const bundled = !STATE.settings?.execution?.bgi_template;
   return `${panelHead('set-env', 'shield')}
     <div class="kv">
-      ${envRow(t('env_admin'), c.admin, t('env_admin_ok'), t('env_admin_no'), '', 'warn')}
+      ${STATE.automation === false ? help(t('env_plan_only'), 'monitor') : envRow(t('env_admin'), c.admin, t('env_admin_ok'), t('env_admin_no'), '', 'warn')}
       ${envRow(t('env_bgi'), c.genshin?.tool_ok, t('found'), t('missing'), c.genshin?.tool_exe)}
       ${envRow(t('env_bgi_template'), c.genshin?.template_ok, bundled ? t('bundled') : t('found'), t('missing'), bundled ? '' : STATE.settings?.execution?.bgi_template)}
       ${envRow(t('env_od'), c.zzz?.tool_ok, t('found'), t('missing'), c.zzz?.tool_exe)}
@@ -1880,11 +1897,11 @@ function envPanel() {
     <div class="mt">${help(t('env_adapter_help'))}</div>`;
 }
 
-function switchRow(name, checked, label, sub = '', ic = '', cls = '') {
+function switchRow(name, checked, label, sub = '', ic = '', cls = '', disabled = false) {
   return `
     <label class="switch-row ${cls}">
       <span class="switch-text">${ic ? icon(ic) : ''}<span><b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</span></span>
-      <input type="checkbox" class="switch" name="${name}"${checked ? ' checked' : ''}>
+      <input type="checkbox" class="switch" name="${name}"${checked ? ' checked' : ''}${disabled ? ' disabled' : ''}>
     </label>`;
 }
 
@@ -1896,11 +1913,12 @@ function input(name, value, attrs = '') { return `<input name="${name}" value="$
 
 function schedulePanel(s) {
   const games = s.schedule.games || [];
+  const plansOnly = STATE.automation === false;
   return `
     <section class="panel" id="set-schedule">
       ${panelHead('set-schedule', 'clock')}
-      ${switchRow('schedule.enabled', s.schedule.enabled, t('sched_enable'), t('sched_enable_sub'), 'calendar', 'main first')}
-      ${switchRow('schedule.autostart', s.schedule.autostart, t('autostart'), t('autostart_sub'), 'monitor')}
+      ${switchRow('schedule.enabled', s.schedule.enabled, t('sched_enable'), t(plansOnly ? 'sched_plan_only' : 'sched_enable_sub'), 'calendar', 'main first', plansOnly)}
+      ${switchRow('schedule.autostart', s.schedule.autostart, t('autostart'), t(plansOnly ? 'autostart_linux' : 'autostart_sub'), 'monitor', '', plansOnly)}
       <div class="sub-block">
         <div class="fields">
           ${field(t('sched_times'), input('schedule.times', (s.schedule.times || []).join(', '), 'type="text" data-type="list" spellcheck="false"'), t('sched_times_hint'))}
@@ -1990,6 +2008,7 @@ function notifyPanel(s) {
   const n = s.notify;
   const ch = n.channels;
   const test = channel => button('notify-test', 'send', t('btn_test'), 'sm', `data-channel="${channel}"`);
+  const plansOnly = STATE.automation === false;  // balloon tips need Windows
   return `
     <section class="panel" id="set-notify">
       ${panelHead('set-notify', 'bell')}
@@ -2001,8 +2020,8 @@ function notifyPanel(s) {
       ${switchRow('notify.events.goal_done', n.events.goal_done, t('ev_goal_done'), '', 'target')}
       <div class="sub-block">
         <h3>${t('notify_channels')}</h3>
-        ${switchRow('notify.channels.toast.enabled', ch.toast.enabled, t('ch_toast'), '', 'monitor', 'first')}
-        <div class="actions">${test('toast')}</div>
+        ${switchRow('notify.channels.toast.enabled', ch.toast.enabled, t('ch_toast'), plansOnly ? t('windows_only') : '', 'monitor', 'first', plansOnly)}
+        ${plansOnly ? '' : `<div class="actions">${test('toast')}</div>`}
         ${switchRow('notify.channels.telegram.enabled', ch.telegram.enabled, t('ch_telegram'), '', 'send')}
         <div class="fields">
           ${field(t('lbl_tg_chat_id'), input('notify.channels.telegram.chat_id', ch.telegram.chat_id, 'type="text" spellcheck="false"'))}

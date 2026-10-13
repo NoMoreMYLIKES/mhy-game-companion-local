@@ -12,6 +12,7 @@ A headless Python backend (`server/`), a static Swiss Style frontend (`web/`), a
 mhy-game-companion-local/
 ├── Start.bat / Start.ps1       # .venv and packages, elevation, start through server.launcher, browser
 ├── Stop.ps1                    # Stop this installation's verified backend through server.launcher
+├── start.sh / stop.sh          # Linux: the same through server.launcher, optionally as a systemd user service
 ├── requirements.txt            # genshin, qrcode, PyYAML
 ├── migrate_legacy.py           # Optional import of goals/settings from a legacy state.sqlite
 ├── PLAN.md                     # Vision, the four pillars, roadmap
@@ -131,7 +132,7 @@ Stamina samples store their source as a message key (`source_notes`, `source_one
 
 ### 2.2 Secrets (DPAPI)
 
-Secrets are encrypted with `CryptProtectData` (`CRYPTPROTECT_UI_FORBIDDEN`), bound to the Windows user, and never returned by the API (`/api/state` only exposes `secrets_set` booleans). The LAN password is stored as a PBKDF2-SHA256 hash. On non-Windows systems the DPAPI step is a pass-through for development only.
+Secrets are encrypted with `CryptProtectData` (`CRYPTPROTECT_UI_FORBIDDEN`), bound to the Windows user, and never returned by the API (`/api/state` only exposes `secrets_set` booleans). The LAN password is stored as a PBKDF2-SHA256 hash. Linux has no DPAPI: there the step is a pass-through, the secret files are written readable by their owner only (0600) and the runtime folder is set to 0700 at startup; nothing else protects them.
 
 ---
 
@@ -264,7 +265,7 @@ Game executables are read from the tools' own configs unless `paths.genshin_exe`
 
 **Stop** (`Stop.ps1 [-Force]`) stops only the process in this runtime folder's `server.pid`, after checking its creation time so that a reused PID is never stopped: first with `POST /api/shutdown` and the token from the PID file, then by ending the process. A running batch is not interrupted unless `-Force` is given. Other programs that use the port are never touched. An out-of-date PID file is removed; one whose process cannot be verified is kept and reported.
 
-| Exit code | `Start.ps1` / `Start.bat` | `Stop.ps1` |
+| Exit code | `Start.ps1` / `Start.bat` / `start.sh` | `Stop.ps1` / `stop.sh` |
 | :--- | :--- | :--- |
 | 0 | Ready, or already running | Stopped, or not running |
 | 3 | `settings.json` cannot be used | – |
@@ -276,8 +277,11 @@ Game executables are read from the tools' own configs unless `paths.genshin_exe`
 | 10 | Python 3.10+ not found (`Start.bat`: PowerShell 7 not found) | – |
 | 11 | `.venv` cannot be created or does not run | – |
 | 12 | The Python packages cannot be installed | – |
-| 13 | Administrator rights were not granted | – |
-| 14 | The administrator window reported no result | – |
+| 13 | Administrator rights were not granted (Windows) | – |
+| 14 | The administrator window reported no result (Windows) | – |
+| 15 | `start.sh --service`: the systemd service cannot be installed or started | – |
+
+**Linux** (`start.sh`, `stop.sh`) uses the same launcher without elevation. `start.sh` creates `.venv` (through `uv` when the system Python has no `venv` module), installs the packages the same way, takes `--port`, `--timeout` and `--open` (no browser by default: a headless host may only have a text browser) and returns the same exit codes. `--service` writes the systemd user unit `game-companion-local.service`, which runs `python -m server` in the foreground with the current `GCL_HOME` and `Restart=on-failure` except for exit codes 2 and 3, then starts the backend through it; with lingering on, it starts with the machine. `stop.sh [--force]` is `launcher stop`, so a service backend stops cleanly and stays stopped. The backend leaves on `SIGTERM` the way it does on `POST /api/shutdown`, so `systemctl --user stop` also restores tool settings. A Linux host plans and reads Miyoushe data only: `tools.automation()` is false there, so runs, schedule slots and the logon task are refused with a message, and the dashboard says so instead of offering them.
 
 After a failure `Start.bat` waits for a key when it was opened by double-click; set `GCL_NO_PAUSE=1` to never wait. The backend itself (`python -m server`) exits with 1 (startup exception), 2 (cannot listen on the address) or 3 (invalid settings) and records the reason in `startup-error.json` and `logs/app.log`. The logon task starts it that way, with `GCL_HOME` set when the runtime folder is not the default.
 
@@ -331,7 +335,8 @@ After a failure `Start.bat` waits for a key when it was opened by double-click; 
 4. **English base language**: comments, logs and new strings in English; every UI string in both `I18N.en` and `I18N.zh`, every backend message in `server/i18n.py`.
 5. **PowerShell 7 only** (`C:\Program Files\PowerShell\7\pwsh.exe`), never Windows PowerShell 5.1.
 6. **Runtime data stays local**: never commit `data/`.
-7. **No request without a user action or a scheduled job**: opening a page never calls the official API or downloads images; images are saved once from responses the app already requested.
+7. **Runs need Windows**: code that starts or stops tools, games or Windows services checks `tools.automation()` first; a Linux host plans and reads data only.
+8. **No request without a user action or a scheduled job**: opening a page never calls the official API or downloads images; images are saved once from responses the app already requested.
 
 ---
 

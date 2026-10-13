@@ -1,6 +1,7 @@
 """Part ① – official data: QR login, accounts, stamina notes, character state, calculators.
 
-Only official Miyoushe (米游社, CN-server HoYoLAB) endpoints through genshin.py. Credentials are DPAPI-encrypted.
+Only official Miyoushe (米游社, CN-server HoYoLAB) endpoints through genshin.py. Credentials are DPAPI-encrypted
+on Windows; on Linux only file permissions protect them.
 A failed read never becomes 0: callers receive an error and keep the previous value.
 """
 from __future__ import annotations

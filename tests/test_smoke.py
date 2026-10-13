@@ -58,7 +58,7 @@ class SmokeTest(unittest.TestCase):
         for root, dirs, files in os.walk(PROJECT_ROOT):
             dirs[:] = [d for d in dirs if d not in ('.git', '.venv', '__pycache__', 'data', 'tests')]
             for f in files:
-                if f.endswith(('.py', '.js', '.html', '.css', '.md', '.txt', '.bat', '.ps1', '.json')):
+                if f.endswith(('.py', '.js', '.html', '.css', '.md', '.txt', '.bat', '.ps1', '.sh', '.json')):
                     path = Path(root) / f
                     content = path.read_bytes().lower()
                     for label, pattern in patterns.items():
@@ -137,6 +137,47 @@ class SmokeTest(unittest.TestCase):
         # Check default lang in app.js is 'en'
         self.assertIn("localStorage.getItem('gcl_lang') || 'en'", content)
 
+
+    def test_hosts_without_automation_plan_only(self):
+        """On Linux, runs and the logon autostart are refused with a message, never attempted."""
+        from unittest import mock
+        import server.runner as runner
+        import server.scheduler as scheduler
+        import server.tools as tools
+        from server.i18n import tr
+        with mock.patch.object(tools, 'automation', return_value=False):
+            with self.assertRaises(ValueError) as caught:
+                runner.start_batch(['zzz'])
+            self.assertEqual(str(caught.exception), tr('runs_need_windows'))
+            self.assertFalse(runner.busy())
+            with self.assertRaises(ValueError):
+                scheduler.set_autostart(True)
+            self.assertEqual(scheduler.set_autostart(False), '')
+            self.assertFalse(scheduler.autostart_installed())
+
+    @unittest.skipIf(os.name == 'nt', 'Windows protects credentials with DPAPI')
+    def test_credentials_are_private_files(self):
+        import stat
+        import server.core as core
+        core.save_secret('test-secret', {'value': 1})
+        mode = stat.S_IMODE((core.DATA / 'test-secret.dpapi.json').stat().st_mode)
+        self.assertEqual(mode, 0o600)
+        self.assertEqual(core.load_secret('test-secret'), {'value': 1})
+        self.assertFalse(core.DEFAULTS['notify']['channels']['toast']['enabled'])  # balloon tips need Windows
+
+    @unittest.skipIf(os.name == 'nt', 'the shell scripts are for Linux')
+    def test_shell_scripts(self):
+        import subprocess
+        for name in ('start.sh', 'stop.sh'):
+            path = PROJECT_ROOT / name
+            self.assertTrue(os.access(path, os.X_OK), f'{name} must be executable')
+            self.assertNotIn(b'\r', path.read_bytes(), f'{name} must keep LF line endings')
+            result = subprocess.run(['bash', '-n', str(path)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        usage = subprocess.run(['bash', str(PROJECT_ROOT / 'start.sh'), '--help'], capture_output=True, text=True)
+        self.assertEqual(usage.returncode, 0)
+        self.assertIn('--service', usage.stdout)
+        self.assertNotIn('set -u', usage.stdout)
 
 if __name__ == '__main__':
     unittest.main()

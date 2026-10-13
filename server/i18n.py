@@ -189,6 +189,11 @@ MESSAGES: dict[str, tuple[str, str]] = {
     'slot_failed_title': ('Game Companion {slot} failed to start', '养成中枢 {slot} 未能开始'),
     'autostart_failed': ('Failed to create the logon autostart task (admin rights required): {detail}',
                          '创建登录自启任务失败（需要管理员权限）：{detail}'),
+    'autostart_windows': ('Start with Windows needs Windows Task Scheduler. On Linux, run ./start.sh --service.',
+                          '开机登录自启依赖 Windows 任务计划程序。Linux 上请运行 ./start.sh --service。'),
+    'runs_need_windows': ('Runs need Windows: BetterGI, OneDragon and the games are Windows programs. '
+                          'This host plans and reads Miyoushe data only.',
+                          '执行需要 Windows：BetterGI、一条龙与游戏都是 Windows 程序。此主机只做规划与米游社数据读取。'),
 
     # tools
     'patch_bad_structure': ('{file} has an unexpected structure; cannot write {field}', '{file} 结构异常，无法写入 {field}'),

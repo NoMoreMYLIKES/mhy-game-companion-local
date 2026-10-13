@@ -30,7 +30,7 @@ The planner follows four rules:
 - **Notifications**: one summary per batch through Windows toast, Telegram, a webhook or a JSON relay.
 - **Bilingual, light and dark**: English and Simplified Chinese (`EN / 中文` in the header); System, Light or Dark theme.
 - **Game images**: character portraits and material icons are saved locally the first time the official API returns them; the dashboard never downloads images itself.
-- **Privacy**: listens on `127.0.0.1` only by default, and LAN access requires a password. Credentials are encrypted with Windows DPAPI.
+- **Privacy**: listens on `127.0.0.1` only by default, and LAN access requires a password. Credentials are encrypted with Windows DPAPI (on Linux: files only your user can read).
 
 ## Requirements
 
@@ -39,6 +39,7 @@ The planner follows four rules:
   - Genshin Impact: [BetterGI](https://github.com/babalae/better-genshin-impact)
   - Zenless Zone Zero: [ZenlessZoneZero-OneDragon](https://github.com/OneDragon-Anything/ZenlessZoneZero-OneDragon), as an extracted release in a path without spaces
 - A CN-server account, signed in by scanning a QR code with the Miyoushe app
+- Optional: a Linux machine (Python 3.10+, bash; systemd to keep it running) to host the dashboard, planning and Miyoushe data. Runs still need the Windows PC; see [Linux](#linux) below.
 
 ## Quick Start
 
@@ -52,6 +53,16 @@ The planner follows four rules:
 To stop the backend, run `./Stop.ps1` in PowerShell 7. It stops only this installation's backend and refuses while a batch runs; `./Stop.ps1 -Force` stops the batch first and restores the tool settings.
 
 If the backend cannot start, the window says why and stays open. A common cause is another program using port 18800: `Start.bat -Port 18810` uses another port and saves it for this installation. Exit codes and details are in [ARCHITECTURE.md section 7.1](ARCHITECTURE.md#71-starting-and-stopping).
+
+### Linux
+
+The backend also runs on Linux, for example on a home server or a VPS, to plan and read Miyoushe data around the clock. Runs need Windows: BetterGI, OneDragon and the games are Windows programs, so the dashboard there offers no Run buttons.
+
+- `./start.sh` sets up `.venv` and starts the backend in the background at `http://127.0.0.1:18800/`. `./start.sh --port 18810` uses another port.
+- `./start.sh --service` runs it as a systemd user service that restarts after a crash. After `sudo loginctl enable-linger $USER` it also starts with the machine.
+- `./stop.sh` stops it.
+
+It listens on `127.0.0.1` only. From another computer, open it through an SSH tunnel (`ssh -N -L 18800:127.0.0.1:18800 you@server`, then `http://127.0.0.1:18800/`). Linux has no DPAPI, so credentials are stored in files only your user can read.
 
 ## Documentation
 
@@ -91,7 +102,7 @@ This is a personal automation and planning project. It is not affiliated with Ho
 - **通知**：每批一条摘要，可通过 Windows 气泡通知、Telegram、Webhook 或 JSON 中转服务发送。
 - **双语与深浅色**：英文与简体中文（页面顶部 `EN / 中文` 切换）；主题可选跟随系统、浅色或深色。
 - **游戏图片**：角色头像与材料图标在官方接口首次返回时保存到本地，控制台页面本身不会下载图片。
-- **隐私**：默认只监听 `127.0.0.1`，局域网访问必须设置密码；凭据使用 Windows DPAPI 加密保存。
+- **隐私**：默认只监听 `127.0.0.1`，局域网访问必须设置密码；凭据使用 Windows DPAPI 加密保存（Linux 上为仅当前用户可读的文件）。
 
 ## 环境要求
 
@@ -100,6 +111,7 @@ This is a personal automation and planning project. It is not affiliated with Ho
   - 原神：[BetterGI](https://github.com/babalae/better-genshin-impact)
   - 绝区零：[ZenlessZoneZero-OneDragon](https://github.com/OneDragon-Anything/ZenlessZoneZero-OneDragon)（解压后的发行版，路径中不要有空格）
 - 国服账号，使用米游社 App 扫码登录
+- 可选：一台 Linux 机器（Python 3.10+、bash；常驻运行需 systemd），用于承载控制台、规划与米游社数据。执行仍需 Windows 电脑，见下方 Linux 一节。
 
 ## 快速开始
 
@@ -113,6 +125,16 @@ This is a personal automation and planning project. It is not affiliated with Ho
 停止后台：在 PowerShell 7 中执行 `./Stop.ps1`。它只停止本安装的后台，有批次正在执行时会拒绝；`./Stop.ps1 -Force` 会先停止批次并还原工具配置。
 
 如果后台无法启动，窗口会说明原因并保持打开。常见原因是端口 18800 被其他程序占用：执行 `Start.bat -Port 18810` 即改用其他端口，并为本安装保存。退出码与细节见 [ARCHITECTURE.md 第 7.1 节](ARCHITECTURE.md#71-starting-and-stopping)（英文）。
+
+### Linux
+
+后台也可以运行在 Linux 上（例如家用服务器或 VPS），全天进行规划并读取米游社数据。执行需要 Windows：BetterGI、一条龙与游戏都是 Windows 程序，因此 Linux 上的控制台不提供执行按钮。
+
+- `./start.sh` 会创建 `.venv` 并在后台启动服务，地址为 `http://127.0.0.1:18800/`；`./start.sh --port 18810` 改用其他端口。
+- `./start.sh --service` 以 systemd 用户服务运行，异常退出后会自动重启；执行一次 `sudo loginctl enable-linger $USER` 后还会随系统启动。
+- `./stop.sh` 停止服务。
+
+服务只监听 `127.0.0.1`。从其他电脑访问时请使用 SSH 隧道（`ssh -N -L 18800:127.0.0.1:18800 用户名@服务器`，然后打开 `http://127.0.0.1:18800/`）。Linux 没有 DPAPI，凭据保存在仅当前用户可读的文件中。
 
 ## 文档
 
