@@ -6,7 +6,7 @@ import threading
 import time
 import uuid
 
-from . import core, goals, mihoyo, notify, planner, tools
+from . import core, goals, mihoyo, notify, planner, scanners, tools
 from .i18n import tr
 
 log = logging.getLogger('gcl.runner')
@@ -143,6 +143,8 @@ def _run_game(run_id: str, game: str) -> dict:
             log.exception('Equipment re-read before the batch failed')
         p = planner.plan(game)
     item = p['item']
+    scan = scanners.due(game, p['phase'])  # read the whole inventory after this batch, while the game is open
+    STATE['scan'] = scan
     result = {'game': game, 'status': 'FAILED', 'reason': p['reason'], 'phase': p['phase'],
               'item': item and {k: item[k] for k in ('key', 'goal', 'label', 'names', 'unit_label', 'upper', 'expected')},
               'goal_id': item and item.get('goal_id'), 'completed': None, 'errors': [], 'notes': [],
@@ -177,7 +179,8 @@ def _run_game(run_id: str, game: str) -> dict:
         if game == 'genshin':
             proc = tools.start(tool_exe, ['startOneDragon', profile], hidden=True)
         else:
-            proc = tools.start(tool_exe, ['-o', '-c'], cwd=tools.zzz_root(), hidden=True)
+            # -c closes the game after the run; a scan needs it open (OneDragon still exits by itself)
+            proc = tools.start(tool_exe, ['-o'] if scan else ['-o', '-c'], cwd=tools.zzz_root(), hidden=True)
         result['started_tool'] = True
         deadline = time.monotonic() + int(s['execution']['timeout_minutes']) * 60
         terminal_at = None
@@ -196,19 +199,38 @@ def _run_game(run_id: str, game: str) -> dict:
     except Exception as exc:
         result['errors'].append(str(exc))
     finally:
-        _stage('stage_collect')
-        for path in (tool_exe, game_exe):
-            try:
-                tools.kill_path(path)
-            except Exception as exc:
-                result['errors'].append(tr('kill_failed', error=exc))
+        scanning = scan and result['status'] != 'STOPPED' and not timed_out and game_exe and tools.running(game_exe)
+        _stage('stage_scan' if scanning else 'stage_collect')
+        try:
+            tools.kill_path(tool_exe)
+        except Exception as exc:
+            result['errors'].append(tr('kill_failed', error=exc))
         if proc and proc.poll() is None:
             tools.kill_tree(proc.pid)
+        if scanning:
+            result['notes'].append(_scan(game, game_exe))
+            _stage('stage_collect')
+        try:
+            tools.kill_path(game_exe)
+        except Exception as exc:
+            result['errors'].append(tr('kill_failed', error=exc))
         time.sleep(2)
         text = tools.read_new(game, baseline) if baseline is not None else ''
         receipt = tools.zzz_receipt(plan_ids) if game == 'zzz' and plan_ids else None
         result['errors'] += tools.restore_all()
     return _receipt(result, game, item, text, receipt, timed_out)
+
+
+def _scan(game: str, game_exe) -> str:
+    """Inventory scan; its outcome is a note on the run, never the run's status."""
+    try:
+        found = scanners.run(game, game_exe, STOP)
+    except Exception as exc:
+        log.exception('Inventory scan failed')
+        found = {'error': str(exc)[:200]}
+    if 'count' in found:
+        return tr('scan_done', count=found['count'])
+    return tr('scan_note_failed', error=found['error'])
 
 
 def _receipt(result: dict, game: str, item: dict | None, text: str, receipt: dict | None, timed_out: bool) -> dict:

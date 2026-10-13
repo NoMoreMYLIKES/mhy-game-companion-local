@@ -12,7 +12,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import assets, core, gear, goals, materials, mihoyo, notify, planner, runner, scheduler, tools
+from . import assets, core, gear, goals, inventory, materials, mihoyo, notify, planner, runner, scheduler, tools
 from .i18n import tr
 
 log = logging.getLogger('gcl.web')
@@ -54,6 +54,7 @@ def goal_view(goal: dict, ctx: dict, weekday: int) -> dict:
     view = {k: v for k, v in goal.items() if k not in ('allowance', 'gear')}
     view['items'] = items
     view['gear_eval'] = gear.evaluate(goal)
+    view['gear_owned'] = ((inventory.arrange(goal['game']) or {}).get('goals') or {}).get(goal['id'])
     return view
 
 
@@ -73,11 +74,26 @@ def full_state() -> dict:
         'health': {k: mihoyo.health(k) for k in ('notes-genshin', 'notes-zzz', 'calc')},
         'settings': public_settings(), 'check': env_check(), 'notifications': notify.recent(10),
         'assets': assets.cached(), 'assets_status': assets.status(),
+        'inventory': {g: inventory_view(g) for g in ('zzz', 'genshin')},
         'catalog': {'bosses': ctx['bosses'], 'blessing': [d['name'] for d in ctx['domains'] if d['type'] == 'BlessDomain'],
                     'disc': materials.zzz_disc_missions(s['paths']['onedragon']),
                     'disc_sets': materials.gear_sets('zzz', s['paths']['onedragon']),
                     'artifact_sets': materials.gear_sets('genshin')},
     }
+
+
+def inventory_view(game: str) -> dict | None:
+    """The last inventory scan: when, how many pieces, and the spare ones grouped by set."""
+    info = inventory.summary(game)
+    if not info:
+        return None
+    arranged = inventory.arrange(game) or {}
+    pieces = {p['uid']: p for p in inventory.load(game)['pieces']}
+    spare: dict[str, int] = {}
+    for uid in arranged.get('spare', []):
+        spare[pieces[uid]['set']] = spare.get(pieces[uid]['set'], 0) + 1
+    return {**info, 'spare': len(arranged.get('spare', [])),
+            'spare_sets': sorted(spare.items(), key=lambda kv: -kv[1])}
 
 
 def _is_loopback(host: str) -> bool:

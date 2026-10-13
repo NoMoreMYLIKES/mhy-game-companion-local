@@ -12,6 +12,7 @@ import json
 import os
 import re
 import subprocess
+import time
 import uuid
 from ctypes import wintypes
 from pathlib import Path
@@ -488,6 +489,101 @@ def launch_game(game: str) -> subprocess.Popen:
         raise ValueError(tr('game_missing', path=exe or tr('not_configured')))
     e = core.settings()['execution']
     return start(exe, GAME_ARGS.format(w=e['window_width'], h=e['window_height']).split())
+
+
+# ---------------------------------------------------------------- game window input (inventory scans)
+# Scanners need their screen opened first: a key press and a few clicks at 1920×1080 positions, scaled
+# to the game's client area. SendInput with scan codes, which games read as raw input.
+
+KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE = 0x0002, 0x0008
+MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP = 0x0002, 0x0004
+VK = {'B': 0x42, 'ALT': 0x12, 'ESC': 0x1B}
+
+
+class _KeyInput(ctypes.Structure):
+    _fields_ = [('wVk', wintypes.WORD), ('wScan', wintypes.WORD), ('dwFlags', wintypes.DWORD),
+                ('time', wintypes.DWORD), ('dwExtraInfo', ctypes.c_size_t)]
+
+
+class _MouseInput(ctypes.Structure):
+    _fields_ = [('dx', wintypes.LONG), ('dy', wintypes.LONG), ('mouseData', wintypes.DWORD),
+                ('dwFlags', wintypes.DWORD), ('time', wintypes.DWORD), ('dwExtraInfo', ctypes.c_size_t)]
+
+
+class _InputUnion(ctypes.Union):
+    _fields_ = [('ki', _KeyInput), ('mi', _MouseInput)]
+
+
+class _Input(ctypes.Structure):
+    _fields_ = [('type', wintypes.DWORD), ('u', _InputUnion)]
+
+
+def _send(*events: _Input) -> None:
+    ctypes.windll.user32.SendInput(len(events), (_Input * len(events))(*events), ctypes.sizeof(_Input))
+
+
+def _key_event(vk: int, up: bool = False) -> _Input:
+    scan = ctypes.windll.user32.MapVirtualKeyW(vk, 0)
+    return _Input(type=1, u=_InputUnion(ki=_KeyInput(0, scan, KEYEVENTF_SCANCODE | (KEYEVENTF_KEYUP if up else 0), 0, 0)))
+
+
+def _mouse_event(flags: int) -> _Input:
+    return _Input(type=0, u=_InputUnion(mi=_MouseInput(0, 0, 0, flags, 0, 0)))
+
+
+def key(name: str, hold: float = 0.08) -> None:
+    _send(_key_event(VK[name]))
+    time.sleep(hold)
+    _send(_key_event(VK[name], up=True))
+
+
+def game_window(path) -> int | None:
+    """The visible top-level window of the game process, or None."""
+    user32 = ctypes.windll.user32
+    try:  # physical pixels for window sizes and cursor positions
+        user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
+    except (AttributeError, OSError):
+        pass
+    pids = set(pids_by_path(path))
+    found: list[int] = []
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def each(hwnd, _):
+        pid = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        if pid.value in pids and user32.IsWindowVisible(hwnd):
+            found.append(hwnd)
+        return True
+
+    user32.EnumWindows(each, 0)
+    return found[0] if found else None
+
+
+def focus(hwnd: int) -> None:
+    """Bring the game to the front (an Alt tap lets a background process take the foreground)."""
+    ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+    _send(_key_event(VK['ALT']), _key_event(VK['ALT'], up=True))
+    ctypes.windll.user32.SetForegroundWindow(hwnd)
+
+
+def click(hwnd: int, x: int, y: int, alt: bool = False) -> None:
+    """Left click at a 1920×1080 position, scaled to the window's client area; ``alt`` holds Alt (ZZZ frees the cursor)."""
+    user32 = ctypes.windll.user32
+    rect = wintypes.RECT()
+    user32.GetClientRect(hwnd, ctypes.byref(rect))
+    point = wintypes.POINT(int(x * rect.right / 1920), int(y * rect.bottom / 1080))
+    user32.ClientToScreen(hwnd, ctypes.byref(point))
+    if alt:
+        _send(_key_event(VK['ALT']))
+        time.sleep(0.3)
+    user32.SetCursorPos(point.x, point.y)
+    time.sleep(0.15)
+    _send(_mouse_event(MOUSEEVENTF_LEFTDOWN))
+    time.sleep(0.08)
+    _send(_mouse_event(MOUSEEVENTF_LEFTUP))
+    if alt:
+        time.sleep(0.2)
+        _send(_key_event(VK['ALT'], up=True))
 
 
 # ---------------------------------------------------------------- audio (PowerShell 7 only)

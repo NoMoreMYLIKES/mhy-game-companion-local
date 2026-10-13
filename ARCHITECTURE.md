@@ -33,6 +33,8 @@ mhy-game-companion-local/
 │   ├── scheduler.py            # 20 s loop: slots with catch-up, notes polling, goal sync, outbox
 │   ├── notify.py               # Notification outbox and channels
 │   ├── assets.py               # Local cache of portraits / material icons / disc and artifact set icons from official API responses
+│   ├── inventory.py            # Scanned Drive Disc / Artifact inventory: best owned arrangement per character, spare pieces
+│   ├── scanners.py             # Inventory scanners (yas, ZZZ-Scanner.Next): open their screen, run them, read their files
 │   ├── web.py                  # ThreadingHTTPServer: static UI + JSON API + cached images, loopback/LAN guard
 │   ├── templates/              # bettergi_morning.json (neutral BetterGI One Dragon template)
 │   └── datasets/               # genshin.json, zzz.json (offline game data); zzz_disc_stages.json, genshin_artifact_domains.json (where each set drops)
@@ -55,6 +57,8 @@ mhy-game-companion-local/
 | `scheduler` | Background loop and the logon task | everything above | `slot_done:*` |
 | `notify` | Outbox delivery with retries | channel endpoints | `outbox` table |
 | `assets` | Saves each image once, the first time an official API response names it | `core` | `data/assets/`, `asset_sources`, `asset_failed` |
+| `inventory` | The last scan per game; each farming character's best arrangement of pieces it owns, in goal order | `core`, `gear` | `inventory:<game>`, `inventory_at:<game>` |
+| `scanners` | Runs an inventory scanner after a batch and converts its file | `tools`, `inventory` | `data/scans/<game>/` |
 | `web` | HTTP API and static files | everything above | – |
 
 ---
@@ -75,6 +79,7 @@ All runtime data lives in `data/` (or `%GCL_HOME%`), which is git-ignored.
 | `logs/startup.log` | Output of the backend process started by the launcher (tracebacks from before logging starts) |
 | `logs/app.log` | Rotating application log (2 MB × 3) |
 | `assets/<game>/<kind>/<id>.<ext>` | Cached character portraits and material icons (stable game IDs) |
+| `scans/<game>/` | The inventory scanners' output files (`good.json`, `Scans/<run>/export.json`) |
 
 ### 2.1 SQLite schema (`core.SCHEMA`)
 
@@ -135,7 +140,7 @@ CREATE TABLE IF NOT EXISTS outbox  (id TEXT PRIMARY KEY, created TEXT, payload T
 }
 ```
 
-**KV keys**: `patch_journal`, `mute_journal`, `current_run`, `device` (Miyoushe device id/fingerprint), `accounts`, `account_candidates`, `health:<notes-genshin|notes-zzz|calc|detail>` (`detail`: the Genshin character detail that carries artifacts), `slot_done:<YYYY-MM-DD@HH:MM>`, `equip_used:<game>`, `asset_sources` (image URL per asset key), `asset_failed` (last failed download per key).
+**KV keys**: `patch_journal`, `mute_journal`, `current_run`, `device` (Miyoushe device id/fingerprint), `accounts`, `account_candidates`, `health:<notes-genshin|notes-zzz|calc|detail>` (`detail`: the Genshin character detail that carries artifacts), `slot_done:<YYYY-MM-DD@HH:MM>`, `equip_used:<game>`, `asset_sources` (image URL per asset key), `asset_failed` (last failed download per key), `inventory:<game>` (the last scan: `at`, `source`, `located`, `pieces` in the observation's format plus `uid`, `location`, `lock`), `inventory_at:<game>`.
 
 Stamina samples store their source as a message key (`source_notes`, `source_onedragon`) and are translated when shown.
 
@@ -150,7 +155,7 @@ Secrets are encrypted with `CryptProtectData` (`CRYPTPROTECT_UI_FORBIDDEN`), bou
 One rule serves the dashboard preview, the 3-day forecast and execution. Per game, per batch, exactly one item:
 
 1. Enabled goals in user order → the goal's category order → the first item that is not collected, has an automatic route, is not paused, has a known unit count, is open today (Genshin domain weekdays, 04:00 reset) and still has allowance left.
-2. Otherwise the optional equipment continuation (Genshin Domain of Blessing / ZZZ Area Patrol mission) while its cumulative cap has room. When any enabled goal of that game has `farm` on in its equipment target, the first such character (goal order) whose equipment does not meet the target decides where: its next set (the first unmet target set, else the 4-piece set) and the place that drops it: the ZZZ Area Patrol stage (the installed OneDragon's compendium, else `zzz_disc_stages.json`) or the Genshin Domain of Blessing (`genshin_artifact_domains.json`, named as BetterGI names it). When every such character is finished, nothing is farmed; the stage or domain in Settings is used only while no character steers farming.
+2. Otherwise the optional equipment continuation (Genshin Domain of Blessing / ZZZ Area Patrol mission) while its cumulative cap has room. With an inventory scan, a character also counts as finished once the best arrangement of pieces it owns meets its target (`inventory.arrange`: in goal order, from unequipped pieces and its own, never another character's; each character takes its picks off the table), and its next set comes from that arrangement; the goal card lists the pieces to equip. When any enabled goal of that game has `farm` on in its equipment target, the first such character (goal order) whose equipment does not meet the target decides where: its next set (the first unmet target set, else the 4-piece set) and the place that drops it: the ZZZ Area Patrol stage (the installed OneDragon's compendium, else `zzz_disc_stages.json`) or the Genshin Domain of Blessing (`genshin_artifact_domains.json`, named as BetterGI names it). When every such character is finished, nothing is farmed; the stage or domain in Settings is used only while no character steers farming.
 3. Otherwise nothing: stamina is kept and only free daily tasks run.
 
 **Equipment score** (`gear`): each substat counts its value in top-rarity rolls (A and B discs roll smaller steps; Genshin rolls are 70–100 % of a maximum roll, so each counts its share of one) times its weight; a piece scores that against the best a piece with its main stat could hold (four different weighted substats plus five upgrades of the best one), from 0 to 100; the set score is the mean over all slots (six discs, five artifacts), an empty slot counting 0. Each piece also reports its wasted upgrades (upgrades into substats that do not count), and the set its counted rolls per substat. Weights default to 1 for the substats the followed build recommends, with flat HP/ATK/DEF worth their share of the agent's base stat; the user can set all ten. Builds name stat families, not variants (Miyoushe may send flat ATK for "ATK"): a recommended family gives its % stat 1 and its flat stat the base-stat share, and a main-stat pick becomes the variant the slot can carry (flat ATK on slot 5 → ATK%); the main-stat check compares families. A target is met when all six slots are filled, the target sets and slot 4–6 main stats match and the score reaches the target. Unknown (unreadable substats, no weights) is never met.
@@ -169,10 +174,12 @@ Unit conversion (`materials`): Genshin talent / weapon domains count **20 Origin
        for game in (zzz, genshin):
          refresh Real-Time Notes (best effort) → planner.plan(game)
          equipment batch for a character → re-read its discs (goals.sync, observe) and plan again
+         scan due (scanners.due: after an equipment batch, else once a day) → ZZZ runs OneDragon without -c
          tool missing → FAILED;  game already running → skip or restart (execution.if_game_running)
          write tool config (journaled) → launch game → launch tool hidden
          wait: tool exit | execution.timeout_minutes | stop request | BetterGI end-of-run log line + 30 s
          finally: kill tool and game, read new log text / plan counters, restore journal
+         before closing the game, when a scan is due: open the bag / Drive Disc storage, run the scanner, store the inventory (a note on the run)
          receipt → completed units → allowance (goal) or equip_used (+ the character's gear_runs) (equipment)
        finally: unmute, final status, notification, delete current_run
   after: re-sync a material goal at +60 s and +180 s; refresh Real-Time Notes at +60 s
@@ -243,7 +250,16 @@ Game executables are read from the tools' own configs unless `paths.genshin_exe`
 - **Battery Charge**: upstream OneDragon reads Battery Charge before every plan row; with `skip_plan: true` (set by this app) a row it cannot afford is skipped. It never shortens a row, so a 5-card Combat Simulation row needs 100 Battery Charge.
 - **Optional live Battery Charge adapter**: a local patch to OneDragon's `src/zzz_od/application/charge_plan/charge_plan_app.py`, detected by its markers (`game-companion collection adapter v2`, `game-companion live energy v1`). It lets the last batch use the Battery Charge actually left instead of being skipped, and reports where it stopped (`companion_energy_stop`); the `companion_*` keys this app writes are only read by the adapter. It is not distributed with this repository, and the app works without it.
 
-### 6.3 Audio
+### 6.3 Inventory scanners
+
+Optional, installed separately like the tools (`paths.yas`, `paths.zzz_scanner`, switch `features.scan_inventory`). Both read the screen with OCR (no memory or packet reading), need the Simplified Chinese UI in a 16:9 window (the app launches games at 1920×1080) and must not be disturbed by mouse input. They run after the tool, before the app closes the game; the app opens their screen with `tools.key` / `tools.click` (SendInput with scan codes, 1920×1080 positions scaled to the client area).
+
+- **Genshin: yas** (a maintained fork, e.g. 1803233552/yas; no licence, so never bundled). The app presses `B` and clicks the artifact tab at (675, 50), then runs `yas_artifact.exe -f good --output-dir data/scans/genshin`. yas needs administrator rights (the backend has them), waits for a key at the end (stdin is closed) and exits 0 even after a failure, so only a `good.json` newer than the run counts. GOOD (Genshin Optimizer's format) gives set key, slot, level, rarity, main stat, substats (display values), wearer and lock; set keys map to set ids through `genshin_artifact_sets.json` (Genshin Optimizer's `artifactIdMap`, MIT, with genshin-db names).
+- **ZZZ: ZZZ-Scanner.Next** (MIT). OneDragon runs without `-c` so the game stays open; the app holds Alt and clicks the menu button (130, 71), the storage button in the menu bar and the Drive Disc tab (1549, 168), then runs `ZZZ-Scanner.Next.exe --scan-once --include-non15 --output-root data/scans/zzz` (exit code 0 = success). Its `export.json` has Chinese keys (名称 set, 槽位 slot, 品质 rarity, 等级 level, 主属性 / 副属性 `{stat: value}`; a value ending in % is the % variant) and no wearer or lock, so the arrangement keeps out what the other goal characters wear (from Miyoushe) and lists no spare pieces. The storage button's position in the menu bar (`scanners.ZZZ_MENU_STORAGE`) still has to be read from a 1920×1080 screenshot; until then ZZZ scans stop with that message.
+
+A scan never equips, locks or dismantles anything; its result or failure is a note on the run.
+
+### 6.4 Audio
 
 `tools/audio.ps1 -Action get|mute|set` (PowerShell 7 only) controls the default playback device through `IAudioEndpointVolume` and prints JSON. The previous state is kept in `mute_journal` until restored.
 
@@ -339,7 +355,7 @@ After a failure `Start.bat` waits for a key when it was opened by double-click; 
 2. Raise `ValueError` for user errors; it becomes a 400 with the message.
 
 ### Updating datasets
-`server/datasets/*.json` are generated snapshots (see each file's `source`, `source_url` and `at`). Regenerate them from those sources rather than editing by hand; material ids and Chinese names must match the official calculator. `genshin_artifact_domains.json` lists the 22 Domains of Blessing with the 5-star sets each drops, built from genshin-db (ChineseSimplified domains at their highest tier, and artifacts for set ids), keeping the domains BetterGI's `tp.json` lists under the same names. `zzz_disc_stages.json` lists the 15 Area Patrol stages and the two sets each drops, built from OneDragon's `compendium_data.yml` (`mission_type_name_display`) with suit ids from Enka's `store/zzz/equipments.json`; it is only the fallback for hosts without OneDragon.
+`server/datasets/*.json` are generated snapshots (see each file's `source`, `source_url` and `at`). Regenerate them from those sources rather than editing by hand; material ids and Chinese names must match the official calculator. `genshin_artifact_sets.json` maps every artifact set's game id to its Genshin Optimizer key (GOOD `setKey`) and Chinese name. `genshin_artifact_domains.json` lists the 22 Domains of Blessing with the 5-star sets each drops, built from genshin-db (ChineseSimplified domains at their highest tier, and artifacts for set ids), keeping the domains BetterGI's `tp.json` lists under the same names. `zzz_disc_stages.json` lists the 15 Area Patrol stages and the two sets each drops, built from OneDragon's `compendium_data.yml` (`mission_type_name_display`) with suit ids from Enka's `store/zzz/equipments.json`; it is only the fallback for hosts without OneDragon.
 
 ---
 
@@ -352,15 +368,16 @@ After a failure `Start.bat` waits for a key when it was opened by double-click; 
 5. **PowerShell 7 only** (`C:\Program Files\PowerShell\7\pwsh.exe`), never Windows PowerShell 5.1.
 6. **Runtime data stays local**: never commit `data/`.
 7. **Runs need Windows**: code that starts or stops tools, games or Windows services checks `tools.automation()` first; a Linux host plans and reads data only.
-8. **Only the characters the user selected are requested in detail**: equipment comes with the goal's own sync. ZZZ discs ride in the upgrade-guide answer already read for levels; Genshin artifacts need Miyoushe's character detail, requested with that goal's character id only (never the whole roster), not again within 60 s of the last read, and backed off like the other sources after a failure or captcha (`health:detail`). A failed equipment read never stops the level read.
-9. **No request without a user action or a scheduled job**: opening a page never calls the official API or downloads images; images are saved once from responses the app already requested. ZZZ portraits are the one derived address: the upgrade guide returns no `role_square_url`, so `mihoyo.zzz_portrait` uses the official square avatar (`act-webstatic.mihoyo.com/game_record/zzzv2/role_square_avatar/role_square_avatar_<id>.png`) of an agent id such a response named.
+8. **Equipment is never equipped, locked or dismantled by the app**: scans only read; spare pieces are only listed.
+9. **Only the characters the user selected are requested in detail**: equipment comes with the goal's own sync. ZZZ discs ride in the upgrade-guide answer already read for levels; Genshin artifacts need Miyoushe's character detail, requested with that goal's character id only (never the whole roster), not again within 60 s of the last read, and backed off like the other sources after a failure or captcha (`health:detail`). A failed equipment read never stops the level read.
+10. **No request without a user action or a scheduled job**: opening a page never calls the official API or downloads images; images are saved once from responses the app already requested. ZZZ portraits are the one derived address: the upgrade guide returns no `role_square_url`, so `mihoyo.zzz_portrait` uses the official square avatar (`act-webstatic.mihoyo.com/game_record/zzzv2/role_square_avatar/role_square_avatar_<id>.png`) of an agent id such a response named.
 
 ---
 
 ## 12. Verification
 
 ```powershell
-python -m unittest tests.test_smoke tests.test_launcher tests.test_gear   # imports, planner, i18n, anonymization; start / stop cases; Drive Disc scores and targets
+python -m unittest tests.test_smoke tests.test_launcher tests.test_gear tests.test_scan   # imports, planner, i18n, anonymization; start / stop; equipment scores, targets and arrangements; scanner files and the scan step
 python -m server                                          # run in the foreground
 python -m server.launcher status                          # address, runtime folder and PID, as Start and Stop see them
 Invoke-RestMethod http://127.0.0.1:18800/api/health

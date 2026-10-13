@@ -135,6 +135,16 @@ const I18N = {
     stage_launch: 'Launch game',
     stage_running: 'Automate',
     stage_collect: 'Collect and restore',
+    stage_scan: 'Scan inventory',
+    scan_title: 'Inventory scan',
+    scan_help: 'Miyoushe shows only equipped pieces. A scan reads every artifact or Drive Disc you own, so equipment farming stops once pieces you own meet a character’s target, and the goal card lists what to equip. The app never equips, locks or dismantles anything.',
+    scan_switch: 'Scan the inventory automatically',
+    scan_sub: 'After every equipment run, and at least once a day otherwise, before the game closes',
+    scan_yas: 'Genshin scanner (yas_artifact.exe, a maintained yas fork)',
+    scan_zzz: 'ZZZ scanner (ZZZ-Scanner.Next.exe)',
+    scan_last: 'Last scan {0}: {1} pieces',
+    scan_never: 'Not scanned yet',
+    scan_rules: 'Both scanners read the screen: the game must use the Simplified Chinese UI in a 1920×1080 window, and the mouse must not be touched during a scan (2–5 minutes per 1,000 pieces). Install the scanners yourself; the app opens the bag or the Drive Disc storage and runs them.',
     stage_stopping: 'Stopping…',
     btn_stop: 'Stop current run',
 
@@ -315,6 +325,12 @@ const I18N = {
     equip_used: 'Used {0} of {1}',
     equip_fixed_hint: 'Used only while no character’s equipment target steers farming',
     gear_wasted: 'Wasted upgrades: {0}',
+    gear_status_owned: 'Owned pieces meet the target',
+    gear_owned_title: 'With pieces you own: {0}',
+    gear_owned_done: 'Equip these to meet the target',
+    gear_owned_short: 'Still short with the best pieces you own; farming continues',
+    inv_line: 'Inventory scanned {0}: {1} pieces, {2} spare',
+    inv_spare_help: 'Spare: unequipped, unlocked pieces that score below 30 for every character that farms equipment. Dismantle them in the game if you like; the app never does.',
     gear_all_hit: 'Every upgrade counts',
     gear_totals: 'Counted rolls: {0}',
     gear_title: 'Drive Discs',
@@ -619,6 +635,16 @@ const I18N = {
     stage_launch: '启动游戏',
     stage_running: '自动化运行',
     stage_collect: '收集结果并还原',
+    stage_scan: '扫描背包',
+    scan_title: '背包扫描',
+    scan_help: '米游社只显示已装备的装备。扫描会读取你拥有的全部圣遗物或驱动盘：一旦已拥有的装备能达成角色目标，装备刷取即停止，培养卡片会列出需要换上的装备。本程序从不装备、上锁或分解任何装备。',
+    scan_switch: '自动扫描背包',
+    scan_sub: '每次装备刷取后、以及至少每天一次，在关闭游戏前进行',
+    scan_yas: '原神扫描程序（yas_artifact.exe，维护中的 yas 分支）',
+    scan_zzz: '绝区零扫描程序（ZZZ-Scanner.Next.exe）',
+    scan_last: '上次扫描{0}：{1} 件',
+    scan_never: '尚未扫描',
+    scan_rules: '两个扫描程序都读取屏幕：游戏需使用简体中文界面、1920×1080 窗口，扫描期间不要操作鼠标（每 1,000 件约 2–5 分钟）。扫描程序需自行安装；本程序会打开背包或驱动盘仓库并运行它们。',
     stage_stopping: '正在停止…',
     btn_stop: '停止当前执行',
 
@@ -799,6 +825,12 @@ const I18N = {
     equip_used: '已用 {0} / {1}',
     equip_fixed_hint: '仅在没有角色的装备目标参与刷取时使用',
     gear_wasted: '未命中 {0} 次',
+    gear_status_owned: '已有装备可达成目标',
+    gear_owned_title: '使用已有装备：{0}',
+    gear_owned_done: '换上这些即可达成目标',
+    gear_owned_short: '换上已有的最佳装备后仍未达标，继续刷取',
+    inv_line: '背包扫描于{0}：共 {1} 件，闲置 {2} 件',
+    inv_spare_help: '闲置：未装备、未上锁，且对每个刷取装备的角色评分都低于 30 的装备。可在游戏中自行分解；本程序从不分解。',
     gear_all_hit: '满命中',
     gear_totals: '计入的强化次数：{0}',
     gear_title: '驱动盘',
@@ -1003,7 +1035,7 @@ const TABS = [['today', 'home', 'nav_today'], ['goals', 'target', 'nav_goals'], 
               ['runs', 'history', 'nav_runs'], ['settings', 'sliders', 'nav_settings']];
 const RECOVERY_MINUTES = { genshin: 8, zzz: 6 };
 const UNIT_ICON = { genshin: 'resin', zzz: 'battery' };
-const STAGES = ['stage_prepare', 'stage_config', 'stage_launch', 'stage_running', 'stage_collect'];
+const STAGES = ['stage_prepare', 'stage_config', 'stage_launch', 'stage_running', 'stage_scan', 'stage_collect'];
 const DAILY_ICON = { daily_mail: 'mail', daily_teapot: 'cup', daily_commission: 'clipboard',
                      daily_onedragon: 'list', daily_zzz_rewards: 'gift' };
 const RUN_STATUS = { SUCCESS: ['good', 'check'], PARTIAL: ['warn', 'alert'], FAILED: ['bad', 'x'],
@@ -1410,10 +1442,11 @@ function exceptions() {
 
 function runningPanel(r) {
   const key = r.stage_key || 'stage_prepare';
-  const current = STAGES.indexOf(key);
+  const stages = STAGES.filter(k => k !== 'stage_scan' || r.scan);  // the scan step only when this game scans
+  const current = stages.indexOf(key);
   const games = r.games || [];
   const stopping = key === 'stage_stopping';
-  const steps = STAGES.map((k, i) => {
+  const steps = stages.map((k, i) => {
     const state = current < 0 ? '' : i < current ? 'done' : i === current ? 'current' : '';
     return `<li class="step ${state}">${state === 'done' ? icon('check') : `<span class="n">${i + 1}</span>`}<span>${t(k)}</span></li>`;
   }).join('');
@@ -1674,6 +1707,7 @@ function renderGoals() {
   el.innerHTML = `
     ${pageHead(t('nav_goals'), t('goals_sub'), button('add-goal', 'plus', t('btn_add_goal'), 'primary'))}
     <div class="toolbar"><div class="seg" role="tablist" aria-label="${t('nav_goals')}">${tabs}</div>${help(t('stable_list_help'))}</div>
+    ${inventoryLine(GOALS_GAME)}
     ${active.length ? active.map((g, i) => goalCard(g, i, active.length, nextKey)).join('') : `
       <div class="panel empty">${icon('target')}<h2>${t('goals_empty_title')}</h2><p>${t('goals_empty_desc')}</p>
         ${button('add-goal', 'plus', t('btn_add_goal'), 'primary')}</div>`}
@@ -1796,6 +1830,7 @@ function gearStatus(g, ev) {
   const row = gearQueueRow(g);
   const eq = STATE.plans?.[g.game]?.equipment || {};
   if (ev && ev.done) return badge('good', 'check', t('gear_status_met'));
+  if (g.gear_owned && g.gear_owned.done) return badge('good', 'check', t('gear_status_owned'));
   if (!ev?.target?.farm) return badge('muted', 'minus', t('gear_status_off'));
   if (row && row.why) return badge('warn', 'clock', esc(row.why));
   if (eq.goal_id === g.id && !eq.why) return badge('info', 'target', t('gear_status_next', esc(row.stage)));
@@ -1828,6 +1863,7 @@ function gearSection(g) {
         <div class="gear-checks">${chips}</div>
         <div class="gear-state">${gearStatus(g, ev)}</div>
       </div>
+      ${ownedBlock(g)}
       <p class="meta ink-2"><span>${src}</span><span>${icon('refresh')}${t('gear_read', relative(ev.at))}</span>${g.gear_runs ? `<span>${t('gear_runs', num(g.gear_runs))}</span>` : ''}${toggleButton(detailId)}</p>
       ${detailPanel(detailId, `
         <ul class="discs">${ev.slots.map(s => discCard(g.game, s)).join('')}</ul>
@@ -1836,6 +1872,33 @@ function gearSection(g) {
           .map(i => `${propName(i)} ${num(ev.totals[i])}`).join(tp('list_sep'))), 'list') : ''}
         ${help(t(cfg.help))}`, 'mt')}
     </section>`;
+}
+
+/** The best arrangement of pieces the character owns (with an inventory scan): what to equip, slot by slot. */
+function ownedBlock(g) {
+  const own = g.gear_owned;
+  if (!own || (!own.changes.length && g.gear_eval?.done)) return '';
+  const rows = own.changes.map(c => `
+    <li>${setIcon(g.game, c.set_id)}<span><b>${slotName(g.game, c.slot)}</b> · ${esc(c.set)} · ${propName(c.main?.id, c.main?.name)}</span>
+      <span class="num">${c.was == null ? '–' : num(Math.round(c.was * 10) / 10)} → <b>${num(c.score)}</b></span></li>`).join('');
+  return `
+    <div class="owned">
+      <p>${icon(own.done ? 'check' : 'info')}<b>${t('gear_owned_title', num(own.score))}</b><span class="ink-2">${t(own.done ? 'gear_owned_done' : 'gear_owned_short')}</span></p>
+      ${rows ? `<ul>${rows}</ul>` : ''}
+    </div>`;
+}
+
+/** Last inventory scan of a game: when, how many pieces, and the spare ones (listed, never salvaged by the app). */
+function inventoryLine(game) {
+  const inv = STATE.inventory?.[game];
+  if (!inv) return '';
+  const sets = (inv.spare_sets || []).map(([name, n]) => `<li><span>${esc(name)}</span><span class="num">${num(n)}</span></li>`).join('');
+  const id = `inv-${game}`;
+  return `
+    <div class="inv-line">
+      <p>${icon('box')}<span>${t('inv_line', relative(inv.at), num(inv.count), num(inv.spare))}</span>${inv.spare ? toggleButton(id) : ''}</p>
+      ${inv.spare ? detailPanel(id, `<ul class="spare">${sets}</ul>${help(t('inv_spare_help'))}`, 'mt') : ''}
+    </div>`;
 }
 
 function discCard(game, s) {
@@ -2433,6 +2496,11 @@ function equipUsage(game) {
     ${button('equip-reset', 'refresh', t('btn_reset'), 'sm quiet', `data-game="${game}"${e.used ? '' : ' disabled'}`)}</span>`;
 }
 
+function scanStatus(game) {
+  const inv = STATE.inventory?.[game];
+  return inv ? t('scan_last', relative(inv.at), num(inv.count)) : t('scan_never');
+}
+
 function datalist(id, values) { return `<datalist id="${id}">${(values || []).map(v => `<option value="${esc(v)}">`).join('')}</datalist>`; }
 
 function farmingPanel(s) {
@@ -2465,6 +2533,16 @@ function farmingPanel(s) {
           ${field(t('disc_cap'), input('planning.disc.cap', p.disc.cap, 'type="number" min="0" step="1"'))}
         </div>
         <div data-live="equip-zzz">${equipUsage('zzz')}</div>
+      </div>
+      <div class="sub-block">
+        <h3>${icon('search')}<span>${t('scan_title')}</span></h3>
+        ${help(t('scan_help'))}
+        ${switchRow('features.scan_inventory', s.features.scan_inventory, t('scan_switch'), t('scan_sub'), 'box')}
+        <div class="fields wide">
+          ${field(t('scan_yas'), input('paths.yas', s.paths.yas, 'type="text" spellcheck="false"'), scanStatus('genshin'))}
+          ${field(t('scan_zzz'), input('paths.zzz_scanner', s.paths.zzz_scanner, 'type="text" spellcheck="false"'), scanStatus('zzz'))}
+        </div>
+        ${help(t('scan_rules'), 'alert')}
       </div>
     </section>`;
 }

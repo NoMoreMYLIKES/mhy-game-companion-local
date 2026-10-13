@@ -454,6 +454,16 @@ main { max-width: var(--maxw); margin: 0 auto; padding: 24px var(--gutter) 112px
 .main-group .check { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 2px 0; }
 .weights { margin-top: 8px; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
 fieldset:disabled { opacity: 0.6; }
+.owned { margin-top: 12px; padding: 10px 12px; border-radius: var(--r-control); background: var(--muted-surface); display: grid; gap: 6px; }
+.owned > p { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.owned > p .ic { color: var(--good); }
+.owned ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.owned li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.inv-line { margin: 12px 0 16px; }
+.inv-line > p { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: var(--ink-2); }
+.inv-line .ic { vertical-align: -2px; }
+.spare { list-style: none; margin: 0 0 8px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px 16px; }
+.spare li { display: flex; justify-content: space-between; gap: 8px; }
 
 .mats-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
 .mats { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r-group); overflow: hidden; }

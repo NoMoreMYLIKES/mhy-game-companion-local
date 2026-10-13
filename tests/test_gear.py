@@ -244,6 +244,55 @@ class GearTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             gear.observe_genshin(raw, 10000002)  # never another character's data
 
+    def test_inventory_arrangement_in_goal_order(self):
+        """Owned pieces: the best arrangement per farming character, never another character's pieces."""
+        import copy
+        from server import core, inventory, materials, planner
+        core.save_settings({'planning': {'disc': {'enabled': True, 'mission': '', 'cap': 10}}})
+        worn = full_gear(sets=(31000, 31000, 31000, 32000, 32000, 33000))  # 3 + 2: the 4-piece set is short
+        a = {'id': 'ia', 'game': 'zzz', 'character_id': '1', 'name': 'A', 'enabled': True, 'position': 1,
+             'gear': worn, 'gear_target': {'farm': True, 'score': 10}}
+        b = {'id': 'ib', 'game': 'zzz', 'character_id': '2', 'name': 'B', 'enabled': True, 'position': 2,
+             'gear': full_gear(sets=(33000,) * 6), 'gear_target': {'farm': True, 'score': 10}}
+        for goal in (a, b):
+            core.save_goal(goal)
+        pieces = [dict(copy.deepcopy(d), location='A') for d in worn['discs']]   # what A wears
+        pieces += [dict(copy.deepcopy(d), location='B') for d in b['gear']['discs']]  # and B (a scan lists every piece)
+        better6 = disc(6, 31000, MAIN[6], SUBS[6])                               # a slot 6 piece of A's 4-piece set, in the bag
+        pieces.append(dict(better6, location=None))
+        stolen = disc(5, 31000, MAIN[5], [(20103, '14.4%'), (21103, '14.4%'), (12102, '9%')])  # better, but worn by C
+        pieces.append(dict(stolen, location='C'))
+        junk = disc(2, 33000, MAIN[2], [(11103, '112'), (13103, '15'), (31203, '9')])
+        pieces += [dict(junk, location=None), dict(copy.deepcopy(junk), location=None, lock=True)]
+        inventory.save('zzz', pieces, 'test')
+        result = inventory.arrange('zzz')
+        owned = result['goals']['ia']
+        self.assertTrue(owned['done'])                                   # 4 + 2 with the bag piece on slot 6
+        self.assertEqual([c['slot'] for c in owned['changes']], [6])     # equip only that one
+        self.assertNotEqual(owned['picks']['5'], str(len(worn['discs']) * 2 + 1))  # C's piece is never taken
+        self.assertNotIn(owned['picks']['6'], result['goals']['ib']['picks'].values())
+        self.assertEqual(result['spare'], [str(len(pieces) - 2)])        # the unlocked junk; the locked copy stays
+        with mock.patch.object(materials, 'zzz_disc_stages', return_value=[]):
+            row = next(r for r in planner.gear_queue('zzz') if r['goal_id'] == 'ia')
+        self.assertTrue(row['done'])
+        self.assertEqual(row['why'], __import__('server.i18n', fromlist=['tr']).tr('gear_owned_meets'))
+        for goal in (a, b):
+            core.delete_goal(goal['id'])
+        core.delete('inventory_at:zzz')
+
+    def test_arrangement_prefers_set_counts_over_score(self):
+        from server import inventory
+        goal = {'id': 'x', 'game': 'zzz', 'gear': full_gear(sets=(33000,) * 6),
+                'gear_target': {'farm': True, 'score': 0, 'sets': [{'id': 31000, 'count': 4}]}}
+        pool = []
+        for slot in range(1, 7):
+            strong = disc(slot, 33000, MAIN[slot], SUBS[slot])                      # high score, wrong set
+            weak = disc(slot, 31000, MAIN[slot], [(11103, '112'), (13103, '15')])   # right set, low score
+            pool += [dict(strong, uid=f's{slot}'), dict(weak, uid=f'w{slot}')]
+        found = inventory.best(goal, pool)
+        self.assertEqual(sum(1 for uid in found['picks'].values() if uid.startswith('w')), 4)  # exactly the 4 needed
+        self.assertTrue(found['checks']['sets'])
+
     def test_area_patrol_stages_and_set_lookup(self):
         from server import materials
         stages = materials.zzz_disc_stages('')  # no OneDragon here: the bundled snapshot

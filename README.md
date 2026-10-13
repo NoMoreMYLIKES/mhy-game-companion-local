@@ -25,6 +25,7 @@ The planner follows four rules:
 
 - **Goals**: targets per character (level, talents / skills, weapon or W-Engine). Material gaps come from the official Enhancement Progression Calculator, and you set the order.
 - **Plan and forecast**: the dashboard shows what the next batch will farm and why, with a 48-hour stamina chart per game. A 3-day forecast uses the same rule.
+- **Inventory scan (optional)**: with an OCR scanner installed (a maintained [yas](https://github.com/wormtql/yas) fork for Genshin, [ZZZ-Scanner.Next](https://github.com/ZztIsolation/ZZZ-Scanner.Next) for ZZZ), the app opens the bag or the Drive Disc storage after equipment farming and scans every piece you own. Farming then stops once pieces you own meet a character's target, and the goal card lists what to equip. The app never equips, locks or dismantles anything.
 - **Drive Discs and Artifacts**: the equipped gear of each goal's character is read at its sync (only the characters you added) and scored against the build Miyoushe recommends for it, or your own picks there: every substat roll that counts, against the best a piece could hold, with wasted upgrades shown. Give a character an equipment target (score, sets, main stats, adjustable substat weights) and Drive Disc or Artifact farming goes to the first unfinished character, on the Area Patrol stage or Domain of Blessing that drops the set it still needs, until the target is met or your cap is reached.
 - **Runs**: run now, or use the built-in schedule (off by default; 05:00 and 18:00) with catch-up after missed slots. Optionally start at Windows logon, and mute audio during morning runs.
 - **Free dailies**: Genshin Mail, Serenitea Pot and Daily Commission Rewards; OneDragon dailies, Engagement and New Eridu City Fund rewards.
@@ -101,6 +102,7 @@ This is a personal automation and planning project. It is not affiliated with Ho
 
 - **养成目标**：按角色设定等级、天赋/技能、武器/音擎目标；材料缺口来自官方养成计算器；顺序由你决定。
 - **计划与预测**：控制台显示下一批刷什么、为什么，并为每款游戏绘制未来 48 小时的体力曲线；未来三天的预测使用同一规则。
+- **背包扫描（可选）**：安装 OCR 扫描程序后（原神用维护中的 [yas](https://github.com/wormtql/yas) 分支，绝区零用 [ZZZ-Scanner.Next](https://github.com/ZztIsolation/ZZZ-Scanner.Next)），程序会在装备刷取后打开背包或驱动盘仓库，扫描你拥有的全部装备。一旦已拥有的装备能达成角色目标，刷取即停止，培养卡片会列出需要换上的装备。本程序从不装备、上锁或分解任何装备。
 - **驱动盘与圣遗物**：同步培养目标时读取该角色已装备的驱动盘或圣遗物（只读取你添加的角色），按米游社为其推荐的属性（或你在米游社的自选属性）评分：统计每次计入的副属性强化，与理论最佳相比，并标出未命中的强化。为角色设定装备目标（评分、套装、主属性、可调整的副属性权重）后，刷取会按顺序交给第一个未达标的角色，自动选择掉落其所缺套装的区域巡防关卡或祝圣秘境，直到达成目标或达到你设定的上限。
 - **执行**：可立即执行，或使用内置定时（默认关闭，05:00 与 18:00），错过时段可在限定时间内补跑；可选开机登录自启、早间批次自动静音。
 - **免费日常**：原神领取邮件、尘歌壶奖励、每日委托奖励；绝区零一条龙日常、活跃度与丽都城募奖励。

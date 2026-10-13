@@ -256,6 +256,8 @@ DEFAULTS: dict = {
         'onedragon': _default_onedragon(),
         'genshin_exe': '',
         'zzz_exe': '',
+        'yas': '',          # Genshin artifact scanner (yas fork): yas_artifact.exe
+        'zzz_scanner': '',  # ZZZ Drive Disc scanner: ZZZ-Scanner.Next.exe
     },
     'schedule': {'enabled': False, 'times': ['05:00', '18:00'], 'catchup_hours': 4, 'games': ['zzz', 'genshin'], 'autostart': False},
     # bgi_profile: the BetterGI One Dragon config this app generates before each run.
@@ -271,7 +273,7 @@ DEFAULTS: dict = {
         'disc': {'enabled': False, 'mission': '', 'cap': 0},
     },
     'features': {'mute_morning': True, 'zzz_rewards': True, 'genshin_daily_reward': True,
-                 'genshin_mail': True, 'genshin_teapot': False},
+                 'genshin_mail': True, 'genshin_teapot': False, 'scan_inventory': False},
     'notify': {
         'events': {'batch': True, 'failure': True, 'login': True, 'goal_done': True},
         'quiet_success': False,

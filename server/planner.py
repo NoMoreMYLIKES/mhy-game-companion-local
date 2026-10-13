@@ -14,7 +14,7 @@ from __future__ import annotations
 import time
 from datetime import datetime, timedelta
 
-from . import core, gear, materials
+from . import core, gear, inventory, materials
 from .i18n import MESSAGES, tr
 
 RECOVERY_MINUTES = {'genshin': 8, 'zzz': 6}
@@ -104,17 +104,24 @@ def gear_queue(game: str) -> list[dict]:
     A character is finished only when its read discs meet the target; unread or unscored discs
     are not finished, so farming continues for them within the cap."""
     stages = materials.gear_stages(game, core.settings()['paths']['onedragon'])
+    owned_all = (inventory.arrange(game) or {}).get('goals', {})
     rows = []
     for goal in core.goals(game):
         target = gear.effective_target(goal)
         if not goal.get('enabled') or not target['farm']:
             continue
         ev = gear.evaluate(goal)
+        owned = owned_all.get(goal['id'])  # best arrangement of the pieces it owns (with an inventory scan)
         row = {'goal_id': goal['id'], 'goal': goal['name'], 'score': ev and ev['score'], 'target': target['score'],
-               'done': bool(ev and ev['done']), 'set': None, 'stage': None, 'why': None}
-        want = ev['next_set'] if ev else gear.next_set([{**s, 'ok': False} for s in target['sets']])
+               'owned_score': owned and owned['score'], 'done': bool(ev and ev['done']) or bool(owned and owned['done']),
+               'set': None, 'stage': None, 'why': None}
+        if owned:
+            want = owned['next_set']
+        else:
+            want = ev['next_set'] if ev else gear.next_set([{**s, 'ok': False} for s in target['sets']])
+        row['owned_only'] = row['done'] and not (ev and ev['done'])  # met by owned pieces it does not wear yet
         if row['done']:
-            row['why'] = tr('gear_target_met')
+            row['why'] = tr('gear_owned_meets') if row['owned_only'] else tr('gear_target_met')
         elif target['stage']:
             row.update(stage=target['stage'], set=want and want['name'])
         elif not want:
@@ -152,7 +159,10 @@ def equipment(game: str, consumed: dict | None = None) -> dict:
         result['why'] = tr('equip_off', label=label)
     elif queue and not pick:
         unmet = [r for r in queue if not r['done']]
-        result['why'] = tr('gear_all_met') if not unmet else tr('gear_blocked', goal=unmet[0]['goal'], why=unmet[0]['why'])
+        if unmet:
+            result['why'] = tr('gear_blocked', goal=unmet[0]['goal'], why=unmet[0]['why'])
+        else:
+            result['why'] = tr('gear_all_owned') if any(r['owned_only'] for r in queue) else tr('gear_all_met')
     elif not name:
         result['why'] = tr('equip_no_target', label=label)
     elif cap <= 0:
