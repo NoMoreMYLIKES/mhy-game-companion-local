@@ -15,6 +15,7 @@ import uuid
 from datetime import timedelta
 
 import genshin
+from genshin.models.genshin.calculator import CalculatorBatchResult
 
 from . import assets, core
 from .i18n import MESSAGES, tr
@@ -55,6 +56,8 @@ def describe_error(exc: Exception) -> str:
         return tr('err_network')
     if isinstance(exc, ValueError):
         return str(exc)[:200]
+    if code is None:  # a fault here or in genshin.py, not an API answer: the class name alone cannot be diagnosed
+        log.error('Unexpected %s in a Miyoushe request', name, exc_info=exc)
     return tr('err_api', name=name) + (tr('err_code', code=code) if code is not None else '')
 
 
@@ -122,7 +125,12 @@ def _login_worker() -> None:
             QR.update(status='waiting', svg=out.getvalue().decode(), reason=tr('qr_scan'))
         deadline = time.monotonic() + 170
         while time.monotonic() < deadline:
-            state, jar = await asyncio.wait_for(c._check_qrcode(creation.ticket), 15)
+            try:
+                state, jar = await asyncio.wait_for(c._check_qrcode(creation.ticket), 15)
+            except genshin.GenshinException as exc:
+                if exc.retcode == -3501:  # the code expired on Miyoushe's side first
+                    break
+                raise
             if state.value == 'Confirmed':
                 values = {k: v.value for k, v in jar.items()}
                 if not values:
@@ -246,14 +254,44 @@ def refresh_notes(game: str, force: bool = False) -> dict:
 
 # ---------------------------------------------------------------- roster and character state
 
+async def _genshin_avatars(c: genshin.Client) -> list[dict]:
+    """The calculator's synced characters as the official API returns them: level, equipped weapon,
+    talents and the official icon, in one request. genshin.py's character model is avoided on purpose:
+    it needs a name table downloaded from third-party sites, fails without it, and swaps the official
+    icon for an Enka one."""
+    uid = int(accounts()['genshin']['uid'])
+    payload = {'page': 1, 'size': 200, 'element_attr_ids': [], 'weapon_cat_ids': [], 'uid': uid,
+               'region': genshin.utility.recognize_genshin_server(uid)}
+    try:
+        data = await c.request_calculator('sync/avatar/list', data=payload)
+    except genshin.GenshinException as exc:
+        if exc.retcode != -502002:  # character sync not enabled in the calculator yet
+            raise
+        await c.request_calculator('avatar/auth', data={'avatar_auth': 1})
+        data = await c.request_calculator('sync/avatar/list', data=payload)
+    if not isinstance(data.get('list'), list):
+        raise ValueError(tr('calc_format'))
+    return data['list']
+
+
+def _talents(row: dict) -> dict:
+    """Normal attack, skill and burst of a character row: level and calculator group id."""
+    found: dict[str, dict] = {}
+    for raw in row.get('skill_list') or []:
+        talent = genshin.models.CalculatorTalent(**raw)  # its .type holds genshin.py's rules for the special cases
+        if talent.type in ('attack', 'skill', 'burst'):
+            found.setdefault(talent.type, {'level': talent.level, 'group': talent.group_id})
+    return found
+
+
 def roster(game: str) -> list[dict]:
     async def read():
         c = client(game)
         if game == 'genshin':
-            chars = await c.get_calculator_characters(sync=True)
-            return [{'id': str(x.id), 'name': x.name, 'level': x.level, 'owned': True, 'icon': x.icon,
-                     'element': x.element, 'rarity': x.rarity} for x in chars if x.level > 0]
-        await c._login_upgrade_guide(int(accounts()['zzz']['uid']))
+            return [{'id': str(x['id']), 'name': x.get('name', ''), 'level': int(x.get('level_current') or 0),
+                     'owned': True, 'icon': x.get('icon', ''), 'rarity': x.get('avatar_level'),
+                     'element': genshin.models.CALCULATOR_ELEMENTS.get(x.get('element_attr_id'), '')}
+                    for x in await _genshin_avatars(c) if int(x.get('level_current') or 0) > 0]
         agents = await c.get_zzz_upgrade_guide_agents()
         return [{'id': str(x.id), 'name': x.name, 'owned': bool(getattr(x, 'unlocked', True)),
                  'icon': getattr(x, 'square_icon', ''), 'element': str(getattr(x, 'element', '')),
@@ -282,16 +320,20 @@ def observe(goal: dict) -> dict:
         await _ensure_fp()
         c = client(game)
         if game == 'genshin':
-            chars = await c.get_calculator_characters(sync=True)
-            char = next((x for x in chars if x.id == cid and x.level > 0), None)
-            if char is None:
+            row = next((x for x in await _genshin_avatars(c)
+                        if x.get('id') == cid and int(x.get('level_current') or 0) > 0), None)
+            if row is None:
                 raise ValueError(tr('char_not_owned'))
-            _collect_icons({assets.key(game, 'character', cid): getattr(char, 'icon', None)})
-            detail = await c.get_character_details(cid)
-            current = {'level': char.level, 'weapon': detail.weapon.level}
-            current.update({t.type: t.level for t in detail.talents if t.type in ('attack', 'skill', 'burst')})
-            return {'current': current, 'weapon_id': str(detail.weapon.id), 'weapon_name': getattr(detail.weapon, 'name', '')}
-        await c._login_upgrade_guide(int(accounts()['zzz']['uid']))
+            _collect_icons({assets.key(game, 'character', cid): row.get('icon')})
+            talents = _talents(row)
+            current = {'level': int(row['level_current']), **{k: t['level'] for k, t in talents.items()}}
+            result = {'current': current, 'talent_groups': {k: t['group'] for k, t in talents.items()},
+                      'weapon_id': None, 'weapon_name': ''}
+            weapon = row.get('weapon') or {}
+            if weapon.get('id'):
+                current['weapon'] = int(weapon.get('level_current') or 1)
+                result.update(weapon_id=str(weapon['id']), weapon_name=weapon.get('name', ''))
+            return result
         guide = (await c.get_zzz_agent_upgrade_guide(cid))[0]
         _collect_icons({assets.key(game, 'character', cid): getattr(guide.avatar, 'square_icon', None)})
         rank = int(getattr(guide.avatar, 'rank', 0) or 0)
@@ -324,12 +366,22 @@ def calculate(goal: dict) -> list[dict]:
                 raise ValueError(tr('weapon_needed'))
             b.set_weapon(int(goal['weapon_id']), int(cur.get('weapon', 1)), int(tgt['weapon']))
         talents = {k: int(tgt.get(k, 1)) for k in ('attack', 'skill', 'burst')}
-        if any(talents[k] > int(cur.get(k, 1)) for k in talents):
-            detail = await c.get_character_details(cid)
-            for t in detail.talents:
-                if t.type in talents and talents[t.type] > int(cur.get(t.type, 1)):
-                    b.add_talent(t.group_id, int(cur.get(t.type, 1)), talents[t.type])
-        result = await c.batch_calculator().add_character(b).calculate()
+        wanted = [k for k in talents if talents[k] > int(cur.get(k, 1))]
+        group_ids = goal.get('talent_groups') or {}
+        if any(k not in group_ids for k in wanted):  # goals observed before the group ids were kept
+            row = next((x for x in await _genshin_avatars(c) if x.get('id') == cid), None)
+            if row is None:
+                raise ValueError(tr('char_not_owned'))
+            group_ids = {k: t['group'] for k, t in _talents(row).items()}
+        for k in wanted:
+            if k not in group_ids:
+                raise ValueError(tr('calc_format'))
+            b.add_talent(group_ids[k], int(cur.get(k, 1)), talents[k])
+        # With the account's uid and server the calculator also returns what the backpack lacks
+        # (has_user_info); genshin.py's batch_calculator() leaves them out, so every gap was unknown.
+        uid = int(accounts()['genshin']['uid'])
+        body = {'items': [await b.build()], 'uid': uid, 'region': genshin.utility.recognize_genshin_server(uid)}
+        result = CalculatorBatchResult(**await c.request_calculator('batch_compute', data=body, api_version=3))
         info: dict[str, dict] = {}
         for category, groups in (('level', result.total_material_details.characters),
                                  ('weapon', result.total_material_details.weapon),
@@ -355,8 +407,7 @@ def calculate(goal: dict) -> list[dict]:
 
     async def zzz_calc():
         c = client(game)
-        uid = accounts()['zzz']['uid']
-        await c._login_upgrade_guide(int(uid))
+        uid = int(accounts()['zzz']['uid'])  # genshin.py logs in to the cultivation tool on its own
         skills = [{'skill_type': kind, 'level': int(tgt.get(k, 1)), 'init_level': int(cur.get(k, 1))}
                   for k, kind in SKILLS.items()]
         bounds = [10, 20, 30, 40, 50]

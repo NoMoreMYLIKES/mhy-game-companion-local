@@ -115,6 +115,8 @@ def sync(goal_id: str, observe: bool = True) -> dict:
                 goal['current'] = {**goal.get('current', {}), **seen['current']}
                 if seen.get('weapon_id'):
                     goal['weapon_id'], goal['weapon_name'] = seen['weapon_id'], seen.get('weapon_name', '')
+                if seen.get('talent_groups'):  # lets the calculation skip a second read
+                    goal['talent_groups'] = seen['talent_groups']
                 goal['observe_at'], goal['observe_error'] = core.stamp(), None
             except Exception as exc:
                 goal['observe_error'] = mihoyo.describe_error(exc)
