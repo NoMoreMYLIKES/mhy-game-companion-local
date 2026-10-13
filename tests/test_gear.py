@@ -67,6 +67,18 @@ class GearTest(unittest.TestCase):
         self.assertEqual([s['score'] for s in ev['slots']], [92.0, 100.0, 92.0, 96.1, 83.1, 83.1])
         self.assertAlmostEqual(ev['score'], 91.05, delta=0.06)
 
+    def test_builds_name_stat_families(self):
+        """Miyoushe sent flat ATK (12103) as the slot 5 and 6 pick and as a substat; it means ATK in general."""
+        from server import gear
+        g = full_gear()
+        g['plan'] = {**BUILD, 'main': {'4': [31203], '5': [12103], '6': [12103]}, 'subs': [12103, 31203]}
+        goal = {'game': 'zzz', 'gear': g}
+        self.assertEqual(gear.build_defaults(goal)['main'], {'4': [31203], '5': [12102], '6': [12102]})
+        w, _ = gear.weights(goal)
+        self.assertEqual((w[12102], w[12103], w[31203], w[20103]), (1.0, 0.7, 1.0, 0.0))  # flat ATK by base ATK 900
+        ev = gear.evaluate(goal)
+        self.assertEqual([s['main_ok'] for s in ev['slots'][3:]], [False, True, True])  # CRIT Rate on slot 4 is off-build
+
     def test_lower_rarity_rolls_count_as_fractions(self):
         from server import gear
         self.assertAlmostEqual(gear.rolls(prop(20103, '1.6%'), 'zzz'), 2 / 3)

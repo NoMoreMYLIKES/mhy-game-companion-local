@@ -149,22 +149,42 @@ def icons(gear: dict, game: str = 'zzz') -> dict:
 
 # ---------------------------------------------------------------- weights
 
+def family(game: str, pid: int) -> int:
+    """Miyoushe builds name a stat, not its variant: "攻击力" (ATK) may come as flat ATK (12103) for slot 5
+    or 6, where only ATK% (12102) exists. A flat HP/ATK/DEF stat and its % stat are one family, keyed by the %."""
+    for pct, (flat, _) in RULES[game]['flat_of'].items():
+        if pid in (pct, flat):
+            return pct
+    return pid
+
+
+def legal_main(game: str, slot, pid: int) -> int:
+    """The variant of a recommended main stat that the slot can carry (flat ATK on slot 5 → ATK%)."""
+    legal = RULES[game]['mains'].get(int(slot), [])
+    if pid in legal:
+        return pid
+    return next((m for m in legal if family(game, m) == family(game, pid)), pid)
+
+
 def official_weights(gear: dict, game: str) -> dict[int, float] | None:
-    """1 for each substat the followed build recommends, 0 otherwise; flat HP/ATK/DEF follow their % stat."""
-    step = RULES[game]['step']
-    subs = [i for i in ((gear.get('plan') or {}).get('subs') or []) if i in step]
-    if not subs:
+    """1 for each substat the followed build recommends, 0 otherwise. The build names stat families, so flat
+    HP/ATK/DEF count as their share of the % roll on the base stat, whichever variant the build listed."""
+    rules = RULES[game]
+    families = {family(game, i) for i in ((gear.get('plan') or {}).get('subs') or []) if i in rules['step']}
+    if not families:
         return None
-    return derive_flat({i: (1.0 if i in subs else 0.0) for i in step}, gear, game, explicit=set(subs))
+    flats = {flat for flat, _ in rules['flat_of'].values()}
+    return derive_flat({i: (1.0 if family(game, i) in families and i not in flats else 0.0) for i in rules['step']},
+                       gear, game)
 
 
-def derive_flat(weights: dict[int, float], gear: dict, game: str, explicit: set[int] = frozenset()) -> dict[int, float]:
+def derive_flat(weights: dict[int, float], gear: dict, game: str) -> dict[int, float]:
     """A flat roll is worth its share of the % roll on the character's base stat (ZZZ base ATK 900: 19 / 27 of an ATK% roll)."""
     rules = RULES[game]
     result = dict(weights)
     base = (gear or {}).get('base') or {}
     for pct, (flat, stat) in rules['flat_of'].items():
-        if flat in explicit or not result.get(pct):
+        if not result.get(pct):
             continue
         value = base.get(stat)
         if value and value > 0:
@@ -258,7 +278,8 @@ def evaluate(goal: dict) -> dict | None:
         score = piece_score(d, w, game) if d and w else None
         allowed = target['main'].get(str(slot)) or []
         # an empty slot fails the "filled" check, not the main-stat check
-        main_ok = None if slot not in rules['configurable'] or not allowed or not d else (d.get('main') or {}).get('id') in allowed
+        main_ok = None if slot not in rules['configurable'] or not allowed or not d else \
+            family(game, (d.get('main') or {}).get('id')) in {family(game, a) for a in allowed}
         subs = [{**s, 'rolls': shown_rolls(s, game), 'weight': (w or {}).get(s['id'], 0)} for s in (d or {}).get('subs', [])]
         # upgrades that went into substats that do not count (known only when the API reports roll counts)
         wasted = None if not d or not w or any(type(s.get('level')) is not int for s in subs) else \
@@ -292,7 +313,8 @@ def build_defaults(goal: dict) -> dict:
     """Sets and configurable main stats of the followed build; its first set is the 4-piece set."""
     plan = (goal.get('gear') or {}).get('plan') or {}
     sets = [{'id': s['id'], 'name': s['name'], 'count': c} for s, c in zip(plan.get('sets') or [], (4, 2)) if s.get('id')]
-    return {'sets': sets, 'main': {str(k): list(v) for k, v in (plan.get('main') or {}).items()}}
+    return {'sets': sets, 'main': {str(k): list(dict.fromkeys(legal_main(goal['game'], k, int(i)) for i in v))
+                                   for k, v in (plan.get('main') or {}).items()}}
 
 
 def effective_target(goal: dict) -> dict:
