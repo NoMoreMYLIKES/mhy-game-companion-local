@@ -199,10 +199,11 @@ class SmokeTest(unittest.TestCase):
 
             async def get_genshin_notes(self, uid, autoauth=False):
                 sent['challenge'] = self.custom_headers.get('x-rpc-challenge')
+                sent['retry_version'] = self.custom_headers.get('x-rpc-app_version')
                 raise genshin.GenshinException({'retcode': 1034, 'message': 'verification required'})
 
             async def request_hoyolab(self, url, method=None, params=None, data=None, headers=None):
-                sent.update(url=url, method=method, data=data, headers=headers)
+                sent.update(url=url, method=method, data=data, headers=dict(self.custom_headers))
                 return {'challenge': 'token-from-miyoushe'}
 
         async def no_fp():
@@ -220,7 +221,10 @@ class SmokeTest(unittest.TestCase):
         self.assertTrue(sent['url'].endswith('/card/wapi/verifyVerification'))
         self.assertEqual((sent['method'], sent['data']), ('POST', answer))
         self.assertEqual(sent['headers']['x-rpc-challenge_game'], '2')
+        self.assertEqual(sent['headers']['x-rpc-app_version'], mihoyo.APP_VERSION)  # the record page's identity
         self.assertEqual(sent['challenge'], 'token-from-miyoushe')  # the retry carried the token
+        self.assertEqual(sent['retry_version'], mihoyo.APP_VERSION)
+
 
 if __name__ == '__main__':
     unittest.main()

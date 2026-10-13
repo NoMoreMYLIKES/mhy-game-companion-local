@@ -233,9 +233,7 @@ def refresh_notes(game: str, force: bool = False, challenge: str | None = None) 
 
     async def read():
         await _ensure_fp()
-        c = client(game)
-        if challenge:
-            c.custom_headers['x-rpc-challenge'] = challenge
+        c = _verification_client(game, challenge) if challenge else client(game)
         uid = int(account['uid'])
         if game == 'genshin':
             n = await c.get_genshin_notes(uid, autoauth=False)
@@ -260,18 +258,34 @@ def refresh_notes(game: str, force: bool = False, challenge: str | None = None) 
 # Real-Time Notes answers 1034 (or another Geetest code) when Miyoushe wants a person to confirm the request.
 # The dashboard then shows Miyoushe's own Geetest captcha; the person solves it, the answer goes back to
 # Miyoushe, and the notes are read again with the token it returns. Nothing is solved automatically.
+# These three requests identify as the game-record page of the current Miyoushe app, the page that shows
+# this captcha, as gsuid_core and Snap Hutao send them. Sent from a VPS, solved answers were refused with
+# 10306 both with genshin.py's defaults (app version 2.11.1 from 2021, a desktop browser) and with these.
 
 CAPTCHA_CODES = genshin.constants.GEETEST_RETCODES
 CARD_WAPI = 'https://api-takumi-record.mihoyo.com/game_record/app/card/wapi/'
-CHALLENGE = {  # game: (x-rpc-challenge_game, the request the verification is for)
-    'genshin': ('2', 'https://api-takumi-record.mihoyo.com/game_record/app/genshin/api/dailyNote'),
-    'zzz': ('8', 'https://api-takumi-record.mihoyo.com/event/game_record_zzz/api/zzz/note'),
+APP_VERSION = '2.115.0'  # current Miyoushe app (Snap Hutao Remastered and TeyvatGuide, October 2026)
+VERIFY_HEADERS = {
+    'User-Agent': ('Mozilla/5.0 (Linux; Android 13; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 '
+                   f'Chrome/126.0.0.0 Mobile Safari/537.36 miHoYoBBS/{APP_VERSION}'),
+    'x-rpc-app_version': APP_VERSION, 'X-Requested-With': 'com.mihoyo.hyperion',
+    'Referer': 'https://webstatic.mihoyo.com/', 'Origin': 'https://webstatic.mihoyo.com',
 }
+CHALLENGE = {  # each game's record page and the request its verification is for
+    'genshin': {'x-rpc-challenge_game': '2', 'x-rpc-page': 'v4.1.5-ys_#ys', 'x-rpc-tool-verison': 'v4.1.5-ys',
+                'x-rpc-challenge_path': 'https://api-takumi-record.mihoyo.com/game_record/app/genshin/api/dailyNote'},
+    'zzz': {'x-rpc-challenge_game': '8', 'x-rpc-page': 'v1.0.14_#/zzz', 'x-rpc-tool-verison': 'v1.0.14-zzz',
+            'x-rpc-challenge_path': 'https://api-takumi-record.mihoyo.com/event/game_record_zzz/api/zzz/note'},
+}  # "verison" (sic) is how the page spells it
 
 
-def _challenge_headers(game: str) -> dict:
-    code, path = CHALLENGE[game]
-    return {'x-rpc-challenge_game': code, 'x-rpc-challenge_path': path}
+def _verification_client(game: str, challenge: str | None = None) -> genshin.Client:
+    """A client for the verification requests; with challenge, for the request the solved captcha unlocks."""
+    c = client(game)
+    c.custom_headers.update({**VERIFY_HEADERS, **CHALLENGE[game]})  # custom headers win over genshin.py's
+    if challenge:
+        c.custom_headers['x-rpc-challenge'] = challenge
+    return c
 
 
 def start_verification(game: str) -> dict:
@@ -282,8 +296,8 @@ def start_verification(game: str) -> dict:
     async def create():
         await _ensure_fp()
         try:
-            return await client(game).request_hoyolab(CARD_WAPI + 'createVerification', params={'is_high': 'true'},
-                                                       headers=_challenge_headers(game))
+            return await _verification_client(game).request_hoyolab(CARD_WAPI + 'createVerification',
+                                                                    params={'is_high': 'false'})
         except genshin.errors.DailyGeetestTriggered as exc:  # genshin.py raises on any answer that holds a captcha
             return {'gt': exc.gt, 'challenge': exc.challenge, 'new_captcha': True}
 
@@ -300,12 +314,17 @@ def finish_verification(game: str, answer: dict) -> dict:
         raise ValueError(tr('captcha_incomplete'))
 
     async def verify():
-        return await client(game).request_hoyolab(CARD_WAPI + 'verifyVerification', method='POST', data=fields,
-                                                   headers=_challenge_headers(game))
+        return await _verification_client(game).request_hoyolab(CARD_WAPI + 'verifyVerification', method='POST',
+                                                                data=fields)
 
-    token = run(verify(), 30).get('challenge')
+    try:
+        token = run(verify(), 30).get('challenge')
+    except genshin.GenshinException as exc:
+        log.warning('Miyoushe refused a captcha answer: retcode %s, message %r', exc.retcode, exc.original)
+        raise ValueError(tr('captcha_refused', code=exc.retcode)) from exc
     if not token:
         raise ValueError(tr('captcha_rejected'))
+    log.info('Miyoushe accepted a captcha answer for %s', game)
     return refresh_notes(game, force=True, challenge=str(token))
 
 
