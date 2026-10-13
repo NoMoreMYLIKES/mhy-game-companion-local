@@ -12,7 +12,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import assets, core, goals, materials, mihoyo, notify, planner, runner, scheduler, tools
+from . import assets, core, gear, goals, materials, mihoyo, notify, planner, runner, scheduler, tools
 from .i18n import tr
 
 log = logging.getLogger('gcl.web')
@@ -51,8 +51,9 @@ def goal_view(goal: dict, ctx: dict, weekday: int) -> dict:
                      | {'why': planner.blocker(item, weekday), 'days': planner.days_text(item['weekdays']),
                         'materials': [{k: m.get(k) for k in ('id', 'name', 'need', 'owned', 'remaining')}
                                       for m in item['materials']]})
-    view = {k: v for k, v in goal.items() if k not in ('allowance',)}
+    view = {k: v for k, v in goal.items() if k not in ('allowance', 'gear')}
     view['items'] = items
+    view['gear_eval'] = gear.evaluate(goal)
     return view
 
 
@@ -73,7 +74,9 @@ def full_state() -> dict:
         'settings': public_settings(), 'check': env_check(), 'notifications': notify.recent(10),
         'assets': assets.cached(), 'assets_status': assets.status(),
         'catalog': {'bosses': ctx['bosses'], 'blessing': [d['name'] for d in ctx['domains'] if d['type'] == 'BlessDomain'],
-                    'disc': materials.zzz_disc_missions(s['paths']['onedragon'])},
+                    'disc': materials.zzz_disc_missions(s['paths']['onedragon']),
+                    'disc_sets': materials.gear_sets('zzz', s['paths']['onedragon']),
+                    'artifact_sets': materials.gear_sets('genshin')},
     }
 
 

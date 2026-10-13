@@ -18,7 +18,7 @@ from datetime import timedelta
 import genshin
 from genshin.models.genshin.calculator import CalculatorBatchResult
 
-from . import assets, core
+from . import assets, core, gear
 from .i18n import MESSAGES, tr
 
 log = logging.getLogger('gcl.mihoyo')
@@ -361,6 +361,15 @@ def _talents(row: dict) -> dict:
     return found
 
 
+# The upgrade guide does not return role_square_url (genshin.py leaves square_icon None), so ZZZ portraits
+# were never saved. The battle chronicle serves the same square avatar at a fixed official address per agent id.
+ZZZ_SQUARE_AVATAR = 'https://act-webstatic.mihoyo.com/game_record/zzzv2/role_square_avatar/role_square_avatar_{id}.png'
+
+
+def zzz_portrait(agent) -> str:
+    return getattr(agent, 'square_icon', None) or ZZZ_SQUARE_AVATAR.format(id=int(agent.id))
+
+
 def roster(game: str) -> list[dict]:
     async def read():
         c = client(game)
@@ -371,7 +380,7 @@ def roster(game: str) -> list[dict]:
                     for x in await _genshin_avatars(c) if int(x.get('level_current') or 0) > 0]
         agents = await c.get_zzz_upgrade_guide_agents()
         return [{'id': str(x.id), 'name': x.name, 'owned': bool(getattr(x, 'unlocked', True)),
-                 'icon': getattr(x, 'square_icon', ''), 'element': str(getattr(x, 'element', '')),
+                 'icon': zzz_portrait(x), 'element': str(getattr(x, 'element', '')),
                  'rarity': str(getattr(x, 'rarity', ''))} for x in agents if not getattr(x, 'is_teaser', False)]
 
     if not accounts().get(game):
@@ -387,6 +396,30 @@ def _collect_icons(sources: dict) -> None:
         assets.collect(sources)
     except Exception:
         log.exception('Image cache update failed')
+
+
+GEAR_REREAD = timedelta(seconds=60)
+
+
+async def _genshin_gear(c: genshin.Client, goal: dict, result: dict) -> None:
+    """Artifacts of this goal's character only: one extra request (character detail), never for the whole roster.
+    Skipped right after a read, and backed off after failures (captchas); levels are read either way."""
+    last = core.parse((goal.get('gear') or {}).get('at'))
+    if last and core.now() - last < GEAR_REREAD:
+        return
+    if not allowed('detail'):
+        result['gear_error'] = health('detail').get('reason') or tr('backing_off')
+        return
+    try:
+        uid = int(accounts()['genshin']['uid'])
+        raw = await c.get_genshin_detailed_characters(uid, characters=[int(goal['character_id'])], return_raw_data=True)
+        result['gear'] = gear.observe_genshin(raw, int(goal['character_id']))
+        _collect_icons(gear.icons(result['gear'], 'genshin'))
+        record('detail', True)
+    except Exception as exc:
+        reason = describe_error(exc)
+        record('detail', False, reason, captcha=getattr(exc, 'retcode', None) in CAPTCHA_CODES)
+        result['gear_error'] = reason
 
 
 def observe(goal: dict) -> dict:
@@ -410,9 +443,10 @@ def observe(goal: dict) -> dict:
             if weapon.get('id'):
                 current['weapon'] = int(weapon.get('level_current') or 1)
                 result.update(weapon_id=str(weapon['id']), weapon_name=weapon.get('name', ''))
+            await _genshin_gear(c, goal, result)
             return result
         guide = (await c.get_zzz_agent_upgrade_guide(cid))[0]
-        _collect_icons({assets.key(game, 'character', cid): getattr(guide.avatar, 'square_icon', None)})
+        _collect_icons({assets.key(game, 'character', cid): zzz_portrait(guide.avatar)})
         rank = int(getattr(guide.avatar, 'rank', 0) or 0)
         bonus = 4 if rank >= 5 else 2 if rank >= 3 else 0
         skills = {int(s.type): (s.level - 1 if int(s.type) == 5 else s.level - bonus) for s in guide.avatar.skills}
@@ -423,6 +457,12 @@ def observe(goal: dict) -> dict:
         if weapon and getattr(weapon, 'refinement', 0) > 0 and type(weapon.level) is int:
             current['weapon'] = weapon.level
             result.update(weapon_id=str(weapon.id), weapon_name=getattr(weapon, 'name', ''))
+        try:  # the same response carries the equipped Drive Discs; a format change must not stop the level read
+            result['gear'] = gear.observe_zzz(guide)
+            _collect_icons(gear.icons(result['gear'], 'zzz'))
+        except Exception:
+            log.exception('Drive Disc read failed')
+            result['gear_error'] = tr('gear_read_failed')
         return result
 
     return run(read(), 60)

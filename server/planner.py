@@ -14,7 +14,7 @@ from __future__ import annotations
 import time
 from datetime import datetime, timedelta
 
-from . import core, materials
+from . import core, gear, materials
 from .i18n import MESSAGES, tr
 
 RECOVERY_MINUTES = {'genshin': 8, 'zzz': 6}
@@ -98,8 +98,42 @@ def estimate(game: str, at: datetime | None = None) -> dict | None:
 
 # ---------------------------------------------------------------- equipment continuation
 
+def gear_queue(game: str) -> list[dict]:
+    """Characters whose equipment target steers farming, in goal order, with what each would farm.
+
+    A character is finished only when its read discs meet the target; unread or unscored discs
+    are not finished, so farming continues for them within the cap."""
+    stages = materials.gear_stages(game, core.settings()['paths']['onedragon'])
+    rows = []
+    for goal in core.goals(game):
+        target = gear.effective_target(goal)
+        if not goal.get('enabled') or not target['farm']:
+            continue
+        ev = gear.evaluate(goal)
+        row = {'goal_id': goal['id'], 'goal': goal['name'], 'score': ev and ev['score'], 'target': target['score'],
+               'done': bool(ev and ev['done']), 'set': None, 'stage': None, 'why': None}
+        want = ev['next_set'] if ev else gear.next_set([{**s, 'ok': False} for s in target['sets']])
+        if row['done']:
+            row['why'] = tr('gear_target_met')
+        elif target['stage']:
+            row.update(stage=target['stage'], set=want and want['name'])
+        elif not want:
+            row['why'] = tr('gear_unread') if ev is None else tr('gear_no_sets')
+        else:
+            row['set'] = want['name']
+            row['stage'] = materials.stage_for_set(want, stages)
+            if not row['stage']:
+                row['why'] = tr('gear_no_stage' if game == 'zzz' else 'art_no_domain', set=want['name'])
+        rows.append(row)
+    return rows
+
+
 def equipment(game: str, consumed: dict | None = None) -> dict:
-    """Optional artifact / disc continuation; the cumulative cap is the authorization."""
+    """Optional artifact / disc continuation; the cumulative cap is the authorization.
+
+    When a character's equipment target steers farming, the first unfinished one in goal order
+    decides the stage (ZZZ Area Patrol) or domain (Genshin Domain of Blessing) by the set it needs;
+    otherwise the one set in Settings is farmed."""
     p = core.settings()['planning']
     if game == 'genshin':
         conf, name, unit, label = p['artifact'], p['artifact'].get('domain'), 'claim20', tr('equip_artifact')
@@ -107,10 +141,18 @@ def equipment(game: str, consumed: dict | None = None) -> dict:
         conf, name, unit, label = p['disc'], p['disc'].get('mission'), 'disc', tr('equip_disc')
     used = int(core.get('equip_used:' + game, 0)) + int((consumed or {}).get('equip:' + game, 0))
     cap = int(conf.get('cap') or 0)
+    queue = gear_queue(game)
+    pick = next((r for r in queue if r['stage'] and not r['done']), None)
+    if queue:
+        name = pick and pick['stage']
     result = {'enabled': bool(conf.get('enabled')), 'name': name or '', 'cap': cap, 'used': used,
-              'left': max(0, cap - used), 'label': label, 'unit': unit}
+              'left': max(0, cap - used), 'label': label, 'unit': unit, 'mode': 'character' if queue else 'fixed',
+              'queue': queue, 'goal_id': pick and pick['goal_id'], 'goal': pick and pick['goal'], 'set': pick and pick['set']}
     if not result['enabled']:
         result['why'] = tr('equip_off', label=label)
+    elif queue and not pick:
+        unmet = [r for r in queue if not r['done']]
+        result['why'] = tr('gear_all_met') if not unmet else tr('gear_blocked', goal=unmet[0]['goal'], why=unmet[0]['why'])
     elif not name:
         result['why'] = tr('equip_no_target', label=label)
     elif cap <= 0:
@@ -126,8 +168,9 @@ def _equip_item(game: str, eq: dict) -> dict:
     else:
         # OneDragon category "Area Patrol" (data identifier)
         route = {'category': '区域巡防', 'mission_type': eq['name'], 'mission': None, 'unit': 'disc'}
-    return {'key': 'equip:' + game, 'goal_id': None, 'goal': tr('equip_goal', label=eq['label']), 'game': game,
-            'kind': 'domain' if game == 'genshin' else 'zzz', 'label': eq['name'], 'names': eq['label'],
+    goal = tr('gear_goal' if game == 'zzz' else 'art_goal', goal=eq['goal']) if eq.get('goal') else tr('equip_goal', label=eq['label'])
+    return {'key': 'equip:' + game, 'goal_id': eq.get('goal_id'), 'goal': goal, 'game': game,
+            'kind': 'domain' if game == 'genshin' else 'zzz', 'label': eq['name'], 'names': eq.get('set') or eq['label'],
             'unit': eq['unit'], 'unit_label': materials.unit_label(eq['unit']), 'cost': materials.COST[eq['unit']],
             'route': route, 'weekdays': list(range(7)), 'units': eq['left'], 'available': eq['left'],
             'executed': eq['used'], 'note': tr('equip_note', cap=eq['cap'], used=eq['used']), 'progress': '',

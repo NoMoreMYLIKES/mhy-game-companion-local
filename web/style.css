@@ -424,6 +424,37 @@ main { max-width: var(--maxw); margin: 0 auto; padding: 24px var(--gutter) 112px
 .priority li { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 2px 0 8px; border: 1px solid var(--border); border-radius: var(--r-control); }
 .priority li .n { color: var(--ink-2); font-variant-numeric: tabular-nums; }
 
+/* Drive Discs (ZZZ equipment) */
+.gear-sum { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; }
+.gear-score { display: flex; align-items: baseline; gap: 6px; }
+.gear-score .value { font-size: 20px; line-height: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.gear-score .meter { align-self: center; }
+.gear-checks { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.gear .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: 8px; }
+.gear .meta .ic { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
+.discs { list-style: none; margin: 0 0 12px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.disc { border: 1px solid var(--border); border-radius: var(--r-group); padding: 10px 12px; display: grid; gap: 4px; align-content: start; }
+.disc.empty { color: var(--ink-2); }
+.disc-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.disc-head span { display: block; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.disc-score { font-weight: 700; font-variant-numeric: tabular-nums; }
+.disc-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; }
+.disc-meta .wasted { color: var(--warn); }
+.disc-meta .all-hit { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); }
+.disc-meta .all-hit .ic { width: 14px; height: 14px; color: var(--good); }
+.disc-main { display: flex; gap: 6px; align-items: center; font-weight: 700; }
+.disc-main.bad { color: var(--bad); }
+.disc-subs { list-style: none; margin: 0; padding: 0; }
+.disc-subs li { display: grid; grid-template-columns: minmax(0, 1fr) auto 36px; gap: 8px; color: var(--ink-2); }
+.disc-subs li.eff { color: var(--ink); font-weight: 700; }
+.disc-subs .rolls { text-align: right; }
+.follow { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.set-row { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 8px; margin-top: 8px; }
+.mains { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 8px; }
+.main-group .check { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 2px 0; }
+.weights { margin-top: 8px; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
+fieldset:disabled { opacity: 0.6; }
+
 .mats-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
 .mats { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r-group); overflow: hidden; }
 .mat + .mat { border-top: 1px solid var(--border); }
@@ -614,6 +645,7 @@ body.has-savebar #toasts { bottom: 80px; }
   .menu > summary .label { display: none; }
 }
 @media (max-width: 1080px) {
+  .discs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mat-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
   .mat-plan { grid-column: 1; }
   .mat-state { grid-column: 2; }
@@ -637,6 +669,8 @@ body.has-savebar #toasts { bottom: 80px; }
   .entry-row .more-btn { grid-column: 1 / -1; justify-self: start; }
 }
 @media (max-width: 720px) {
+  .discs, .mains { grid-template-columns: minmax(0, 1fr); }
+  .gear-sum { grid-template-columns: minmax(0, 1fr); }
   :root { --gutter: 16px; }
   main { padding-top: 16px; }
   .panel, .goal { padding: 14px; }

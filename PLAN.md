@@ -141,6 +141,7 @@ A calm, compact application for inspecting goals, understanding the next schedul
 - [ ] **Automated Game Patch Presets**: Automated scraping and dataset update routines for new character releases and new material domains.
 - [ ] **Receipt Discrepancy Diagnostics**: Compare executed units with the official gap after re-sync and flag runs whose drops diverge from the expected rates.
 - [ ] **Per-item Drop Receipts**: Record actual drops per run (today only executed units and stamina claims are recorded).
+- [ ] **Equipment Cleanup (opt-in)**: OneDragon's Drive Disc dismantle and BetterGI's after-domain artifact salvage destroy items by rarity only; offer them only as explicit, per-run choices, never by default.
 - [ ] **Packaged OneDragon Live Battery Charge Adapter**: Publish the optional OneDragon adapter as a reviewed patch with an install step.
 
 ---

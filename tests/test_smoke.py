@@ -97,6 +97,16 @@ class SmokeTest(unittest.TestCase):
         assets.collect({'genshin/character/1': 'https://example.org/x.png', '../escape': 'https://act-webstatic.mihoyo.com/x.png'})
         self.assertEqual(core.get('asset_sources', {}), {})
 
+    def test_zzz_portrait_without_square_icon(self):
+        """The upgrade guide leaves square_icon empty; the official square avatar address is used instead."""
+        from types import SimpleNamespace
+        from server import assets, mihoyo
+        url = mihoyo.zzz_portrait(SimpleNamespace(id=1041, square_icon=None))
+        self.assertTrue(url.endswith('/role_square_avatar_1041.png'))
+        self.assertTrue(assets.allowed(url))
+        given = 'https://act-webstatic.mihoyo.com/x/role_square_avatar_1041.png'
+        self.assertEqual(mihoyo.zzz_portrait(SimpleNamespace(id=1041, square_icon=given)), given)
+
     def test_paused_item_matches_ui_key(self):
         """The UI pauses items by their full key (goal id + item key)."""
         from server import materials

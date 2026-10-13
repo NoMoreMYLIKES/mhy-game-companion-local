@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import functools
 import math
+import re
 from pathlib import Path
 
 import yaml
@@ -112,8 +113,77 @@ def zzz_compendium(root: str) -> dict:
 
 
 def zzz_disc_missions(root: str) -> list[str]:
-    """Area Patrol (区域巡防) entries except the agent-plan pseudo entry."""
-    return [k for k in zzz_compendium(root).get('区域巡防', {}) if k != '代理人方案培养']
+    """Area Patrol (区域巡防) stage names, as the installed OneDragon or the bundled snapshot lists them."""
+    return [s['name'] for s in zzz_disc_stages(root)]
+
+
+def set_key(name) -> str:
+    """Set names compared without spaces or 「」 brackets (sources differ in both)."""
+    return re.sub(r'[\s「」『』]', '', str(name or ''))
+
+
+@functools.lru_cache(maxsize=1)
+def _stage_snapshot() -> list[dict]:
+    return core.read_json(core.DATASETS / 'zzz_disc_stages.json', {}).get('stages', [])
+
+
+@functools.lru_cache(maxsize=4)
+def _patrol(root: str, mtime: float) -> list[dict]:
+    """Area Patrol stages of OneDragon's compendium; its display text names the two sets a stage drops."""
+    data = yaml.safe_load((Path(root) / 'assets/game_data/compendium_data.yml').read_text(encoding='utf-8-sig')) or []
+    ids = {set_key(s['name']): s['id'] for stage in _stage_snapshot() for s in stage['sets']}
+    stages = []
+    for tab in data:
+        if tab.get('tab_name') != '训练':  # the "Training" tab
+            continue
+        for category in tab.get('category_list', []):
+            if category.get('category_name') != '区域巡防':
+                continue
+            for kind in category.get('mission_type_list', []):
+                name = kind.get('mission_type_name')
+                if not name or name == '代理人方案培养':  # the agent-plan pseudo entry
+                    continue
+                sets = str(kind.get('mission_type_name_display') or '').split()
+                stages.append({'name': name, 'sets': [{'id': ids.get(set_key(s)), 'name': s} for s in sets]})
+    return stages
+
+
+def zzz_disc_stages(root: str) -> list[dict]:
+    """Area Patrol stages with the Drive Disc sets each drops: the installed OneDragon's list, which names
+    the stages exactly as it runs them, else the bundled snapshot (hosts without OneDragon)."""
+    path = Path(root or '.') / 'assets/game_data/compendium_data.yml'
+    try:
+        live = _patrol(str(root), path.stat().st_mtime) if root else []
+    except (OSError, ValueError, AttributeError, yaml.YAMLError):
+        live = []
+    return live or _stage_snapshot()
+
+
+@functools.lru_cache(maxsize=1)
+def genshin_artifact_domains() -> list[dict]:
+    """Domains of Blessing (BetterGI's names, which are the entrance names) and the 5-star sets each drops."""
+    return core.read_json(core.DATASETS / 'genshin_artifact_domains.json', {}).get('domains', [])
+
+
+def gear_stages(game: str, root: str = '') -> list[dict]:
+    """Where each equipment set is farmed: ZZZ Area Patrol stages or Genshin Domains of Blessing."""
+    return zzz_disc_stages(root) if game == 'zzz' else genshin_artifact_domains()
+
+
+def stage_for_set(want: dict, stages: list[dict]) -> str | None:
+    """The stage (or domain) that drops a set, matched by set id or, failing that, by name."""
+    key = set_key(want.get('name'))
+    for stage in stages:
+        for s in stage['sets']:
+            if (want.get('id') and s.get('id') == want['id']) or (key and set_key(s['name']) == key):
+                return stage['name']
+    return None
+
+
+def gear_sets(game: str, root: str = '') -> list[dict]:
+    """Every set a known stage or domain drops, for the equipment target's set choice."""
+    return [{'id': s['id'], 'name': s['name'], 'stage': st['name']}
+            for st in gear_stages(game, root) for s in st['sets'] if s.get('id')]
 
 
 def _strip(name: str) -> str:

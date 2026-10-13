@@ -313,6 +313,106 @@ const I18N = {
     disc_mission: 'Area Patrol mission',
     disc_cap: 'Cumulative cap (runs)',
     equip_used: 'Used {0} of {1}',
+    equip_fixed_hint: 'Used only while no character’s equipment target steers farming',
+    gear_wasted: 'Wasted upgrades: {0}',
+    gear_all_hit: 'Every upgrade counts',
+    gear_totals: 'Counted rolls: {0}',
+    gear_title: 'Drive Discs',
+    btn_gear_target: 'Equipment target',
+    gear_none_yet: 'Drive Discs not read yet. Sync this character to read them.',
+    gear_status_met: 'Target met',
+    gear_status_off: 'Not steering farming',
+    gear_status_next: 'Next equipment run: {0}',
+    gear_status_queued: 'Queued: {0}',
+    gear_mains_ok: 'Main stats match',
+    gear_mains_bad: 'Main stat mismatch',
+    gear_slots_filled: '{0} of {1} slots filled',
+    gear_src_custom: 'Your weights',
+    gear_src_mine: 'Weights from your own picks on Miyoushe',
+    gear_src_recommended: 'Weights from Miyoushe’s recommendation',
+    gear_src_official: 'Weights from the build “{0}”',
+    gear_src_none: 'No weights: set them in the equipment target',
+    gear_read: 'Read {0}',
+    gear_runs: '{0} runs farmed for this character',
+    gear_weights_line: 'Counted substats: {0}',
+    gear_no_weights: 'No substat counts yet: the build lists none and no weights are set.',
+    gear_help: 'The score counts the substat rolls already on each disc (an S-rank roll counts 1, A and B rolls less) against the best a disc in that slot could hold, then averages the six slots; an empty slot counts 0. Equip better discs in the game; the score updates on the next sync.',
+    gear_slot: 'Slot {0}',
+    gear_slot_empty: 'Empty',
+    gear_disc_score: 'Disc score',
+    gear_level: 'Rank {0} · Lv. {1}',
+    dlg_gear_title: 'Equipment target · {0}',
+    gear_follow_build: 'Follow the build',
+    gear_follow_weights: 'Use the build’s substats',
+    gear_set_n: 'Set {0}',
+    gear_set_none: 'None',
+    gear_set_pieces: 'Pieces',
+    gear_pieces: '{0} pieces',
+    gear_farm_switch: 'Farm Drive Discs for this character',
+    gear_farm_sub: 'Equipment continuation farms for the first unfinished character in goal order, until its target is met or the cap is reached.',
+    gear_score_target: 'Score target (0–100)',
+    gear_score_hint: 'Average of all slots. A random fully upgraded top-rarity piece scores about 35–40.',
+    gear_stage: 'Area Patrol stage',
+    gear_stage_auto: 'Automatic: the stage that drops the next set',
+    gear_stage_hint: 'Choose one only if the automatic stage is wrong or unknown.',
+    gear_sets_title: 'Sets',
+    gear_mains_title: 'Main stats, slots 4–6',
+    gear_weights_title: 'Substat weights',
+    gear_weights_help: '1 counts a roll fully, 0 not at all. With the build’s substats, flat HP, ATK and DEF count by their share of the agent’s base stat.',
+    toast_gear: 'Equipment target saved',
+    prop_11103: 'HP',
+    prop_11102: 'HP%',
+    prop_12103: 'ATK',
+    prop_12102: 'ATK%',
+    prop_13103: 'DEF',
+    prop_13102: 'DEF%',
+    prop_20103: 'CRIT Rate',
+    prop_21103: 'CRIT DMG',
+    prop_23203: 'PEN',
+    prop_23103: 'PEN Ratio',
+    prop_31203: 'Anomaly Proficiency',
+    prop_31402: 'Anomaly Mastery',
+    prop_30502: 'Energy Regen',
+    prop_12202: 'Impact',
+    prop_31503: 'Physical DMG Bonus',
+    prop_31603: 'Fire DMG Bonus',
+    prop_31703: 'Ice DMG Bonus',
+    prop_31803: 'Electric DMG Bonus',
+    prop_31903: 'Ether DMG Bonus',
+    prop_32303: 'Wind DMG Bonus',
+    art_title: 'Artifacts',
+    art_none_yet: 'Artifacts not read yet. Sync this character to read them.',
+    art_help: 'The score counts each substat as its share of a maximum roll (a full-size roll counts 1, smaller rolls less) against the best an artifact in that slot could hold, then averages the five slots; an empty slot counts 0. Equip better artifacts in the game; the score updates on the next sync.',
+    art_farm_switch: 'Farm Artifacts for this character',
+    art_mains_title: 'Main stats: Sands, Goblet, Circlet',
+    art_domain: 'Domain of Blessing',
+    art_domain_auto: 'Automatic: the domain that drops the next set',
+    art_domain_hint: 'Choose one only if the automatic domain is wrong or unknown.',
+    art_level: '{0}★ · +{1}',
+    art_slot_1: 'Flower of Life',
+    art_slot_2: 'Plume of Death',
+    art_slot_3: 'Sands of Eon',
+    art_slot_4: 'Goblet of Eonothem',
+    art_slot_5: 'Circlet of Logos',
+    prop_2: 'HP',
+    prop_3: 'HP%',
+    prop_5: 'ATK',
+    prop_6: 'ATK%',
+    prop_8: 'DEF',
+    prop_9: 'DEF%',
+    prop_20: 'CRIT Rate',
+    prop_22: 'CRIT DMG',
+    prop_23: 'Energy Recharge',
+    prop_26: 'Healing Bonus',
+    prop_28: 'Elemental Mastery',
+    prop_30: 'Physical DMG Bonus',
+    prop_40: 'Pyro DMG Bonus',
+    prop_41: 'Electro DMG Bonus',
+    prop_42: 'Hydro DMG Bonus',
+    prop_43: 'Dendro DMG Bonus',
+    prop_44: 'Anemo DMG Bonus',
+    prop_45: 'Geo DMG Bonus',
+    prop_46: 'Cryo DMG Bonus',
     btn_reset: 'Reset',
     mute_morning: 'Mute audio during morning runs',
     mute_morning_sub: 'Scheduled slots before 12:00; the previous state is restored afterwards.',
@@ -697,6 +797,106 @@ const I18N = {
     disc_mission: '区域巡防关卡',
     disc_cap: '累计上限（场）',
     equip_used: '已用 {0} / {1}',
+    equip_fixed_hint: '仅在没有角色的装备目标参与刷取时使用',
+    gear_wasted: '未命中 {0} 次',
+    gear_all_hit: '满命中',
+    gear_totals: '计入的强化次数：{0}',
+    gear_title: '驱动盘',
+    btn_gear_target: '装备目标',
+    gear_none_yet: '尚未读取驱动盘。同步该角色即可读取。',
+    gear_status_met: '已达成目标',
+    gear_status_off: '未参与刷取',
+    gear_status_next: '下次装备刷取：{0}',
+    gear_status_queued: '排队中：{0}',
+    gear_mains_ok: '主属性符合',
+    gear_mains_bad: '主属性不符',
+    gear_slots_filled: '已装备 {0} / {1}',
+    gear_src_custom: '自定义权重',
+    gear_src_mine: '权重来自你在米游社的自选属性',
+    gear_src_recommended: '权重来自米游社推荐属性',
+    gear_src_official: '权重来自方案「{0}」',
+    gear_src_none: '没有权重：请在装备目标中设置',
+    gear_read: '读取于{0}',
+    gear_runs: '已为该角色刷取 {0} 次',
+    gear_weights_line: '计入的副属性：{0}',
+    gear_no_weights: '尚无计入的副属性：方案未列出，也没有设置权重。',
+    gear_help: '评分统计每个驱动盘已有的副属性强化次数（S 级每次计 1，A、B 级按比例折算），与该位置理论最佳相比，再取六个位置的平均；空位计 0。请在游戏中换上更好的驱动盘，下次同步后评分更新。',
+    gear_slot: '{0} 号位',
+    gear_slot_empty: '空',
+    gear_disc_score: '单盘评分',
+    gear_level: '{0} 级 · Lv.{1}',
+    dlg_gear_title: '装备目标 · {0}',
+    gear_follow_build: '跟随方案',
+    gear_follow_weights: '使用方案的副属性',
+    gear_set_n: '套装 {0}',
+    gear_set_none: '无',
+    gear_set_pieces: '件数',
+    gear_pieces: '{0} 件',
+    gear_farm_switch: '为该角色刷驱动盘',
+    gear_farm_sub: '装备接续按培养顺序，为第一个未达标的角色刷取，直到达成目标或达到累计上限。',
+    gear_score_target: '评分目标（0–100）',
+    gear_score_hint: '所有部位的平均分。随机强化满级的最高稀有度装备约 35–40 分。',
+    gear_stage: '区域巡防关卡',
+    gear_stage_auto: '自动：掉落下一个套装的关卡',
+    gear_stage_hint: '仅在自动选择有误或未知时指定。',
+    gear_sets_title: '套装',
+    gear_mains_title: '主属性（4–6 号位）',
+    gear_weights_title: '副属性权重',
+    gear_weights_help: '1 表示每次强化全额计入，0 表示不计入。使用方案的副属性时，固定生命值、攻击力、防御力按其占代理人基础属性的比例计入。',
+    toast_gear: '装备目标已保存',
+    prop_11103: '生命值',
+    prop_11102: '生命值%',
+    prop_12103: '攻击力',
+    prop_12102: '攻击力%',
+    prop_13103: '防御力',
+    prop_13102: '防御力%',
+    prop_20103: '暴击率',
+    prop_21103: '暴击伤害',
+    prop_23203: '穿透值',
+    prop_23103: '穿透率',
+    prop_31203: '异常精通',
+    prop_31402: '异常掌控',
+    prop_30502: '能量自动回复',
+    prop_12202: '冲击力',
+    prop_31503: '物理伤害加成',
+    prop_31603: '火属性伤害加成',
+    prop_31703: '冰属性伤害加成',
+    prop_31803: '电属性伤害加成',
+    prop_31903: '以太伤害加成',
+    prop_32303: '风属性伤害加成',
+    art_title: '圣遗物',
+    art_none_yet: '尚未读取圣遗物。同步该角色即可读取。',
+    art_help: '评分把每条副属性折算为满档强化的份数（满档计 1，较小档位按比例），与该部位理论最佳相比，再取五个部位的平均；空位计 0。请在游戏中换上更好的圣遗物，下次同步后评分更新。',
+    art_farm_switch: '为该角色刷圣遗物',
+    art_mains_title: '主属性：时之沙、空之杯、理之冠',
+    art_domain: '祝圣秘境',
+    art_domain_auto: '自动：掉落下一个套装的秘境',
+    art_domain_hint: '仅在自动选择有误或未知时指定。',
+    art_level: '{0}★ · +{1}',
+    art_slot_1: '生之花',
+    art_slot_2: '死之羽',
+    art_slot_3: '时之沙',
+    art_slot_4: '空之杯',
+    art_slot_5: '理之冠',
+    prop_2: '生命值',
+    prop_3: '生命值%',
+    prop_5: '攻击力',
+    prop_6: '攻击力%',
+    prop_8: '防御力',
+    prop_9: '防御力%',
+    prop_20: '暴击率',
+    prop_22: '暴击伤害',
+    prop_23: '元素充能效率',
+    prop_26: '治疗加成',
+    prop_28: '元素精通',
+    prop_30: '物理伤害加成',
+    prop_40: '火元素伤害加成',
+    prop_41: '雷元素伤害加成',
+    prop_42: '水元素伤害加成',
+    prop_43: '草元素伤害加成',
+    prop_44: '风元素伤害加成',
+    prop_45: '岩元素伤害加成',
+    prop_46: '冰元素伤害加成',
     btn_reset: '清零',
     mute_morning: '早间批次静音',
     mute_morning_sub: '12:00 前的定时批次；结束后恢复原有状态。',
@@ -1404,7 +1604,7 @@ function nextBlock(game, plan, item, nf) {
   const unit = item.unit_label || '';
   const spend = nf.spend;
   const detailId = `next-${game}`;
-  const adjust = plan.phase === 'equipment' || !goal
+  const adjust = !goal   // equipment for a character is adjusted on its goal card, like its materials
     ? linkButton('#/settings/set-farming', 'edit', t('btn_adjust'))
     : linkButton(`#/goals/${encodeURIComponent(goal.id)}`, 'edit', t('btn_adjust'));
   return `
@@ -1509,6 +1709,7 @@ function goalCard(g, idx, total, nextKey) {
       ${errors.map(e => alertBox('bad', 'alert', esc(e))).join('')}
       ${next && plan?.item ? nextLine(g, next, plan.item) : ''}
       ${targetTables(g)}
+      ${GEAR[g.game] ? gearSection(g) : ''}
       ${priorityRow(g)}
       <section>
         <div class="mats-head"><h3>${t('mats_title')}</h3></div>
@@ -1563,6 +1764,95 @@ function targetTables(g, editable = false) {
       <section class="target-box"><h3>${t('targets_char')}</h3>${targetTable(g, f.char, editable)}</section>
       <section class="target-box"><h3>${t(g.game === 'genshin' ? 'targets_weapon_genshin' : 'targets_weapon_zzz')}${g.weapon_name ? `<span>${esc(g.weapon_name)}</span>` : ''}</h3>${targetTable(g, f.weapon, editable)}</section>
     </div>`;
+}
+
+// ----------------------------------------------------------- Equipment: Drive Discs (ZZZ), Artifacts (Genshin)
+// Substats in weight-table order, main stats per configurable slot, and the per-game texts.
+const GEAR = {
+  zzz: { subs: [20103, 21103, 12102, 12103, 11102, 11103, 13102, 13103, 23203, 31203],
+         mains: { 4: [11102, 12102, 13102, 20103, 21103, 31203],
+                  5: [11102, 12102, 13102, 23103, 31503, 31603, 31703, 31803, 31903, 32303],
+                  6: [11102, 12102, 13102, 30502, 31402, 12202] },
+         kind: 'disc', unit: 'battery', title: 'gear_title', none: 'gear_none_yet', help: 'gear_help', farm: 'gear_farm_switch',
+         mainsTitle: 'gear_mains_title', stage: 'gear_stage', stageAuto: 'gear_stage_auto', stageHint: 'gear_stage_hint',
+         stages: () => STATE.catalog?.disc || [], sets: () => STATE.catalog?.disc_sets || [] },
+  genshin: { subs: [20, 22, 6, 5, 3, 2, 9, 8, 23, 28],
+             mains: { 3: [3, 6, 9, 23, 28], 4: [3, 6, 9, 28, 30, 40, 41, 42, 43, 44, 45, 46], 5: [3, 6, 9, 28, 20, 22, 26] },
+             kind: 'artifact', unit: 'resin', title: 'art_title', none: 'art_none_yet', help: 'art_help', farm: 'art_farm_switch',
+             mainsTitle: 'art_mains_title', stage: 'art_domain', stageAuto: 'art_domain_auto', stageHint: 'art_domain_hint',
+             stages: () => STATE.catalog?.blessing || [], sets: () => STATE.catalog?.artifact_sets || [] }
+};
+/** Official property name in the UI language; the API's own (Chinese) name for ids this table lacks. */
+function propName(id, fallback = '') { const k = 'prop_' + id; return lookup(k) !== k ? t(k) : esc(fallback || id); }
+function slotName(game, slot) { return game === 'genshin' ? t('art_slot_' + slot) : t('gear_slot', slot); }
+function setIcon(game, setId, cls = 'mat-icon') {
+  const k = `${game}/${GEAR[game].kind}/${setId}`;
+  return setId && ASSETS.has(k) ? `<img class="${cls}" src="/assets/${esc(k)}" alt="" loading="lazy">` : '';
+}
+function rollsText(r) { return r == null ? '' : `×${Number.isInteger(r) ? r : r.toFixed(1)}`; }
+function gearQueueRow(g) { return (STATE.plans?.[g.game]?.equipment?.queue || []).find(r => r.goal_id === g.id); }
+
+function gearStatus(g, ev) {
+  const row = gearQueueRow(g);
+  const eq = STATE.plans?.[g.game]?.equipment || {};
+  if (ev && ev.done) return badge('good', 'check', t('gear_status_met'));
+  if (!ev?.target?.farm) return badge('muted', 'minus', t('gear_status_off'));
+  if (row && row.why) return badge('warn', 'clock', esc(row.why));
+  if (eq.goal_id === g.id && !eq.why) return badge('info', 'target', t('gear_status_next', esc(row.stage)));
+  if (row && row.stage) return badge('muted', 'list', t('gear_status_queued', esc(row.stage)));
+  return badge('warn', 'clock', esc(eq.why || ''));
+}
+
+function gearSection(g) {
+  const ev = g.gear_eval;
+  const id = esc(g.id);
+  const cfg = GEAR[g.game];
+  const head = `<div class="mats-head"><h3>${t(cfg.title)}</h3>${button('edit-gear', 'edit', t('btn_gear_target'), 'sm', `data-id="${id}"${ev ? '' : ' disabled'}`)}</div>`;
+  if (!ev) return `<section class="gear">${head}<p class="ink-2">${g.gear_error ? esc(g.gear_error) : t(cfg.none)}</p></section>`;
+  const tg = ev.target;
+  const chips = [
+    ...ev.sets.map(s => chip(s.ok ? 'check' : 'x', `${s.name} ${s.have}/${s.count}`, s.ok ? 'good' : 'warn')),
+    ev.checks.main ? chip('check', tp('gear_mains_ok'), 'good') : chip('x', tp('gear_mains_bad'), 'warn'),
+    ev.checks.filled ? '' : chip('x', tp('gear_slots_filled', ev.slots.filter(s => s.disc).length, ev.slots.length), 'warn'),
+  ].join('');
+  const src = ev.source === 'custom' ? t('gear_src_custom') : ev.source !== 'official' ? t('gear_src_none')
+    : ev.plan?.name ? t('gear_src_official', esc(ev.plan.name)) : t(ev.plan?.mine ? 'gear_src_mine' : 'gear_src_recommended');
+  const weighted = cfg.subs.filter(i => (ev.weights[i] || 0) > 0)
+    .map(i => `${propName(i)} ${ev.weights[i]}`).join(tp('list_sep'));
+  const detailId = `gear-${g.id}`;
+  return `
+    <section class="gear">
+      ${head}
+      <div class="gear-sum">
+        <div class="gear-score"><span class="value">${ev.score ?? '–'}</span><span class="ink-2">/ ${tg.score}</span>${ev.score == null ? '' : miniMeter(ev.score, tg.score || 100)}</div>
+        <div class="gear-checks">${chips}</div>
+        <div class="gear-state">${gearStatus(g, ev)}</div>
+      </div>
+      <p class="meta ink-2"><span>${src}</span><span>${icon('refresh')}${t('gear_read', relative(ev.at))}</span>${g.gear_runs ? `<span>${t('gear_runs', num(g.gear_runs))}</span>` : ''}${toggleButton(detailId)}</p>
+      ${detailPanel(detailId, `
+        <ul class="discs">${ev.slots.map(s => discCard(g.game, s)).join('')}</ul>
+        ${help(weighted ? t('gear_weights_line', weighted) : t('gear_no_weights'))}
+        ${Object.keys(ev.totals || {}).length ? help(t('gear_totals', cfg.subs.filter(i => ev.totals[i] != null)
+          .map(i => `${propName(i)} ${num(ev.totals[i])}`).join(tp('list_sep'))), 'list') : ''}
+        ${help(t(cfg.help))}`, 'mt')}
+    </section>`;
+}
+
+function discCard(game, s) {
+  const d = s.disc;
+  if (!d) return `<li class="disc empty"><b>${slotName(game, s.slot)}</b><span class="ink-2">${t('gear_slot_empty')}</span></li>`;
+  const main = d.main ? `${propName(d.main.id, d.main.name)} <span class="num">${esc(d.main.value)}</span>` : '–';
+  const subs = s.subs.map(x => `
+    <li class="${x.weight > 0 ? 'eff' : ''}"><span>${propName(x.id, x.name)}</span><span class="num">${esc(x.value)}</span><span class="rolls num">${rollsText(x.rolls)}</span></li>`).join('');
+  return `
+    <li class="disc">
+      <div class="disc-head">${setIcon(game, d.set_id)}<div><b>${slotName(game, s.slot)}</b><span>${esc(d.set)}</span></div>
+        <span class="disc-score num" title="${t('gear_disc_score')}">${s.score ?? '–'}</span></div>
+      <p class="disc-meta ink-2"><span>${t(game === 'genshin' ? 'art_level' : 'gear_level', esc(d.rarity), d.level)}</span>${s.wasted == null || !d.level ? ''
+        : s.wasted ? `<span class="wasted">${t('gear_wasted', s.wasted)}</span>` : `<span class="all-hit">${icon('check')}${t('gear_all_hit')}</span>`}</p>
+      <p class="disc-main${s.main_ok === false ? ' bad' : ''}">${s.main_ok === false ? icon('alert') : ''}${main}</p>
+      <ul class="disc-subs">${subs}</ul>
+    </li>`;
 }
 
 function priorityRow(g) {
@@ -1758,6 +2048,112 @@ function renderTargetsDialog(goal) {
       <button type="button" class="btn" data-action="targets-discard"${MODAL.dirty ? '' : ' hidden'}>${icon('x')}<span class="txt">${t('btn_discard')}</span></button>
       <button type="submit" class="btn primary" data-action="save-targets" data-id="${esc(goal.id)}">${icon('check')}<span class="txt">${t('btn_save_changes')}</span></button>`,
     'targets'), true);
+}
+
+function openGearTarget(goal) {
+  MODAL = { kind: 'gear', id: goal.id, error: '', dirty: false };
+  renderGearDialog(goal);
+}
+
+/** Sets this character could target: the build's, the equipped ones and every set a known stage drops. */
+function gearSetOptions(game, ev) {
+  const seen = new Map();
+  const add = (id, name) => { if (id && !seen.has(String(id))) seen.set(String(id), name); };
+  (ev.plan?.sets || []).forEach(s => add(s.id, s.name));
+  ev.slots.forEach(s => s.disc && add(s.disc.set_id, s.disc.set));
+  ev.target.sets.forEach(s => add(s.id, s.name));
+  GEAR[game].sets().forEach(s => add(s.id, s.name));
+  return [...seen].map(([id, name]) => ({ id, name }));
+}
+
+function renderGearDialog(goal) {
+  const ev = goal.gear_eval;
+  const own = goal.gear_target || {};
+  const tg = ev.target;
+  const follow = (key, sec) => `
+    <label class="follow"><input type="checkbox" name="follow_${sec}" data-follow="${sec}" data-change="gear-follow"${own[key] == null ? ' checked' : ''}>
+      <span>${t(sec === 'weights' ? 'gear_follow_weights' : 'gear_follow_build')}</span></label>`;
+  const cfg = GEAR[goal.game];
+  const options = gearSetOptions(goal.game, ev);
+  const setRow = (i, s) => `
+    <div class="set-row">
+      <select name="set_${i}" aria-label="${t('gear_set_n', i + 1)}"><option value="">${t('gear_set_none')}</option>
+        ${options.map(o => `<option value="${esc(o.id)}"${s && String(s.id) === o.id ? ' selected' : ''}>${esc(o.name)}</option>`).join('')}</select>
+      <select name="count_${i}" aria-label="${t('gear_set_pieces')}">
+        ${[4, 2].map(c => `<option value="${c}"${(s ? s.count : i ? 2 : 4) === c ? ' selected' : ''}>${t('gear_pieces', c)}</option>`).join('')}</select>
+    </div>`;
+  const mainGroup = slot => `
+    <fieldset class="main-group"><legend>${slotName(goal.game, slot)}</legend>
+      ${[...new Set([...cfg.mains[slot], ...(ev.build.main[slot] || [])])].map(i => `<label class="check"><input type="checkbox" name="main_${slot}" value="${i}"${(tg.main[slot] || []).includes(i) ? ' checked' : ''}><span>${propName(i, ev.plan?.names?.[i])}</span></label>`).join('')}
+    </fieldset>`;
+  const stages = cfg.stages();
+  openDialog(dialogShell(t('dlg_gear_title', esc(goal.name)), `
+      ${switchRow('farm', tg.farm, t(cfg.farm), t('gear_farm_sub'), cfg.unit, 'first')}
+      <div class="fields wide">
+        ${field(t('gear_score_target'), `<input type="number" name="score" min="0" max="100" step="1" value="${tg.score}">`, t('gear_score_hint'))}
+        ${field(t(cfg.stage), `<select name="stage"><option value="">${t(cfg.stageAuto)}</option>
+          ${stages.map(s => `<option value="${esc(s)}"${tg.stage === s ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select>`, t(cfg.stageHint))}
+      </div>
+      <div class="sub-block"><h3>${t('gear_sets_title')}</h3>${follow('sets', 'sets')}
+        <fieldset data-sec="sets"${own.sets == null ? ' disabled' : ''}>${[0, 1, 2].map(i => setRow(i, tg.sets[i])).join('')}</fieldset></div>
+      <div class="sub-block"><h3>${t(cfg.mainsTitle)}</h3>${follow('main', 'main')}
+        <fieldset data-sec="main" class="mains"${own.main == null ? ' disabled' : ''}>${Object.keys(cfg.mains).map(mainGroup).join('')}</fieldset></div>
+      <div class="sub-block"><h3>${t('gear_weights_title')}</h3>${follow('weights', 'weights')}
+        <fieldset data-sec="weights" class="fields weights"${own.weights == null ? ' disabled' : ''}>
+          ${cfg.subs.map(i => field(propName(i), `<input type="number" name="w_${i}" min="0" max="1" step="0.01" value="${ev.weights[i] ?? 0}">`)).join('')}
+        </fieldset>
+        ${help(t('gear_weights_help'))}</div>`,
+    `${MODAL.error ? `<span class="err" role="alert">${icon('alert')}${esc(MODAL.error)}</span>` : ''}
+      <button type="submit" class="btn primary" data-action="save-gear" data-id="${esc(goal.id)}">${icon('check')}<span class="txt">${t('btn_save_changes')}</span></button>`,
+    'gear'), true);
+}
+
+/** "Follow the build" on: show the build's values in the (disabled) section; off: start editing from them. */
+function toggleFollow(box) {
+  const goal = findGoal(MODAL.id);
+  const ev = goal && goal.gear_eval;
+  const sec = box.closest('form').querySelector(`fieldset[data-sec="${box.dataset.follow}"]`);
+  if (!ev || !sec) return;
+  sec.disabled = box.checked;
+  if (!box.checked) return;
+  if (box.dataset.follow === 'weights' && ev.official) GEAR[goal.game].subs.forEach(i => { sec.querySelector(`[name="w_${i}"]`).value = ev.official[i] ?? 0; });
+  if (box.dataset.follow === 'main') sec.querySelectorAll('input').forEach(c => { c.checked = (ev.build.main[c.name.slice(5)] || []).includes(Number(c.value)); });
+  if (box.dataset.follow === 'sets') [0, 1, 2].forEach(i => {
+    const s = ev.build.sets[i];
+    sec.querySelector(`[name="set_${i}"]`).value = s ? String(s.id) : '';
+    sec.querySelector(`[name="count_${i}"]`).value = String(s ? s.count : i ? 2 : 4);
+  });
+}
+
+async function submitGearTarget(form) {
+  const goal = findGoal(MODAL.id);
+  const fd = new FormData(form);   // disabled sections (following the build) are left out
+  const target = { farm: fd.has('farm'), score: parseInt(fd.get('score'), 10), stage: fd.get('stage') || '' };
+  if (!form.elements.follow_sets.checked) {
+    const names = new Map(gearSetOptions(goal.game, goal.gear_eval).map(o => [o.id, o.name]));
+    target.sets = [0, 1, 2].map(i => ({ id: fd.get('set_' + i), count: parseInt(fd.get('count_' + i), 10) }))
+      .filter(s => s.id).map(s => ({ ...s, id: Number(s.id), name: names.get(s.id) || '' }));
+  }
+  const cfg = GEAR[goal.game];
+  if (!form.elements.follow_main.checked) target.main = Object.fromEntries(Object.keys(cfg.mains).map(s => [s, fd.getAll('main_' + s).map(Number)]));
+  if (!form.elements.follow_weights.checked) target.weights = Object.fromEntries(cfg.subs.map(i => [i, parseFloat(fd.get('w_' + i)) || 0]));
+  const btn = form.querySelector('[data-action="save-gear"]');
+  await busy(btn, async () => {
+    try {
+      await api('/api/goals/update', 'POST', { id: goal.id, patch: { gear_target: target } });
+    } catch (err) {
+      if (!MODAL || MODAL.kind !== 'gear') throw err;
+      MODAL.error = err.message;
+      const err_ = form.querySelector('.modal-foot .err');
+      if (err_) err_.lastChild.textContent = err.message;
+      else form.querySelector('.modal-foot').insertAdjacentHTML('afterbegin', `<span class="err" role="alert">${icon('alert')}<span>${esc(err.message)}</span></span>`);
+      return;
+    }
+    if (MODAL && MODAL.kind === 'gear' && MODAL.id === goal.id) closeDialog();
+    const ok = await refreshState(true);
+    toast(ok ? tp('toast_gear') : tp('saved_not_reloaded'), ok ? 'ok' : 'error');
+    if (ok) flash(`${goalSel(goal.id)} .gear`);
+  }, 'saving');
 }
 
 async function openAddGoal() {
@@ -2059,13 +2455,13 @@ function farmingPanel(s) {
         ${help(t('equip_help'))}
         ${switchRow('planning.artifact.enabled', p.artifact.enabled, t('artifact_switch'), t('artifact_sub'), 'resin')}
         <div class="fields">
-          ${field(t('artifact_domain'), input('planning.artifact.domain', p.artifact.domain, 'type="text" list="dl-blessing"') + datalist('dl-blessing', STATE.catalog?.blessing))}
+          ${field(t('artifact_domain'), input('planning.artifact.domain', p.artifact.domain, 'type="text" list="dl-blessing"') + datalist('dl-blessing', STATE.catalog?.blessing), t('equip_fixed_hint'))}
           ${field(t('artifact_cap'), input('planning.artifact.cap', p.artifact.cap, 'type="number" min="0" step="1"'))}
         </div>
         <div data-live="equip-genshin">${equipUsage('genshin')}</div>
         ${switchRow('planning.disc.enabled', p.disc.enabled, t('disc_switch'), t('disc_sub'), 'battery')}
         <div class="fields">
-          ${field(t('disc_mission'), input('planning.disc.mission', p.disc.mission, 'type="text" list="dl-disc"') + datalist('dl-disc', STATE.catalog?.disc))}
+          ${field(t('disc_mission'), input('planning.disc.mission', p.disc.mission, 'type="text" list="dl-disc"') + datalist('dl-disc', STATE.catalog?.disc), t('equip_fixed_hint'))}
           ${field(t('disc_cap'), input('planning.disc.cap', p.disc.cap, 'type="number" min="0" step="1"'))}
         </div>
         <div data-live="equip-zzz">${equipUsage('zzz')}</div>
@@ -2270,6 +2666,7 @@ const ACTIONS = {
   }, tp('toast_order'), undefined, goalSel(btn.dataset.id)),
   'sync-goal': btn => commit(btn, () => api('/api/goals/sync', 'POST', { id: btn.dataset.id, observe: true }), tp('toast_synced'), 'syncing', goalSel(btn.dataset.id)),
   'edit-targets': btn => { const goal = goalBy(btn); if (goal) openTargets(goal); },
+  'edit-gear': btn => { const goal = goalBy(btn); if (goal && goal.gear_eval) openGearTarget(goal); },
   'targets-discard': () => { MODAL.dirty = false; MODAL.error = ''; renderTargetsDialog(findGoal(MODAL.id)); },
   'cancel-goal': btn => {
     const goal = goalBy(btn);
@@ -2338,7 +2735,8 @@ const ACTIONS = {
 };
 
 const CHANGES = {
-  'select-account': el => commit(null, () => api('/api/accounts/select', 'POST', { game: el.dataset.game, uid: el.value }), tp('toast_account'))
+  'select-account': el => commit(null, () => api('/api/accounts/select', 'POST', { game: el.dataset.game, uid: el.value }), tp('toast_account')),
+  'gear-follow': el => toggleFollow(el)
 };
 
 async function submitTargets(form) {
@@ -2441,6 +2839,7 @@ document.addEventListener('input', e => {
   const form = e.target.closest('form');
   if (!form) return;
   if (form.id === 'settings-form') markSettingsDirty();
+  else if (form.dataset.form === 'gear' && MODAL) MODAL.dirty = true;
   else if (form.dataset.form === 'targets' && MODAL && !MODAL.dirty) {
     MODAL.dirty = true;
     form.querySelector('[data-action="targets-discard"]').hidden = false;
@@ -2451,6 +2850,7 @@ document.addEventListener('submit', e => {
   const form = e.target;
   e.preventDefault();
   if (form.dataset.form === 'targets') submitTargets(form);
+  else if (form.dataset.form === 'gear') submitGearTarget(form);
   else if (form.dataset.form === 'add-goal') submitAddGoal(form);
   else if (form.id === 'settings-form') ACTIONS['settings-save'](document.querySelector('[data-action="settings-save"]'));
 });

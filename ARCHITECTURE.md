@@ -25,16 +25,17 @@ mhy-game-companion-local/
 │   ├── i18n.py                 # Backend message catalog (English base, Chinese translation)
 │   ├── mihoyo.py               # Miyoushe QR login, accounts, Real-Time Notes, calculators
 │   ├── goals.py                # Goal CRUD, ordering, official sync, executed-unit allowance
+│   ├── gear.py                 # Drive Discs / Artifacts: read, score, equipment targets, next set to farm
 │   ├── materials.py            # Datasets, farming routes, units and expected-yield conversion
 │   ├── planner.py              # The single planning rule: preview, forecast and execution
 │   ├── runner.py               # Batch pipeline: plan → configure → launch → receipt → restore
 │   ├── tools.py                # BetterGI / OneDragon configs, patch journal, processes, logs, audio
 │   ├── scheduler.py            # 20 s loop: slots with catch-up, notes polling, goal sync, outbox
 │   ├── notify.py               # Notification outbox and channels
-│   ├── assets.py               # Local cache of portraits / material icons from official API responses
+│   ├── assets.py               # Local cache of portraits / material icons / disc and artifact set icons from official API responses
 │   ├── web.py                  # ThreadingHTTPServer: static UI + JSON API + cached images, loopback/LAN guard
 │   ├── templates/              # bettergi_morning.json (neutral BetterGI One Dragon template)
-│   └── datasets/               # genshin.json, zzz.json (offline game data)
+│   └── datasets/               # genshin.json, zzz.json (offline game data); zzz_disc_stages.json, genshin_artifact_domains.json (where each set drops)
 ├── tools/audio.ps1             # CoreAudio COM: get / mute / set the default playback device
 ├── web/                        # index.html, style.css, app.js (SPA with en/zh dictionaries)
 └── tests/                      # test_smoke.py (imports, planner, i18n, anonymization), test_launcher.py
@@ -45,7 +46,8 @@ mhy-game-companion-local/
 | `core` | Foundation | `sqlite3`, Windows `crypt32` | `data/app.db`, `data/settings.json`, `data/*.dpapi.json` |
 | `i18n` | `tr(key, **params)` in the current UI language | `core.settings()` | – |
 | `mihoyo` | Official data through `genshin.py` (CN region, `zh-cn`) | `core` | secrets, `accounts`, `health:*`, stamina samples |
-| `goals` | Goals and their stable lists | `mihoyo`, `materials` | `goals` table |
+| `goals` | Goals and their stable lists | `mihoyo`, `materials`, `gear` | `goals` table |
+| `gear` | Drive Disc / Artifact scores, equipment targets and the next set (pure functions over the goal document) | – | – |
 | `materials` | Material rows → farmable *items* with a unit count | datasets, tool catalogs | – |
 | `planner` | Which item a batch would farm, and why | `goals`, `materials`, stamina samples | – |
 | `runner` | One batch at a time | `planner`, `tools`, `goals`, `notify` | `runs` table, `current_run`, `mute_journal` |
@@ -102,9 +104,16 @@ CREATE TABLE IF NOT EXISTS outbox  (id TEXT PRIMARY KEY, created TEXT, payload T
   "materials": [{"id": "104321", "name": "…", "need": 9, "owned": null, "remaining": 3,
                  "category": "talents", "categories": ["talents"], "domain": "…", "weekdays": [0, 3, 6], "monster": "…"}],
   "allowance": {"<item key>": {"calc_at": "…", "units": 7, "done": 2}},
-  "calc_at": "…", "calc_error": null, "sync_at": "…", "observe_at": "…", "observe_error": null
+  "calc_at": "…", "calc_error": null, "sync_at": "…", "observe_at": "…", "observe_error": null,
+  "gear": {"at": "…", "base": {"2": 938}, "discs": [{"slot": 1, "level": 15, "rarity": "S", "set_id": 31000, "set": "…",
+           "main": {"id": 11103, "value": "2200", …}, "subs": [{"id": 20103, "value": "7.2%", "number": 7.2, "percent": true, "level": 3, "valid": true}]}],
+           "plan": {"name": "…", "sets": [{"id": 31000, "name": "…"}], "main": {"4": [20103]}, "subs": [20103, 21103], "names": {"20103": "…"}}},
+  "gear_target": {"farm": true, "score": 50, "sets": [{"id": 31000, "count": 4}], "main": {"4": [21103]}, "weights": {"20103": 1, …}, "stage": ""},
+  "gear_runs": 12, "gear_error": null
 }
 ```
+
+`gear` is what the last observation read: the equipped pieces (`discs`, for either game), base HP/ATK/DEF and the build: for ZZZ the plan the account follows in Miyoushe's upgrade guide; for Genshin the character detail's `recommend_relic_property` (the account's own picks when it has any, else Miyoushe's recommendation; no sets). A substat's `level` is its roll count (ZZZ `level`; Genshin `times` + 1). `gear_target` holds only what the user changed: `sets`, `main` and `weights` left out follow the build, `stage` empty picks the stage automatically. `gear_runs` counts equipment runs farmed for this character.
 
 `materials` are the official calculator rows (`remaining = null` means UNKNOWN). `allowance` is the **stable list**: the unit count issued at the last calculation and how many were executed since, so a run is never repeated while the official inventory catches up.
 
@@ -126,7 +135,7 @@ CREATE TABLE IF NOT EXISTS outbox  (id TEXT PRIMARY KEY, created TEXT, payload T
 }
 ```
 
-**KV keys**: `patch_journal`, `mute_journal`, `current_run`, `device` (Miyoushe device id/fingerprint), `accounts`, `account_candidates`, `health:<notes-genshin|notes-zzz|calc>`, `slot_done:<YYYY-MM-DD@HH:MM>`, `equip_used:<game>`, `asset_sources` (image URL per asset key), `asset_failed` (last failed download per key).
+**KV keys**: `patch_journal`, `mute_journal`, `current_run`, `device` (Miyoushe device id/fingerprint), `accounts`, `account_candidates`, `health:<notes-genshin|notes-zzz|calc|detail>` (`detail`: the Genshin character detail that carries artifacts), `slot_done:<YYYY-MM-DD@HH:MM>`, `equip_used:<game>`, `asset_sources` (image URL per asset key), `asset_failed` (last failed download per key).
 
 Stamina samples store their source as a message key (`source_notes`, `source_onedragon`) and are translated when shown.
 
@@ -141,8 +150,10 @@ Secrets are encrypted with `CryptProtectData` (`CRYPTPROTECT_UI_FORBIDDEN`), bou
 One rule serves the dashboard preview, the 3-day forecast and execution. Per game, per batch, exactly one item:
 
 1. Enabled goals in user order → the goal's category order → the first item that is not collected, has an automatic route, is not paused, has a known unit count, is open today (Genshin domain weekdays, 04:00 reset) and still has allowance left.
-2. Otherwise the optional equipment continuation (Genshin Domain of Blessing / ZZZ Area Patrol mission) while its cumulative cap has room.
+2. Otherwise the optional equipment continuation (Genshin Domain of Blessing / ZZZ Area Patrol mission) while its cumulative cap has room. When any enabled goal of that game has `farm` on in its equipment target, the first such character (goal order) whose equipment does not meet the target decides where: its next set (the first unmet target set, else the 4-piece set) and the place that drops it: the ZZZ Area Patrol stage (the installed OneDragon's compendium, else `zzz_disc_stages.json`) or the Genshin Domain of Blessing (`genshin_artifact_domains.json`, named as BetterGI names it). When every such character is finished, nothing is farmed; the stage or domain in Settings is used only while no character steers farming.
 3. Otherwise nothing: stamina is kept and only free daily tasks run.
+
+**Equipment score** (`gear`): each substat counts its value in top-rarity rolls (A and B discs roll smaller steps; Genshin rolls are 70–100 % of a maximum roll, so each counts its share of one) times its weight; a piece scores that against the best a piece with its main stat could hold (four different weighted substats plus five upgrades of the best one), from 0 to 100; the set score is the mean over all slots (six discs, five artifacts), an empty slot counting 0. Each piece also reports its wasted upgrades (upgrades into substats that do not count), and the set its counted rolls per substat. Weights default to 1 for the substats the followed build recommends, with flat HP/ATK/DEF worth their share of the agent's base stat; the user can set all ten. A target is met when all six slots are filled, the target sets and slot 4–6 main stats match and the score reaches the target. Unknown (unreadable substats, no weights) is never met.
 
 Unit conversion (`materials`): Genshin talent / weapon domains count **20 Original Resin reward claims** from the official net gap with SEELIE top-difficulty rates (a 40-resin double claim counts as 2); Genshin bosses count runs from `planning.genshin_boss_yield`; ZZZ Combat Simulation counts **cards** (20 Battery Charge each), pooling a material series with the 3:1 ratio; ZZZ Expert Challenge counts runs. The issued count is an upper bound: the tools stop when the real in-game stamina runs out.
 
@@ -157,13 +168,14 @@ Unit conversion (`materials`): Genshin talent / weapon domains count **20 Origin
        morning scheduled slot (< 12:00) and features.mute_morning → audio mute, save mute_journal
        for game in (zzz, genshin):
          refresh Real-Time Notes (best effort) → planner.plan(game)
+         equipment batch for a character → re-read its discs (goals.sync, observe) and plan again
          tool missing → FAILED;  game already running → skip or restart (execution.if_game_running)
          write tool config (journaled) → launch game → launch tool hidden
          wait: tool exit | execution.timeout_minutes | stop request | BetterGI end-of-run log line + 30 s
          finally: kill tool and game, read new log text / plan counters, restore journal
-         receipt → completed units → allowance (goal) or equip_used (equipment)
+         receipt → completed units → allowance (goal) or equip_used (+ the character's gear_runs) (equipment)
        finally: unmute, final status, notification, delete current_run
-  after: re-sync the goal at +60 s and +180 s; refresh Real-Time Notes at +60 s
+  after: re-sync a material goal at +60 s and +180 s; refresh Real-Time Notes at +60 s
 ```
 
 Status per game: `STOPPED` (user stop), `FAILED` (timeout, or errors without the tool's success marker), `PARTIAL` (no success marker), `SKIPPED`, else `SUCCESS`. The batch takes the worst game status.
@@ -181,12 +193,12 @@ Loopback only by default. With `server.lan` enabled the server binds `0.0.0.0` a
 | `/api/roster` | GET | `?game=` | Characters from Miyoushe (needs login) |
 | `/api/characters` | GET | `?game=` | Characters from the offline dataset (UI fallback) |
 | `/api/runs` | GET | `?limit=50` | Run documents |
-| `/assets/<game>/<kind>/<id>` | GET | – | A cached image (`kind` is `character` or `material`); 404 when not saved |
+| `/assets/<game>/<kind>/<id>` | GET | – | A cached image (`kind` is `character`, `material`, `disc` (ZZZ set by suit id) or `artifact` (Genshin set by set id)); 404 when not saved |
 | `/api/login/start` | POST | `{}` | QR state (`status`, `svg`, `reason`) |
 | `/api/logout` | POST | `{}` | Clears cookies and accounts |
 | `/api/accounts/select` | POST | `{game, uid}` | Picks one of several game accounts |
 | `/api/goals/create` | POST | `{game, character_id, name, target?, current?}` | Goal |
-| `/api/goals/update` | POST | `{id, patch}` | `enabled`, `name`, `target`, `current`, `weapon_id`, `category_order`, `paused` |
+| `/api/goals/update` | POST | `{id, patch}` | `enabled`, `name`, `target`, `current`, `weapon_id`, `category_order`, `paused`, `gear_target` (validated by `gear.clean_target`, `null` follows the build again) |
 | `/api/goals/delete` | POST | `{id}` | – |
 | `/api/goals/order` | POST | `{game, ids}` | – |
 | `/api/goals/sync` | POST | `{id, observe}` | Goal after official sync |
@@ -202,7 +214,7 @@ Loopback only by default. With `server.lan` enabled the server binds `0.0.0.0` a
 | `/api/assets/sync` | POST | `{}` | Retries every known image that is not saved yet; returns the cache status |
 | `/api/shutdown` | POST | `{token, force?}` | `{ok}`; `token` comes from `server.pid`. Refused while a batch runs unless `force`, which stops the batch, waits up to 5 minutes for its configs to be restored, then exits |
 
-`/api/state` keys: `version, now, game_date, weekday, admin, logged_in, accounts, candidates, qr, runner, next_slot, plans, stamina, goals, forecast, runs, health, settings, check, notifications, catalog, assets, assets_status`. Goal items carry `materials` (per-material need / owned / remaining) and `tint` (`exp`, `family`, `core` or null); forecast rows carry `goal`, `task`, `spend` and `left` (stamina after the batch). `stamina.<game>` is `{value, cap, source, seen}` or `null` (UNKNOWN); `plans.<game>` is `{item, reason, waiting, equipment, daily, daily_keys, phase, …}`; `runner` carries `stage` (translated) and `stage_key` (stable, for the UI stepper).
+`/api/state` keys: `version, now, game_date, weekday, admin, logged_in, accounts, candidates, qr, runner, next_slot, plans, stamina, goals, forecast, runs, health, settings, check, notifications, catalog, assets, assets_status`. Goal items carry `materials` (per-material need / owned / remaining) and `tint` (`exp`, `family`, `core` or null); goals carry `gear_eval` (`gear.evaluate`: per-slot scores and wasted upgrades, set and main-stat checks, `done`, `next_set`, the weights in force, counted rolls, the build defaults); `catalog.disc_sets` / `catalog.artifact_sets` list every set a known stage or domain drops; forecast rows carry `goal`, `task`, `spend` and `left` (stamina after the batch). `stamina.<game>` is `{value, cap, source, seen}` or `null` (UNKNOWN); `plans.<game>` is `{item, reason, waiting, equipment, daily, daily_keys, phase, …}` (`equipment.mode` is `character` or `fixed`; `equipment.queue` lists the characters that steer farming and why each waits); `runner` carries `stage` (translated) and `stage_key` (stable, for the UI stepper).
 
 ---
 
@@ -298,7 +310,7 @@ After a failure `Start.bat` waits for a key when it was opened by double-click; 
 - **Visual system**: neutral surfaces (light gray page, white panels, dark text, 1px gray borders, dark primary buttons), light / dark / system themes as separate token sets, text at 20 / 16 / 14px with weights 400 / 700, 6px control and 8px group radii. Color only explains a state (always with an icon and a label) or a material category (pale tint plus a narrow edge: experience, convertible family, ZZZ core-skill material).
 - **Information order**: summary first (what runs next, planned spend, status), then the control that changes it (Target settings, pause, order, Adjust links), then evidence behind a Details disclosure (per-tier quantities, conversion, the planner's reasoning).
 - **Stamina track**: Today draws the next 48 hours per game from the forecast: natural recovery up to the cap, a drop at each planned batch (and the ZZZ coffee as a jump). A crosshair reads any time; batch markers open the same details on hover and keyboard focus. The Schedule page is its text equivalent, and the summary under it uses the same forecast numbers.
-- **Images**: circular character portraits and material icons come only from `/assets/…` and only when `/api/state.assets` lists them; otherwise a text fallback is drawn, so a missing image never causes a request.
+- **Images**: circular character portraits, material icons and Drive Disc set icons come only from `/assets/…` and only when `/api/state.assets` lists them; otherwise a text fallback is drawn, so a missing image never causes a request.
 - **Refresh without loss**: `/api/state` is polled every 5 s. Re-renders keep open details, keyboard focus and busy buttons; dialogs and the settings form are not redrawn while they hold a draft; a late older response is discarded; after a write the confirmation appears only once the fresh state is drawn, and "saved but not reloaded" is reported separately.
 
 ## 9. Internationalization
@@ -327,7 +339,7 @@ After a failure `Start.bat` waits for a key when it was opened by double-click; 
 2. Raise `ValueError` for user errors; it becomes a 400 with the message.
 
 ### Updating datasets
-`server/datasets/*.json` are generated snapshots (see each file's `source`, `source_url` and `at`). Regenerate them from those sources rather than editing by hand; material ids and Chinese names must match the official calculator.
+`server/datasets/*.json` are generated snapshots (see each file's `source`, `source_url` and `at`). Regenerate them from those sources rather than editing by hand; material ids and Chinese names must match the official calculator. `genshin_artifact_domains.json` lists the 22 Domains of Blessing with the 5-star sets each drops, built from genshin-db (ChineseSimplified domains at their highest tier, and artifacts for set ids), keeping the domains BetterGI's `tp.json` lists under the same names. `zzz_disc_stages.json` lists the 15 Area Patrol stages and the two sets each drops, built from OneDragon's `compendium_data.yml` (`mission_type_name_display`) with suit ids from Enka's `store/zzz/equipments.json`; it is only the fallback for hosts without OneDragon.
 
 ---
 
@@ -340,14 +352,15 @@ After a failure `Start.bat` waits for a key when it was opened by double-click; 
 5. **PowerShell 7 only** (`C:\Program Files\PowerShell\7\pwsh.exe`), never Windows PowerShell 5.1.
 6. **Runtime data stays local**: never commit `data/`.
 7. **Runs need Windows**: code that starts or stops tools, games or Windows services checks `tools.automation()` first; a Linux host plans and reads data only.
-8. **No request without a user action or a scheduled job**: opening a page never calls the official API or downloads images; images are saved once from responses the app already requested.
+8. **Only the characters the user selected are requested in detail**: equipment comes with the goal's own sync. ZZZ discs ride in the upgrade-guide answer already read for levels; Genshin artifacts need Miyoushe's character detail, requested with that goal's character id only (never the whole roster), not again within 60 s of the last read, and backed off like the other sources after a failure or captcha (`health:detail`). A failed equipment read never stops the level read.
+9. **No request without a user action or a scheduled job**: opening a page never calls the official API or downloads images; images are saved once from responses the app already requested. ZZZ portraits are the one derived address: the upgrade guide returns no `role_square_url`, so `mihoyo.zzz_portrait` uses the official square avatar (`act-webstatic.mihoyo.com/game_record/zzzv2/role_square_avatar/role_square_avatar_<id>.png`) of an agent id such a response named.
 
 ---
 
 ## 12. Verification
 
 ```powershell
-python -m unittest tests.test_smoke tests.test_launcher   # imports, planner, i18n, anonymization; start / stop cases
+python -m unittest tests.test_smoke tests.test_launcher tests.test_gear   # imports, planner, i18n, anonymization; start / stop cases; Drive Disc scores and targets
 python -m server                                          # run in the foreground
 python -m server.launcher status                          # address, runtime folder and PID, as Start and Stop see them
 Invoke-RestMethod http://127.0.0.1:18800/api/health

@@ -25,12 +25,13 @@ The planner follows four rules:
 
 - **Goals**: targets per character (level, talents / skills, weapon or W-Engine). Material gaps come from the official Enhancement Progression Calculator, and you set the order.
 - **Plan and forecast**: the dashboard shows what the next batch will farm and why, with a 48-hour stamina chart per game. A 3-day forecast uses the same rule.
+- **Drive Discs and Artifacts**: the equipped gear of each goal's character is read at its sync (only the characters you added) and scored against the build Miyoushe recommends for it, or your own picks there: every substat roll that counts, against the best a piece could hold, with wasted upgrades shown. Give a character an equipment target (score, sets, main stats, adjustable substat weights) and Drive Disc or Artifact farming goes to the first unfinished character, on the Area Patrol stage or Domain of Blessing that drops the set it still needs, until the target is met or your cap is reached.
 - **Runs**: run now, or use the built-in schedule (off by default; 05:00 and 18:00) with catch-up after missed slots. Optionally start at Windows logon, and mute audio during morning runs.
 - **Free dailies**: Genshin Mail, Serenitea Pot and Daily Commission Rewards; OneDragon dailies, Engagement and New Eridu City Fund rewards.
 - **Notifications**: one summary per batch through Windows toast, Telegram, a webhook or a JSON relay.
 - **Captcha**: when Miyoushe asks for human verification (1034), **Verify** on the dashboard shows its captcha; once you solve it, the notes are read again.
 - **Bilingual, light and dark**: English and Simplified Chinese (`EN / 中文` in the header); System, Light or Dark theme.
-- **Game images**: character portraits and material icons are saved locally the first time the official API returns them; the dashboard never downloads images itself.
+- **Game images**: character portraits, material icons and Drive Disc / Artifact set icons are saved locally the first time the official API returns them; the dashboard never downloads images itself.
 - **Privacy**: listens on `127.0.0.1` only by default, and LAN access requires a password. Credentials are encrypted with Windows DPAPI (on Linux: files only your user can read).
 
 ## Requirements
@@ -100,12 +101,13 @@ This is a personal automation and planning project. It is not affiliated with Ho
 
 - **养成目标**：按角色设定等级、天赋/技能、武器/音擎目标；材料缺口来自官方养成计算器；顺序由你决定。
 - **计划与预测**：控制台显示下一批刷什么、为什么，并为每款游戏绘制未来 48 小时的体力曲线；未来三天的预测使用同一规则。
+- **驱动盘与圣遗物**：同步培养目标时读取该角色已装备的驱动盘或圣遗物（只读取你添加的角色），按米游社为其推荐的属性（或你在米游社的自选属性）评分：统计每次计入的副属性强化，与理论最佳相比，并标出未命中的强化。为角色设定装备目标（评分、套装、主属性、可调整的副属性权重）后，刷取会按顺序交给第一个未达标的角色，自动选择掉落其所缺套装的区域巡防关卡或祝圣秘境，直到达成目标或达到你设定的上限。
 - **执行**：可立即执行，或使用内置定时（默认关闭，05:00 与 18:00），错过时段可在限定时间内补跑；可选开机登录自启、早间批次自动静音。
 - **免费日常**：原神领取邮件、尘歌壶奖励、每日委托奖励；绝区零一条龙日常、活跃度与丽都城募奖励。
 - **通知**：每批一条摘要，可通过 Windows 气泡通知、Telegram、Webhook 或 JSON 中转服务发送。
 - **人机验证**：米游社要求人机验证（1034）时，在控制台点击 **验证** 即可显示其验证码；完成后会重新读取便笺。
 - **双语与深浅色**：英文与简体中文（页面顶部 `EN / 中文` 切换）；主题可选跟随系统、浅色或深色。
-- **游戏图片**：角色头像与材料图标在官方接口首次返回时保存到本地，控制台页面本身不会下载图片。
+- **游戏图片**：角色头像、材料图标与驱动盘、圣遗物套装图标在官方接口首次返回时保存到本地，控制台页面本身不会下载图片。
 - **隐私**：默认只监听 `127.0.0.1`，局域网访问必须设置密码；凭据使用 Windows DPAPI 加密保存（Linux 上为仅当前用户可读的文件）。
 
 ## 环境要求

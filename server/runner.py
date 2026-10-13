@@ -121,7 +121,7 @@ def _after(run: dict) -> None:
         notify.event('failure', title, lines)
     # Official inventory needs a moment; correct the stable list at +60 s and +180 s.
     for g in run['games']:
-        if g.get('goal_id') and g.get('completed'):
+        if g.get('goal_id') and g.get('completed') and g.get('phase') != 'equipment':
             goals.queue_sync(g['goal_id'], observe=False, delay=60)
             goals.queue_sync(g['goal_id'], observe=False, delay=180)
         if g.get('started_tool'):
@@ -135,6 +135,13 @@ def _run_game(run_id: str, game: str) -> dict:
     except Exception:
         pass
     p = planner.plan(game)
+    if p['phase'] == 'equipment' and p['item'].get('goal_id'):
+        # Discs equipped since the last read may already meet the target: read them before farming more.
+        try:
+            goals.sync(p['item']['goal_id'], observe=True)
+        except Exception:
+            log.exception('Equipment re-read before the batch failed')
+        p = planner.plan(game)
     item = p['item']
     result = {'game': game, 'status': 'FAILED', 'reason': p['reason'], 'phase': p['phase'],
               'item': item and {k: item[k] for k in ('key', 'goal', 'label', 'names', 'unit_label', 'upper', 'expected')},
@@ -234,6 +241,8 @@ def _receipt(result: dict, game: str, item: dict | None, text: str, receipt: dic
     if item and done > 0:
         if result['phase'] == 'equipment':
             core.put('equip_used:' + game, int(core.get('equip_used:' + game, 0)) + done)
+            if result['goal_id']:
+                goals.record_gear_runs(result['goal_id'], done)
         else:
             goals.record_done(item['key'], done)
     if stopped:

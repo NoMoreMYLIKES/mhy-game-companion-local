@@ -5,7 +5,7 @@ import logging
 import threading
 import uuid
 
-from . import core, materials, mihoyo
+from . import core, gear, materials, mihoyo
 from .i18n import tr
 
 log = logging.getLogger('gcl.goals')
@@ -72,6 +72,9 @@ def update(goal_id: str, patch: dict) -> dict:
         goal['category_order'] = order + [c for c in CATEGORIES if c not in order]
     if 'paused' in patch:
         goal['paused'] = [str(k) for k in patch['paused']][:100]
+    if 'gear_target' in patch:  # None returns the target to the followed build's defaults
+        goal['gear_target'] = (gear.clean_target(patch['gear_target'], goal['game'], gear.build_defaults(goal)['main'])
+                               if patch['gear_target'] else None)
     core.save_goal(goal)
     if recalc:
         queue_sync(goal_id, observe=False)
@@ -118,6 +121,9 @@ def sync(goal_id: str, observe: bool = True) -> dict:
                 if seen.get('talent_groups'):  # lets the calculation skip a second read
                     goal['talent_groups'] = seen['talent_groups']
                 goal['observe_at'], goal['observe_error'] = core.stamp(), None
+                if 'gear' in seen:
+                    goal['gear'] = {**seen['gear'], 'at': goal['observe_at']}
+                goal['gear_error'] = seen.get('gear_error')
             except Exception as exc:
                 goal['observe_error'] = mihoyo.describe_error(exc)
         # A target below the current level means nothing to farm, not a negative need.
@@ -161,6 +167,14 @@ def record_done(item_key: str, units: int) -> None:
     entry = goal.setdefault('allowance', {}).get(item_key)
     if entry:
         entry['done'] = int(entry.get('done', 0)) + int(units)
+        core.save_goal(goal)
+
+
+def record_gear_runs(goal_id: str, runs: int) -> None:
+    """Equipment runs farmed for this character (shown on its card; the cap itself is per game)."""
+    goal = core.goal(goal_id)
+    if goal and runs > 0:
+        goal['gear_runs'] = int(goal.get('gear_runs', 0)) + int(runs)
         core.save_goal(goal)
 
 

@@ -1,7 +1,9 @@
-"""Local image cache: character portraits and material icons, keyed by stable game IDs.
+"""Local image cache: character portraits, material icons and Drive Disc / artifact set icons, keyed by stable game IDs.
 
 Image URLs come only from official API responses the app already requests (roster,
-goal sync, calculators). Each image is saved once, in the background, as soon as its
+goal sync, calculators), or for ZZZ portraits, which the upgrade guide does not return, from
+the official square-avatar address of an agent id such a response named (mihoyo.zzz_portrait).
+Each image is saved once, in the background, as soon as its
 URL is known; pages are served from data/assets and never trigger a download. A failed
 download is remembered and retried only on request or after a week.
 """
@@ -22,7 +24,7 @@ log = logging.getLogger('gcl.assets')
 TYPES = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif'}
 MAGIC = {'.png': (b'\x89PNG',), '.jpg': (b'\xff\xd8\xff',), '.webp': (b'RIFF',), '.gif': (b'GIF8',)}
 HOSTS = ('mihoyo.com', 'miyoushe.com', 'mihoyocdn.com', 'hoyoverse.com', 'hoyolab.com')
-KEY = re.compile(r'(genshin|zzz)/(character|material)/[0-9A-Za-z_-]{1,40}')
+KEY = re.compile(r'(genshin|zzz)/(character|material|disc|artifact)/[0-9A-Za-z_-]{1,40}')  # disc / artifact: a set's icon
 MAX_BYTES = 2_000_000
 RETRY_AFTER = timedelta(days=7)
 _LOCK = threading.Lock()
