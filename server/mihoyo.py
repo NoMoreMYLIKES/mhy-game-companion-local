@@ -259,8 +259,9 @@ def refresh_notes(game: str, force: bool = False, challenge: str | None = None) 
 # The dashboard then shows Miyoushe's own Geetest captcha; the person solves it, the answer goes back to
 # Miyoushe, and the notes are read again with the token it returns. Nothing is solved automatically.
 # These three requests identify as the game-record page of the current Miyoushe app, the page that shows
-# this captcha, as gsuid_core and Snap Hutao send them. Sent from a VPS, solved answers were refused with
-# 10306 both with genshin.py's defaults (app version 2.11.1 from 2021, a desktop browser) and with these.
+# this captcha, as gsuid_core and Snap Hutao send them. With these, an answer sent from a home PC was
+# accepted. Sent from a VPS, answers were refused with 10306, with these and with genshin.py's defaults
+# (app version 2.11.1 from 2021, a desktop browser).
 
 CAPTCHA_CODES = genshin.constants.GEETEST_RETCODES
 CARD_WAPI = 'https://api-takumi-record.mihoyo.com/game_record/app/card/wapi/'

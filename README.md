@@ -65,6 +65,8 @@ The backend also runs on Linux, for example on a home server or a VPS, to plan a
 
 It listens on `127.0.0.1` only. From another computer, open it through an SSH tunnel (`ssh -N -L 18800:127.0.0.1:18800 you@server`, then `http://127.0.0.1:18800/`). Linux has no DPAPI, so credentials are stored in files only your user can read.
 
+**Verify** may not work on a VPS: Miyoushe refused captcha answers sent from one (10306) but accepted them from a home PC.
+
 ## Documentation
 
 - [PLAN.md](PLAN.md): vision, the four pillars and the roadmap
@@ -137,6 +139,8 @@ This is a personal automation and planning project. It is not affiliated with Ho
 - `./stop.sh` 停止服务。
 
 服务只监听 `127.0.0.1`。从其他电脑访问时请使用 SSH 隧道（`ssh -N -L 18800:127.0.0.1:18800 用户名@服务器`，然后打开 `http://127.0.0.1:18800/`）。Linux 没有 DPAPI，凭据保存在仅当前用户可读的文件中。
+
+在 VPS 上 **验证** 可能无效：米游社拒绝了从 VPS 发送的验证结果（10306），从家用电脑发送的则可以通过。
 
 ## 文档
 
