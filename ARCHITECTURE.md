@@ -344,8 +344,8 @@ After a failure `Start.bat` waits for a key when it was opened by double-click; 
 ## 9. Internationalization
 
 - English is the base language; Simplified Chinese is the translation.
-- Frontend: `I18N.en` / `I18N.zh` in `web/app.js` must have identical keys (tested). The choice is kept in `localStorage` and sent to the backend with `POST /api/lang`.
-- Backend: `server/i18n.py` maps each key to `(English, Chinese)` with identical `str.format` placeholders (tested). Text is produced in the language active at the time, so stored run summaries keep their original language.
+- Frontend: `I18N.en` / `I18N.zh` in `web/app.js` must have identical keys (tested). Every request carries the page's language (`X-Lang`), so server-written text follows that page and pages in different languages never change each other's text. A choice made with the switch is kept in `localStorage` and saved with `POST /api/lang`; a page without a choice of its own (new tab, address or device) adopts the saved one instead of starting in English.
+- Backend: `server/i18n.py` maps each key to `(English, Chinese)` with identical `str.format` placeholders (tested). Text is produced in the requesting page's language (`i18n.REQUEST_LANG`, set per request), else in the saved choice (background work: run summaries, notifications); stored run summaries keep their original language.
 - Game data is not translated: material, domain and mission names come from the CN servers and the tools' Chinese catalogs, and tool identifiers (task names, log lines, config values) must stay exactly as the tools write them. They are commented in English where they appear.
 - Use the official in-game English terms (Original Resin, Battery Charge, Domain of Blessing, Area Patrol, Combat Simulation, Expert Challenge, Miyoushe for 米游社) and the official Chinese terms.
 

@@ -12,7 +12,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import assets, auth, core, gear, goals, inventory, materials, mihoyo, notify, planner, runner, scheduler, tools
+from . import assets, auth, core, gear, goals, i18n, inventory, materials, mihoyo, notify, planner, runner, scheduler, tools
 from .i18n import tr
 
 log = logging.getLogger('gcl.web')
@@ -149,8 +149,15 @@ class Handler(BaseHTTPRequestHandler):
                    {'WWW-Authenticate': 'Basic realm="game-companion", charset="UTF-8"'})
         return False
 
+    def _page_lang(self) -> None:
+        """Text written for this request follows the asking page's language (X-Lang), so pages in different
+        languages never change each other's text; work outside requests uses the saved choice."""
+        value = self.headers.get('X-Lang')
+        i18n.REQUEST_LANG.set(value if value in i18n.LANGS else None)
+
     # ------------------------------------------------ GET
     def do_GET(self):
+        self._page_lang()
         if not self._allowed():
             return
         url = urlparse(self.path)
@@ -196,6 +203,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # ------------------------------------------------ POST
     def do_POST(self):
+        self._page_lang()
         if not self._allowed():
             return
         if self.headers.get('X-GC') != '1':  # custom header → cross-site forms cannot post
@@ -263,7 +271,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/api/notify/test':
             notify.send(b['channel'], tr('test_title'), tr('test_body'))
             return {'ok': True}
-        if path == '/api/lang':  # UI language for backend-generated text
+        if path == '/api/lang':  # the language chosen with the switch: for background text and pages without a choice
             core.save_settings({'ui': {'lang': b['lang']}})
             return {'ok': True}
         if path == '/api/notes/refresh':

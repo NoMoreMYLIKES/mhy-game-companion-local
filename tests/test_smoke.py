@@ -157,8 +157,51 @@ class SmokeTest(unittest.TestCase):
         index_html = (PROJECT_ROOT / 'web' / 'index.html').read_text(encoding='utf-8')
         self.assertIn('<html lang="en">', index_html)
 
-        # Check default lang in app.js is 'en'
-        self.assertIn("localStorage.getItem('gcl_lang') || 'en'", content)
+        # A page without its own choice takes the saved language, which is English by default
+        from server import core
+        self.assertIn("localStorage.getItem('gcl_lang') || null", content)
+        self.assertIn("if (!CURRENT_LANG) adoptLang(next.settings?.ui?.lang);", content)
+        self.assertEqual(core.DEFAULTS['ui']['lang'], 'en')
+
+    def test_page_language_does_not_change_the_saved_one(self):
+        """Server text follows each page's X-Lang; only the language switch (POST /api/lang) changes the saved one."""
+        import json
+        import threading
+        import urllib.request
+        from server import core, web
+        from server.i18n import MESSAGES
+
+        def daily(lang=None):
+            request = urllib.request.Request(f'http://127.0.0.1:{port}/api/state', headers={'X-Lang': lang} if lang else {})
+            with urllib.request.urlopen(request, timeout=60) as response:
+                return json.loads(response.read())['plans']['zzz']['daily']
+
+        def switch(lang):
+            request = urllib.request.Request(f'http://127.0.0.1:{port}/api/lang', data=json.dumps({'lang': lang}).encode(),
+                                             headers={'X-GC': '1', 'Content-Type': 'application/json'}, method='POST')
+            urllib.request.urlopen(request, timeout=60).close()
+
+        httpd = web.ThreadingHTTPServer(('127.0.0.1', 0), web.Handler)
+        port = httpd.server_address[1]
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        was_ready = web.READY.is_set()
+        web.READY.set()
+        en, zh = MESSAGES['daily_onedragon']
+        try:
+            core.save_settings({'ui': {'lang': 'en'}})
+            self.assertIn(zh, daily('zh'))
+            self.assertIn(en, daily('en'))
+            self.assertEqual(core.settings()['ui']['lang'], 'en')  # reading never changes the saved language
+            self.assertIn(en, daily())                              # a page without a choice gets the saved one
+            switch('zh')
+            self.assertIn(zh, daily())
+            self.assertIn(en, daily('en'))
+        finally:
+            core.save_settings({'ui': {'lang': 'en'}})
+            if not was_ready:
+                web.READY.clear()
+            httpd.shutdown()
+            httpd.server_close()
 
 
     def test_hosts_without_automation_plan_only(self):

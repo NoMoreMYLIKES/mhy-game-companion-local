@@ -1007,7 +1007,9 @@ const store = {
   set(key, value) { try { localStorage.setItem(key, value); } catch (_) { /* private mode */ } }
 };
 
-let CURRENT_LANG = (() => { try { return localStorage.getItem('gcl_lang') || 'en'; } catch (_) { return 'en'; } })();
+// This page's language: its own choice, else the one last chosen with the switch on any page (settings.ui.lang,
+// adopted from the first state; English until then). A new tab, address or device never resets the choice.
+let CURRENT_LANG = (() => { try { return localStorage.getItem('gcl_lang') || null; } catch (_) { return null; } })();
 let THEME = store.get('gcl_theme', 'system');
 let STATE = null;
 let ASSETS = new Set();
@@ -1172,6 +1174,7 @@ function gameDayLabel() {
 // ----------------------------------------------------------- API, toasts, busy buttons
 async function api(path, method = 'GET', body = null) {
   const opts = { method, headers: { 'X-GC': '1' } };
+  if (CURRENT_LANG) opts.headers['X-Lang'] = CURRENT_LANG;  // server-written text in this page's language
   if (body) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
@@ -1267,7 +1270,7 @@ async function refreshState(force = false) {
     STATE = next;
     ASSETS = new Set(next.assets || []);
     LAST_ERROR = null;
-    await syncBackendLang();
+    if (!CURRENT_LANG) adoptLang(next.settings?.ui?.lang);
   } catch (err) {
     if (seq >= APPLIED_SEQ) LAST_ERROR = err.message;
     render();
@@ -1278,14 +1281,11 @@ async function refreshState(force = false) {
   return true;
 }
 
-// Backend-generated text (plan reasons, errors, run summaries) follows the UI language.
-async function syncBackendLang() {
-  if (!STATE || (STATE.settings?.ui?.lang || 'en') === CURRENT_LANG) return;
-  try {
-    await api('/api/lang', 'POST', { lang: CURRENT_LANG });
-    STATE = await api('/api/state');
-    ASSETS = new Set(STATE.assets || []);
-  } catch (_) { /* keep the current state */ }
+/** A page without its own choice takes the saved one; its first state was already written in it. */
+function adoptLang(lang) {
+  CURRENT_LANG = I18N[lang] ? lang : 'en';
+  document.documentElement.lang = CURRENT_LANG === 'zh' ? 'zh-CN' : 'en';
+  renderShell();
 }
 
 // ----------------------------------------------------------- shell: tabs, language, theme, strip
@@ -1331,6 +1331,8 @@ function setLanguage(lang) {
   renderShell();
   document.getElementById('savebar').dataset.lang = '';
   render(true);
+  // Saved for background text (run summaries, notifications) and for pages without a choice of their own.
+  api('/api/lang', 'POST', { lang: CURRENT_LANG }).catch(err => toast(err.message, 'error'));
   if (STATE) refreshState();
 }
 

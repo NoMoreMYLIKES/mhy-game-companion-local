@@ -1,13 +1,18 @@
 """Backend message catalog: English is the base language, Chinese the translation.
 
-Text is produced in the UI language selected at the time (``settings.ui.lang``),
-so stored messages such as run summaries keep the language they were created in.
+Text is produced in the language of the page that asked (its ``X-Lang`` header), else in
+the language last chosen in the UI (``settings.ui.lang``), so stored messages such as run
+summaries keep the language they were created in.
 Game data (material, domain and task names) is not translated here: it comes from
 the CN servers and the automation tools, and must match them exactly.
 """
 from __future__ import annotations
 
+import contextvars
+
 LANGS = ('en', 'zh')
+# The requesting page's language, set per request by the web server; unset in background work.
+REQUEST_LANG: contextvars.ContextVar[str | None] = contextvars.ContextVar('request_lang', default=None)
 
 # key: (English, Chinese); placeholders use str.format names.
 MESSAGES: dict[str, tuple[str, str]] = {
@@ -270,6 +275,9 @@ MESSAGES: dict[str, tuple[str, str]] = {
 
 
 def lang() -> str:
+    value = REQUEST_LANG.get()
+    if value in LANGS:
+        return value
     from . import core
     value = core.settings().get('ui', {}).get('lang')
     return value if value in LANGS else 'en'
