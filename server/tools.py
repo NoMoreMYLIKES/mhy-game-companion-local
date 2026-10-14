@@ -342,7 +342,7 @@ def zzz_prepare(run_id: str, item: dict | None) -> list[str]:
     existing = read_any(p['charge'])
     template = (existing.get('plan_list') or [{}])[0] or {}
     rows = zzz_rows(run_id, item, template)
-    # restore_charge '不使用' (none): never restore Battery Charge with consumables.
+    # Disable restore_charge: never restore Battery Charge with consumables.
     patch_fields(p['charge'], {'plan_list': rows, 'loop': False, 'double_reward': False, 'restore_charge': '不使用',
                                'skip_plan': True, 'daily_reset_plan_times': False, 'companion_started': [],
                                'companion_live_energy': True, 'companion_energy_stop': None})
@@ -365,7 +365,7 @@ def zzz_receipt(plan_ids: list[str]) -> dict:
             return {'completed': None, 'reason': tr('plan_missing')}
         if row['run_times'] >= 1:
             battles += 1
-            # Combat Simulation (实战模拟室) runs count their cards; other battles count once.
+            # Combat Simulation runs count their cards; other battles count once.
             completed += int(row.get('card_num') or 1) if row.get('category_name') == '实战模拟室' else 1
     stop = data.get('companion_energy_stop')
     return {'completed': completed, 'battles': battles, 'energy_stop': stop if isinstance(stop, dict) else None}

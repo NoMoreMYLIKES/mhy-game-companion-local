@@ -23,7 +23,9 @@ mhy-game-companion-local/
 │   ├── procinfo.py             # Process identity (creation time, image) and the owner of a port
 │   ├── core.py                 # Paths, time (UTC+8, 04:00 reset), SQLite, settings, DPAPI secrets
 │   ├── i18n.py                 # Backend message catalog (English base, Chinese translation)
-│   ├── mihoyo.py               # Miyoushe QR login, accounts, Real-Time Notes, calculators
+│   ├── auth.py                 # One app QR grant, CN cookie derivation and shared login
+│   ├── widget.py               # Genshin and ZZZ official stamina widgets
+│   ├── mihoyo.py               # Accounts, source health, legacy verification and calculators
 │   ├── goals.py                # Goal CRUD, ordering, official sync, executed-unit allowance
 │   ├── gear.py                 # Drive Discs / Artifacts: read, score, equipment targets, next set to farm
 │   ├── materials.py            # Datasets, farming routes, units and expected-yield conversion
@@ -195,6 +197,7 @@ Loopback only by default. With `server.lan` enabled the server binds `0.0.0.0` a
 | `/api/runs` | GET | `?limit=50` | Run documents |
 | `/assets/<game>/<kind>/<id>` | GET | – | A cached image (`kind` is `character`, `material`, `disc` (ZZZ set by suit id) or `artifact` (Genshin set by set id)); 404 when not saved |
 | `/api/login/start` | POST | `{}` | QR state (`status`, `svg`, `reason`) |
+| `/api/widget/start` | POST | `{}` | Compatibility alias for the shared login flow; no separate widget grant |
 | `/api/logout` | POST | `{}` | Clears cookies and accounts |
 | `/api/accounts/select` | POST | `{game, uid}` | Picks one of several game accounts |
 | `/api/goals/create` | POST | `{game, character_id, name, target?, current?}` | Goal |
@@ -265,7 +268,16 @@ Game executables are read from the tools' own configs unless `paths.genshin_exe`
 | Mute fails | `audio.ps1` error | Note on the run; the batch continues |
 | Startup fails (port in use, exception, invalid settings) | Backend exit code and `startup-error.json` | `server.launcher` explains it and exits nonzero (7.1) |
 
-**Captcha (1034).** Miyoushe answers Real-Time Notes with a Geetest code (1034, 5003, 10035, 10041) when it wants a person to confirm the account. The notes health then carries `captcha: true` and the dashboard offers **Verify**: `/api/verify/start` asks `game_record/app/card/wapi/createVerification?is_high=false` for a captcha, the dashboard shows it, the person solves it, and `/api/verify/finish` sends the answer to `verifyVerification` and reads the notes again with the returned token as `x-rpc-challenge`. These three requests identify as the current Miyoushe app's game-record page (`mihoyo.VERIFY_HEADERS` and the page headers in `mihoyo.CHALLENGE`), as gsuid_core and Snap Hutao send them; every other request keeps genshin.py's identity. With this identity, an answer sent from a home PC was accepted. Sent from a VPS, answers were refused with 10306, with this identity and with genshin.py's defaults; the dialog then shows the code and `app.log` records the refusal. Geetest's script (`static.geetest.com`) runs only in a sandboxed frame with an opaque origin, so it can neither read the dashboard nor call the API. Nothing is solved automatically.
+**Shared account login.** `server/auth.py` creates and polls one Passport app QR grant with client type 3. It requires an explicit stoken v2, account ID and mid, then calls the CN `getLTokenBySToken` and `getCookieAccountInfoBySToken` endpoints to derive website cookies ([CN Passport implementation reference](https://github.com/BTMuli/TeyvatGuide/blob/master/src/request/passportReq.ts)). The cookie-token response must confirm the grant owner; the LToken response may omit its UID. Role discovery must succeed before the old login is replaced. App and website credentials, discovered roles and the current selections are atomically saved together in `mihoyo.dpapi.json`; stoken is never added to ordinary SDK requests. Only public QR progress and a `unified` flag are returned to the UI. Logout cancels pending authorization and clears both games' credentials. Requests recheck login and selected role before saving results.
+
+**Official stamina widgets.** Both games share that app grant. Genshin uses `game_record/app/genshin/aapi/widget/v2`; ZZZ uses `event/game_record_zzz/api/zzz/widget` ([ZZZ implementation reference](https://github.com/ZZZure/ZZZeroUID/blob/master/ZZZeroUID/utils/api/request.py)). Requests use the saved device identity, record API X4 DS and client type 5. ZZZ reads `energy.progress.current/max`. An explicitly returned role must match the selection. Widgets may ignore role parameters, so a response without role identifiers requires a fresh role lookup with exactly one matching role for that game. Ambiguous or absent data never becomes a zero sample. Each widget has its own source health and backoff; the dashboard displays the active source's state. Old captcha dialogs cannot replace an active widget source.
+
+Existing separate widget grants are accepted only while their old account binding matches. **Complete account connection** derives shared credentials from that grant without another scan, and retires the separate secret after success. Website-only installs need one app scan. There is one login management UI, with no per-game authorization or disconnect. Login completion and successful reads are reported separately; upstream revocation or API restrictions can still require action.
+
+**Legacy verification.** Website-only installs retain manual Geetest verification. Creation and submission reuse the same client cookie jar, bind to a short-lived server session ID, and consume answers once. Only the server-issued access proof is encrypted and reused for later reads. Account or role changes invalidate proofs. Refusals report only the code, never raw API responses, and direct the user toward shared login instead of repeatedly asking for new captchas. Geetest runs in an opaque-origin sandboxed frame and is completed by the user.
+
+Offline tests cover one-scan login, grant validation, token derivation, cancellation, migration, role attribution, missing data, source backoff and verification reuse. Live checks with an existing grant confirmed both stamina widgets and both character data sources using derived website cookies. These checks do not establish indefinite authorization or long-term API availability. UI layout checks use synthetic account and QR responses separately from live credential checks.
+
 
 ### 7.1 Starting and stopping
 
@@ -360,7 +372,7 @@ After a failure `Start.bat` waits for a key when it was opened by double-click; 
 ## 12. Verification
 
 ```powershell
-python -m unittest tests.test_smoke tests.test_launcher tests.test_gear   # imports, planner, i18n, anonymization; start / stop cases; Drive Disc scores and targets
+python -m unittest tests.test_smoke tests.test_launcher tests.test_gear tests.test_auth tests.test_widget   # imports, launcher, gear, shared login and widgets; use an isolated GCL_HOME before imports
 python -m server                                          # run in the foreground
 python -m server.launcher status                          # address, runtime folder and PID, as Start and Stop see them
 Invoke-RestMethod http://127.0.0.1:18800/api/health

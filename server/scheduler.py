@@ -71,7 +71,7 @@ def tick() -> None:
         last = core.latest_sample(game)
         seen = core.parse(last['at']) if last else None
         if mihoyo.accounts().get(game) and (seen is None or core.now() - seen >= timedelta(minutes=int(s['sync']['notes_minutes']))):
-            if mihoyo.allowed('notes-' + game):
+            if mihoyo.allowed(mihoyo.notes_key(game)):
                 mihoyo.refresh_notes(game)
     # goal sync (one per tick keeps request bursts small)
     if mihoyo.logged_in() and not runner.busy():

@@ -1,31 +1,28 @@
-"""Part ① – official data: QR login, accounts, stamina notes, character state, calculators.
+"""Official data: QR login, accounts, stamina notes, character state, calculators.
 
-Only official Miyoushe (米游社, CN-server HoYoLAB) endpoints through genshin.py. Credentials are DPAPI-encrypted
+Only official Miyoushe (CN-server HoYoLAB) endpoints. Credentials are DPAPI-encrypted
 on Windows; on Linux only file permissions protect them.
 A failed read never becomes 0: callers receive an error and keep the previous value.
 """
 from __future__ import annotations
 
 import asyncio
-import io
 import logging
 import random
-import threading
-import time
+import re
+import secrets
 import uuid
 from datetime import timedelta
 
 import genshin
 from genshin.models.genshin.calculator import CalculatorBatchResult
 
-from . import assets, core, gear
+from . import assets, auth, core, gear
 from .i18n import MESSAGES, tr
 
 log = logging.getLogger('gcl.mihoyo')
 GAMES = {'genshin': genshin.Game.GENSHIN, 'zzz': genshin.Game.ZZZ}
 SKILLS = {'attack': 0, 'special': 1, 'dodge': 2, 'chain': 3, 'core': 5, 'assist': 6}
-QR: dict = {'status': 'idle'}
-QR_LOCK = threading.Lock()
 
 
 def run(coro, timeout: float = 60):
@@ -37,7 +34,11 @@ def cookies() -> dict:
 
 
 def accounts() -> dict:
-    return core.get('accounts', {})
+    return core.load_secret('mihoyo').get('accounts', core.get('accounts', {}))
+
+
+def account_candidates() -> dict:
+    return core.load_secret('mihoyo').get('candidates', core.get('account_candidates', {}))
 
 
 def logged_in() -> bool:
@@ -55,10 +56,10 @@ def describe_error(exc: Exception) -> str:
         return tr('err_private')
     if isinstance(exc, (TimeoutError, asyncio.TimeoutError, OSError)) or 'Timeout' in name or 'Connect' in name:
         return tr('err_network')
-    if isinstance(exc, ValueError):
+    if type(exc) is ValueError:
         return str(exc)[:200]
     if code is None:  # a fault here or in genshin.py, not an API answer: the class name alone cannot be diagnosed
-        log.error('Unexpected %s in a Miyoushe request', name, exc_info=exc)
+        log.error('Unexpected %s in a Miyoushe request', name)
     return tr('err_api', name=name) + (tr('err_code', code=code) if code is not None else '')
 
 
@@ -89,6 +90,9 @@ def client(game: str | None = None) -> genshin.Client:
     d = device()
     c = genshin.Client(cookies=cookies(), region=genshin.Region.CHINESE, lang='zh-cn', game=GAMES.get(game),
                        device_id=d['id'], device_fp=d.get('fp') or None)
+    app = auth.credentials()
+    if app:
+        c.custom_headers.update(app['identity'])
     for name, account in accounts().items():
         if name in GAMES and account:
             c.uids[GAMES[name]] = int(account['uid'])
@@ -98,97 +102,65 @@ def client(game: str | None = None) -> genshin.Client:
 # ---------------------------------------------------------------- QR login
 
 def qr_state() -> dict:
-    with QR_LOCK:
-        return dict(QR)
+    return auth.state()
 
 
 def start_login() -> dict:
-    with QR_LOCK:
-        if QR.get('status') in ('creating', 'waiting', 'scanned'):
-            return dict(QR)
-        QR.clear()
-        QR.update(status='creating', at=core.stamp())
-    threading.Thread(target=_login_worker, daemon=True, name='qr-login').start()
-    return qr_state()
-
-
-def _login_worker() -> None:
-    import qrcode
-    import qrcode.image.svg
-
-    async def flow():
-        await _ensure_fp()
-        c = genshin.Client(region=genshin.Region.CHINESE, lang='zh-cn')
-        creation = await asyncio.wait_for(c._create_qrcode(), 20)
-        out = io.BytesIO()
-        qrcode.make(creation.url, image_factory=qrcode.image.svg.SvgPathImage, box_size=8, border=2).save(out)
-        with QR_LOCK:
-            QR.update(status='waiting', svg=out.getvalue().decode(), reason=tr('qr_scan'))
-        deadline = time.monotonic() + 170
-        while time.monotonic() < deadline:
-            try:
-                state, jar = await asyncio.wait_for(c._check_qrcode(creation.ticket), 15)
-            except genshin.GenshinException as exc:
-                if exc.retcode == -3501:  # the code expired on Miyoushe's side first
-                    break
-                raise
-            if state.value == 'Confirmed':
-                values = {k: v.value for k, v in jar.items()}
-                if not values:
-                    raise ValueError(tr('qr_no_cookies'))
-                core.save_secret('mihoyo', {'cookies': values, 'at': core.stamp()})
-                with QR_LOCK:
-                    QR.update(status='confirmed', reason=tr('qr_confirmed'))
-                    QR.pop('svg', None)
-                await discover_accounts()
-                with QR_LOCK:
-                    QR['reason'] = tr('qr_done')
-                return
-            if state.value == 'Scanned':
-                with QR_LOCK:
-                    QR.update(status='scanned', reason=tr('qr_scanned'))
-            await asyncio.sleep(3)
-        with QR_LOCK:
-            QR.update(status='expired', reason=tr('qr_expired'))
-            QR.pop('svg', None)
-
-    try:
-        asyncio.run(flow())
-    except Exception as exc:
-        log.exception('QR login failed')
-        with QR_LOCK:
-            QR.update(status='error', reason=describe_error(exc))
-            QR.pop('svg', None)
+    return auth.start()
 
 
 async def discover_accounts() -> dict:
+    before = auth.binding()
     c = client()
     found = await asyncio.wait_for(c.get_game_accounts(), 20)
     candidates = {g: [{'uid': str(a.uid), 'server': a.server, 'name': a.nickname, 'server_name': a.server_name}
                       for a in found if a.game == kind] for g, kind in GAMES.items()}
-    core.put('account_candidates', candidates)
-    selected = accounts()
-    for g, choices in candidates.items():
-        if len(choices) == 1:
-            selected[g] = choices[0]
-        elif not any(a['uid'] == (selected.get(g) or {}).get('uid') for a in choices):
-            selected.pop(g, None)
-    core.put('accounts', selected)
+    with core.LOCK:
+        if before != auth.binding():
+            raise ValueError(tr('login_changed'))
+        selected = accounts()
+        for g, choices in candidates.items():
+            if len(choices) == 1:
+                selected[g] = choices[0]
+            elif not any((a['uid'], a['server']) == ((selected.get(g) or {}).get('uid'),
+                                                    (selected.get(g) or {}).get('server')) for a in choices):
+                selected.pop(g, None)
+        saved = core.load_secret('mihoyo')
+        if saved.get('app'):
+            core.save_secret('mihoyo', {**saved, 'accounts': selected, 'candidates': candidates})
+        else:
+            core.put('account_candidates', candidates)
+            core.put('accounts', selected)
     return candidates
 
 
 def select_account(game: str, uid: str) -> None:
-    choice = next((a for a in core.get('account_candidates', {}).get(game, []) if a['uid'] == str(uid)), None)
-    if not choice:
-        raise ValueError(tr('account_not_listed'))
-    value = accounts()
-    value[game] = choice
-    core.put('accounts', value)
+    with core.LOCK:
+        choice = next((a for a in account_candidates().get(game, []) if a['uid'] == str(uid)), None)
+        if not choice:
+            raise ValueError(tr('account_not_listed'))
+        value = accounts()
+        if value.get(game) != choice:
+            PENDING.pop(game, None)
+            core.save_secret('verification', {})
+        value[game] = choice
+        saved = core.load_secret('mihoyo')
+        if saved.get('app'):
+            core.save_secret('mihoyo', {**saved, 'accounts': value})
+        else:
+            core.put('accounts', value)
 
 
 def logout() -> None:
-    core.save_secret('mihoyo', {})
-    core.put('accounts', {})
+    from . import widget
+    with core.LOCK:
+        auth.cancel()
+        PENDING.clear()
+        widget.clear()
+        core.save_secret('verification', {})
+        core.save_secret('mihoyo', {})
+        core.put('accounts', {})
+        core.put('account_candidates', {})
 
 
 # ---------------------------------------------------------------- source health / backoff
@@ -222,9 +194,17 @@ def record(key: str, ok: bool, reason: str = '', captcha: bool = False) -> None:
 
 # ---------------------------------------------------------------- stamina notes
 
+def notes_key(game: str) -> str:
+    from . import widget
+    return ('widget-' if widget.available() else 'notes-') + game
+
+
 def refresh_notes(game: str, force: bool = False, challenge: str | None = None) -> dict:
     """Read the stamina from Real-Time Notes; challenge is the token of a solved captcha (finish_verification)."""
-    key = 'notes-' + game
+    from . import widget
+    key = notes_key(game)
+    use_widget = key == 'widget-' + game
+    login_binding = auth.binding(game)
     account = accounts().get(game)
     if not account or not logged_in():
         return {'error': tr('not_logged_in')}
@@ -232,8 +212,10 @@ def refresh_notes(game: str, force: bool = False, challenge: str | None = None) 
         return {'error': health(key).get('reason', tr('backing_off')), 'deferred': True}
 
     async def read():
+        if use_widget:
+            return await widget.note(game)
         await _ensure_fp()
-        c = _verification_client(game, challenge) if challenge else client(game)
+        c = _verification_client(game, challenge or _proof(game))
         uid = int(account['uid'])
         if game == 'genshin':
             n = await c.get_genshin_notes(uid, autoauth=False)
@@ -243,14 +225,19 @@ def refresh_notes(game: str, force: bool = False, challenge: str | None = None) 
 
     try:
         current, cap = run(read(), 40)
-        if type(current) is not int or type(cap) is not int or not 0 <= current <= 10000:
+        if type(current) is not int or type(cap) is not int or not 0 <= current <= cap <= 10000 or cap <= 0:
             raise ValueError(tr('bad_notes'))
-        core.add_sample(game, current, cap, 'source_notes')  # message key, translated when shown
-        record(key, True, tr('notes_ok'))
+        with core.LOCK:
+            if login_binding != auth.binding(game) or key != notes_key(game):
+                raise ValueError(tr('widget_changed'))
+            core.add_sample(game, current, cap, 'source_widget' if use_widget else 'source_notes')
+            record(key, True, tr('notes_ok'))
         return {'current': current, 'cap': cap}
     except Exception as exc:
         reason = describe_error(exc)
-        record(key, False, reason, captcha=getattr(exc, 'retcode', None) in CAPTCHA_CODES)
+        with core.LOCK:
+            if login_binding == auth.binding(game) and key == notes_key(game):
+                record(key, False, reason, captcha=not use_widget and getattr(exc, 'retcode', None) in CAPTCHA_CODES)
         return {'error': reason}
 
 
@@ -258,10 +245,9 @@ def refresh_notes(game: str, force: bool = False, challenge: str | None = None) 
 # Real-Time Notes answers 1034 (or another Geetest code) when Miyoushe wants a person to confirm the request.
 # The dashboard then shows Miyoushe's own Geetest captcha; the person solves it, the answer goes back to
 # Miyoushe, and the notes are read again with the token it returns. Nothing is solved automatically.
-# These three requests identify as the game-record page of the current Miyoushe app, the page that shows
-# this captcha, as gsuid_core and Snap Hutao send them. With these, an answer sent from a home PC was
-# accepted. Sent from a VPS, answers were refused with 10306, with these and with genshin.py's defaults
-# (app version 2.11.1 from 2021, a desktop browser).
+# These requests identify as Miyoushe's game-record page. Verification can still be refused
+# with 10306; the response does not establish the server-side cause.
+# Both games use official widgets when the unified app grant is available.
 
 CAPTCHA_CODES = genshin.constants.GEETEST_RETCODES
 CARD_WAPI = 'https://api-takumi-record.mihoyo.com/game_record/app/card/wapi/'
@@ -289,44 +275,110 @@ def _verification_client(game: str, challenge: str | None = None) -> genshin.Cli
     return c
 
 
+PENDING: dict = {}
+
+
+def _proof(game: str) -> str | None:
+    row = core.load_secret('verification').get(game, {})
+    return row.get('challenge') if row.get('binding') == auth.binding(game) else None
+
+
 def start_verification(game: str) -> dict:
-    """A captcha for this account, created by Miyoushe, for the dashboard to show."""
+    """Create a challenge bound to this account, role and client cookie jar."""
     if game not in CHALLENGE or not accounts().get(game) or not logged_in():
         raise ValueError(tr('login_first'))
+    if notes_key(game) == 'widget-' + game:
+        raise ValueError(tr('widget_active'))
+    before = auth.binding(game)
+    nonce = uuid.uuid4().hex
+    with core.LOCK:
+        old = PENDING.get(game)
+        if old and old['binding'] == before and core.now() < core.parse(old['expires']):
+            if 'gt' not in old:
+                raise ValueError(tr('captcha_wait'))
+            return {k: old[k] for k in ('id', 'gt', 'challenge', 'expires', 'new_captcha')}
+        PENDING[game] = {'id': nonce, 'binding': before,
+                         'expires': core.stamp(core.now() + timedelta(minutes=5))}
 
     async def create():
         await _ensure_fp()
+        c = _verification_client(game)
         try:
-            return await _verification_client(game).request_hoyolab(CARD_WAPI + 'createVerification',
-                                                                    params={'is_high': 'false'})
-        except genshin.errors.DailyGeetestTriggered as exc:  # genshin.py raises on any answer that holds a captcha
-            return {'gt': exc.gt, 'challenge': exc.challenge, 'new_captcha': True}
+            data = await c.request_hoyolab(CARD_WAPI + 'createVerification', params={'is_high': 'true'})
+        except genshin.errors.DailyGeetestTriggered as exc:
+            if exc.retcode != 0:
+                raise
+            data = {'gt': exc.gt, 'challenge': exc.challenge, 'new_captcha': True}
+        return c, data
 
-    data = run(create(), 30)
-    if not data.get('gt') or not data.get('challenge'):
-        raise ValueError(tr('captcha_unavailable'))
-    return {'gt': str(data['gt']), 'challenge': str(data['challenge']), 'new_captcha': bool(data.get('new_captcha', True))}
+    try:
+        c, data = run(create(), 30)
+        if not all(isinstance(data.get(k), str) and re.fullmatch(r'[A-Za-z0-9_-]{16,200}', data[k])
+                   for k in ('gt', 'challenge')):
+            raise ValueError(tr('captcha_unavailable'))
+        with core.LOCK:
+            if before != auth.binding(game) or (PENDING.get(game) or {}).get('id') != nonce:
+                raise ValueError(tr('login_changed'))
+            row = PENDING[game]
+            row.update(gt=data['gt'], challenge=data['challenge'], client=c, new_captcha=bool(data.get('new_captcha', True)))
+            return {k: row[k] for k in ('id', 'gt', 'challenge', 'expires', 'new_captcha')}
+    except Exception:
+        with core.LOCK:
+            if (PENDING.get(game) or {}).get('id') == nonce:
+                PENDING.pop(game)
+        raise
 
 
 def finish_verification(game: str, answer: dict) -> dict:
-    """Send the person's captcha answer to Miyoushe, then read the notes again with the token it returns."""
+    """Consume a human answer once and persist only the server-issued access proof."""
+    if game in GAMES and notes_key(game) == 'widget-' + game:
+        return refresh_notes(game, force=True)
     fields = {k: answer.get(k) for k in ('geetest_challenge', 'geetest_validate', 'geetest_seccode')}
-    if game not in CHALLENGE or not all(isinstance(v, str) and 0 < len(v) <= 200 for v in fields.values()):
+    if game not in CHALLENGE or not all(isinstance(v, str) and re.fullmatch(r'[A-Za-z0-9_|-]{1,300}', v)
+                                       for v in fields.values()):
         raise ValueError(tr('captcha_incomplete'))
+    with core.LOCK:
+        row = PENDING.get(game)
+        if row and (row['binding'] != auth.binding(game) or core.now() >= core.parse(row['expires'])):
+            PENDING.pop(game)
+            row = None
+        if (not row or row.get('binding') != auth.binding(game) or 'client' not in row
+                or not secrets.compare_digest(str(answer.get('id') or ''), row['id'])
+                or core.now() >= core.parse(row['expires'])
+                or not fields['geetest_challenge'].startswith(row['challenge'][:32])):
+            raise ValueError(tr('captcha_session'))
+        PENDING.pop(game)
+    c = row['client']
 
     async def verify():
-        return await _verification_client(game).request_hoyolab(CARD_WAPI + 'verifyVerification', method='POST',
-                                                                data=fields)
+        return await c.request_hoyolab(CARD_WAPI + 'verifyVerification', method='POST', data=fields)
 
     try:
         token = run(verify(), 30).get('challenge')
     except genshin.GenshinException as exc:
-        log.warning('Miyoushe refused a captcha answer: retcode %s, message %r', exc.retcode, exc.original)
-        raise ValueError(tr('captcha_refused', code=exc.retcode)) from exc
-    if not token:
+        log.warning('Miyoushe refused a captcha answer: retcode %s', exc.retcode)
+        raise ValueError(tr('captcha_refused', code=exc.retcode)) from None
+    if not isinstance(token, str) or not re.fullmatch(r'[!-~]{16,4096}', token):
         raise ValueError(tr('captcha_rejected'))
+    with core.LOCK:
+        if row['binding'] != auth.binding(game):
+            raise ValueError(tr('login_changed'))
+        updated = dict(c.cookie_manager.cookies)
+        # Official risk-control cookies can be necessary for the accepted proof.
+        # Preserve this client jar, but never accept a different account owner.
+        ids = {str(updated[k]) for k in ('ltuid', 'ltuid_v2', 'account_id', 'account_id_v2') if updated.get(k)}
+        previous_ids = {str(cookies()[k]) for k in ('ltuid', 'ltuid_v2', 'account_id', 'account_id_v2') if cookies().get(k)}
+        if ids != previous_ids or not all(isinstance(k, str) and isinstance(v, str) for k, v in updated.items()):
+            raise ValueError(tr('login_changed'))
+        saved = core.load_secret('mihoyo')
+        if updated != saved.get('cookies'):
+            saved['cookies'] = updated
+            core.save_secret('mihoyo', saved)
+        proofs = core.load_secret('verification')
+        proofs[game] = {'challenge': token, 'binding': auth.binding(game), 'at': core.stamp()}
+        core.save_secret('verification', proofs)
     log.info('Miyoushe accepted a captcha answer for %s', game)
-    return refresh_notes(game, force=True, challenge=str(token))
+    return refresh_notes(game, force=True)
 
 
 # ---------------------------------------------------------------- roster and character state

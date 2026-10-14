@@ -1,6 +1,7 @@
 """Smoke test verifying module imports, core functions, and source-code anonymization."""
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -54,19 +55,31 @@ class SmokeTest(unittest.TestCase):
         if denylist.is_file():
             words = [w.strip().lower().encode() for w in denylist.read_text(encoding='utf-8').splitlines()
                      if w.strip() and not w.startswith('#')]
+        # Scan tracked and publishable new files, including tests. Local diagnostics,
+        # runtime data and browser captures follow Git's ignore rules.
+        try:
+            git_root = subprocess.check_output(['git', 'rev-parse', '--show-toplevel'], cwd=PROJECT_ROOT,
+                                               stderr=subprocess.DEVNULL).decode().strip()
+            if Path(git_root).resolve() != PROJECT_ROOT.resolve():
+                raise ValueError('Not the root of a Git checkout')
+            names = subprocess.check_output(['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'],
+                                             cwd=PROJECT_ROOT).decode().split('\0')
+            paths = [PROJECT_ROOT / name for name in names if name]
+        except (OSError, ValueError, subprocess.CalledProcessError):
+            # Source archives have no Git metadata. Their runtime folders remain local.
+            paths = []
+            for root, dirs, files in os.walk(PROJECT_ROOT):
+                dirs[:] = [d for d in dirs if d not in ('.git', '.venv', '__pycache__', 'data', 'scratch', '.playwright-mcp')]
+                paths.extend(Path(root) / f for f in files if f != 'pii_denylist.txt')
         checked = 0
-        for root, dirs, files in os.walk(PROJECT_ROOT):
-            dirs[:] = [d for d in dirs if d not in ('.git', '.venv', '__pycache__', 'data', 'tests')]
-            for f in files:
-                if f.endswith(('.py', '.js', '.html', '.css', '.md', '.txt', '.bat', '.ps1', '.sh', '.json')):
-                    path = Path(root) / f
-                    content = path.read_bytes().lower()
-                    for label, pattern in patterns.items():
-                        match = re.search(pattern, content)
-                        self.assertIsNone(match, f"Found {label} in {path}: {match and match.group()!r}")
-                    for word in words:
-                        self.assertNotIn(word, content, f"Found a denylisted term in {path}")
-                    checked += 1
+        for path in paths:
+            if path.is_file() and path.suffix in ('.py', '.js', '.html', '.css', '.md', '.txt', '.bat', '.ps1', '.sh', '.json'):
+                content = path.read_bytes().lower()
+                for label, pattern in patterns.items():
+                    self.assertIsNone(re.search(pattern, content), f"Found {label} in {path.relative_to(PROJECT_ROOT)}")
+                for word in words:
+                    self.assertFalse(word in content, f"Found a denylisted term in {path.relative_to(PROJECT_ROOT)}")
+                checked += 1
         self.assertGreater(checked, 10, "Should have checked at least 10 project source files")
 
     def test_backend_messages(self):
@@ -191,21 +204,20 @@ class SmokeTest(unittest.TestCase):
 
     def test_captcha_verification_flow(self):
         """A 1034 on Real-Time Notes offers the captcha; a solved one's token reaches the notes request."""
-        import base64
-        import json
         from unittest import mock
         import genshin
         import server.core as core
         import server.mihoyo as mihoyo
         from server.i18n import tr
-        raw = json.dumps({'cookies': {'ltuid_v2': '1', 'ltoken_v2': 'x'}}).encode()
-        core.write_json(core.DATA / 'mihoyo.dpapi.json', {'encrypted': base64.b64encode(raw).decode()})
+        core.save_secret('mihoyo', {'cookies': {'ltuid_v2': '1', 'ltoken_v2': 'x'}})
         core.put('accounts', {'genshin': {'uid': '100000001', 'name': 'T', 'server': 'cn_gf01'}})
         sent = {}
 
         class FakeClient:
             def __init__(self):
                 self.custom_headers = {}
+                from types import SimpleNamespace
+                self.cookie_manager = SimpleNamespace(cookies=mihoyo.cookies())
 
             async def get_genshin_notes(self, uid, autoauth=False):
                 sent['challenge'] = self.custom_headers.get('x-rpc-challenge')
@@ -214,6 +226,8 @@ class SmokeTest(unittest.TestCase):
 
             async def request_hoyolab(self, url, method=None, params=None, data=None, headers=None):
                 sent.update(url=url, method=method, data=data, headers=dict(self.custom_headers))
+                if url.endswith('createVerification'):
+                    return {'gt': 'g' * 32, 'challenge': 'c' * 32}
                 return {'challenge': 'token-from-miyoushe'}
 
         async def no_fp():
@@ -226,8 +240,12 @@ class SmokeTest(unittest.TestCase):
             with self.assertRaises(ValueError) as caught:
                 mihoyo.finish_verification('genshin', {'geetest_challenge': 'c'})
             self.assertEqual(str(caught.exception), tr('captcha_incomplete'))
-            answer = {'geetest_challenge': 'c', 'geetest_validate': 'v', 'geetest_seccode': 'v|jordan'}
-            mihoyo.finish_verification('genshin', answer)
+            challenge = mihoyo.start_verification('genshin')
+            answer = {'geetest_challenge': 'c' * 32, 'geetest_validate': 'v', 'geetest_seccode': 'v|jordan'}
+            mihoyo.finish_verification('genshin', {**answer, 'id': challenge['id']})
+            self.assertEqual(mihoyo._proof('genshin'), 'token-from-miyoushe')
+            with self.assertRaises(ValueError):
+                mihoyo.finish_verification('genshin', {**answer, 'id': challenge['id']})
         self.assertTrue(sent['url'].endswith('/card/wapi/verifyVerification'))
         self.assertEqual((sent['method'], sent['data']), ('POST', answer))
         self.assertEqual(sent['headers']['x-rpc-challenge_game'], '2')
