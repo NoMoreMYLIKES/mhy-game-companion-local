@@ -41,7 +41,7 @@ mhy-game-companion-local/
 │   ├── templates/              # bettergi_morning.json (neutral BetterGI One Dragon template)
 │   └── datasets/               # genshin.json, zzz.json (offline game data); zzz_disc_stages.json, genshin_artifact_domains.json (where each set drops)
 ├── tools/audio.ps1             # CoreAudio COM: get / mute / set the default playback device
-├── web/                        # index.html, style.css, app.js (SPA with en/zh dictionaries)
+├── web/                        # index.html, style.css, app.js (SPA with en/zh dictionaries), fonts/ (bundled Archivo)
 └── tests/                      # test_smoke.py (imports, planner, i18n, anonymization), test_launcher.py
 ```
 
@@ -333,11 +333,11 @@ After a failure `Start.bat` waits for a key when it was opened by double-click; 
 
 ## 8. Frontend
 
-`web/` is plain HTML, CSS and JavaScript served by the backend; there is no build step and no external request (no web fonts, no CDN images).
+`web/` is plain HTML, CSS and JavaScript served by the backend; there is no build step and no external request. The one web font is bundled: `web/fonts/archivo.woff2`, Archivo (SIL Open Font License, text in `web/fonts/OFL.txt`), subset to Latin with the 400–700 weights and 75–100% widths the UI uses. There are no CDN images.
 
-- **Visual system**: neutral surfaces (light gray page, white panels, dark text, 1px gray borders, dark primary buttons), light / dark / system themes as separate token sets, text at 20 / 16 / 14px with weights 400 / 700, 6px control and 8px group radii. Color only explains a state (always with an icon and a label) or a material category (pale tint plus a narrow edge: experience, convertible family, ZZZ core-skill material).
+- **Visual system**: the Swiss Style of PLAN.md §3. Black type on white sheets in 1px black frames on a light gray page (light / dark / system themes as separate token sets), each sheet's title on a 2px rule, black rules between its columns and 1px hairlines between rows; one grotesque with condensed tabular figures for times and amounts, text at 20 / 16 / 14px with weights 400 / 700, square sheets, 4px control and 6px object radii. Black inversion marks the selected or next item; red marks only failures, errors and the brand. Other color explains a state (always with an icon and a label) or a material category (pale tint plus a narrow edge: experience, convertible family, ZZZ core-skill material).
 - **Information order**: summary first (what runs next, planned spend, status), then the control that changes it (Target settings, pause, order, Adjust links), then evidence behind a Details disclosure (per-tier quantities, conversion, the planner's reasoning).
-- **Stamina track**: Today draws the next 48 hours per game from the forecast: natural recovery up to the cap, a drop at each planned batch (and the ZZZ coffee as a jump). A crosshair reads any time; batch markers open the same details on hover and keyboard focus. The Schedule page is its text equivalent, and the summary under it uses the same forecast numbers.
+- **Today**: one sheet per game on a 12-column grid, so both games read across the same columns. *Stamina*: the value against the cap on a black tile (the page's one bold block), when it is full if nothing runs, and when and from where it was read. *Upcoming runs*: the next three forecast slots as timetable rows (time, task, character, planned spend, what is left); the next one has its details and an Adjust link, and without a schedule the row shows what Run now would farm. *Goals*: the active goals in queue order, one segment per material item filled by the covered share of its known quantities (hatched when unknown), what each farms next or waits for, and its equipment score while equipment farming is on.
 - **Images**: circular character portraits, material icons and Drive Disc set icons come only from `/assets/…` and only when `/api/state.assets` lists them; otherwise a text fallback is drawn, so a missing image never causes a request.
 - **Refresh without loss**: `/api/state` is polled every 5 s. Re-renders keep open details, keyboard focus and busy buttons; dialogs and the settings form are not redrawn while they hold a draft; a late older response is discarded; after a write the confirmation appears only once the fresh state is drawn, and "saved but not reloaded" is reported separately.
 

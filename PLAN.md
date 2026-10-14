@@ -103,17 +103,25 @@ Translates high-level farming targets into native commands and configuration pat
 
 ## 3. Frontend Design
 
-A calm, compact application for inspecting goals, understanding the next scheduled action and changing what affects it. From the International Typographic Style it keeps the grid, alignment and deliberate hierarchy, interpreted through these choices:
+The dashboard is set in the **Swiss Style (International Typographic Style)**, read as a timetable. The app runs batches at fixed times and spends a resource that refills on a clock, and that is the kind of information Swiss railway timetables were designed to show. Type, grid and rules carry the hierarchy; the game art supplies the color.
 
-1. **Neutral surfaces with visible hierarchy**:
-   - Light gray page, white panels, dark text, 1px gray borders and dark primary buttons; a matching dark theme, selectable as System / Light / Dark.
-   - Color explains a state (with an icon and a label) or a material category (pale tint and a narrow edge); it is never decoration.
-2. **Restrained typography**:
-   - Local font stack (`Inter` when installed, `Segoe UI`, `Microsoft YaHei UI`, …); 20 / 16 / 14px at weights 400 / 700; tabular figures for counts that are compared.
-3. **Summary, control, evidence**:
+1. **Grid and alignment**:
+   - Content sits on a 12-column grid (1200px wide, 24px gutters, 16px on phones), flush left and ragged right; amounts align right in tabular columns.
+   - Today gives each game one band on the same grid, so both games read across the same three columns: stamina, the next runs, the goals.
+2. **One grotesque, set for numbers**:
+   - Archivo (SIL Open Font License) for everything, bundled as a 50 KB subset in `web/fonts/` so every machine renders the same; Chinese text uses the system face (Microsoft YaHei UI, PingFang SC, Noto Sans SC).
+   - 20 / 16 / 14px at weights 400 / 700. Times and figures are condensed (80% width) with tabular digits, like a departure board; Today's stamina figure is the one larger size (64px).
+3. **Sheets, ruled columns and one sign**:
+   - Every section is a sheet posted on a light gray wall: a white block in a 1px black frame whose title strip sits on a 2px rule, like the head of a printed station timetable.
+   - Inside a sheet, columns are divided by black rules and their heads form one row (on Today: the stamina unit, Upcoming runs, Goals); 1px hairlines separate rows.
+   - Each game's stamina figure stands on a solid black tile with white digits, like a platform sign: the one bold block on the page. Objects inside sheets (target tables, material lists, details, alerts) are light gray plates, so the black frames stay the hierarchy.
+4. **Color with a job**:
+   - Black on white, with its own dark theme (System / Light / Dark; there the tiles turn light, like lit signs). Black inversion marks what is selected or runs next; red marks only what needs attention (failures, errors) and the brand mark.
+   - States keep an icon and a label (green done, amber waiting, red failed); material categories keep a pale tint and a narrow edge; character portraits and material icons are the only other color.
+5. **Summary, control, evidence**:
    - Each automatic choice shows what happens next, why, and where to change it; calculation details open on demand.
    - Recognizable game images (circular portraits, material icons) cached locally from official API responses, with text fallbacks.
-3. **Bilingual Support with English as Base Language**:
+6. **Bilingual Support with English as Base Language**:
    - English (`en`) serves as the core schema and default interface language (`<html lang="en">`).
    - Symmetrical, 1:1 mapped Chinese (`zh`) dictionary provides full native localization.
    - Instant header toggle (`EN / 中文`) with persistent `localStorage` preference memory.

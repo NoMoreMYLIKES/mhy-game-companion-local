@@ -70,17 +70,21 @@ const I18N = {
     account_line: '{0}, UID {1}',
     no_account: 'No game account selected',
     stamina_unknown_hint: 'No reading yet. Sign in to Miyoushe or refresh; during a run the tool still uses the real in-game value.',
-    stamina_estimate: 'Estimated from {0}, read {1}',
-    track_title: 'Next 48 hours',
-    track_now: 'Now',
-    track_cap: 'Cap {0}',
-    track_aria: '{0} over the next 48 hours: {1} now, {2} planned batches. The Schedule page lists them.',
-    track_dot: '{0}, {1}: {2} → {3} {4}',
-    spend_line_at: 'Next batch at {0} uses ≈ {1}, leaving ≈ {2}.',
-    spend_line: 'Next batch uses ≈ {0}, leaving ≈ {1}.',
-    full_idle: 'Without runs, full in ≈ {0} ({1}).',
     full_now: 'Full: natural recovery is being wasted',
+    st_full_at: 'Full at',
+    st_full_in: 'In ≈ {0} if nothing runs',
+    st_read: 'Read',
     notes_issue: 'Stamina refresh: {0}',
+    col_runs: 'Upcoming runs',
+    col_goals: 'Goals',
+    tag_next: 'Next',
+    tt_manual: 'Manual',
+    dailies_line: 'Also in every batch: {0}',
+    goals_collected: '{0} of {1} collected',
+    goal_all_done: 'All materials collected',
+    goal_error: 'Could not be read',
+    goals_none: 'No goals for this game yet.',
+    goals_more: '+{0} more on the Goals page',
     btn_login_manage: 'Manage login',
     btn_login_again: 'Authorize again',
     btn_login_cancel: 'Cancel login',
@@ -90,8 +94,6 @@ const I18N = {
     next_batch: 'Next batch',
     next_batch_at: 'Next batch at {0}',
     phase_equipment: 'Equipment continuation',
-    fact_cap: 'Cap {0}',
-    fact_expect: 'Expect {0}',
     fact_spend: '≈ {0} {1}',
     for_goal: '{0}: {1}',
     btn_details: 'Details',
@@ -106,9 +108,6 @@ const I18N = {
     stop_rule: 'When the in-game stamina runs out, or after {0}',
     nothing_title: 'Nothing to farm',
     keeping: 'Keeping {0}',
-    waiting_title: 'Waiting ({0})',
-    waiting_more: '+{0} more on the Goals page',
-    dailies_title: 'Also in every batch',
     latest_run: 'Latest run',
     no_runs_yet: 'No runs yet.',
     view_all: 'View all',
@@ -228,7 +227,8 @@ const I18N = {
     forecast: 'Forecast',
     day_head: '{0}, {1}',
     left_after: '≈ {0} left',
-    plan_empty: 'No upcoming slots. Add schedule times in Settings.',
+    plan_empty_title: 'Nothing scheduled',
+    plan_empty: 'Add run times in Settings, and the next three days are forecast here.',
 
     // Runs
     trigger_schedule: 'Scheduled {0}',
@@ -242,7 +242,9 @@ const I18N = {
     run_done: 'Confirmed {0} of up to {1}',
     run_unverified: 'Amount pending verification',
     run_duration: 'Took {0}',
-    runs_empty: 'No runs yet. Start one from Today.',
+    runs_empty_title: 'No runs yet',
+    runs_empty: 'Batches started on Today or by the schedule are listed here with their results.',
+    btn_open_today: 'Open Today',
     no_games: 'No game ran',
     btn_more_runs: 'Show older runs',
 
@@ -565,17 +567,21 @@ const I18N = {
     account_line: '{0}，UID {1}',
     no_account: '未选择游戏账号',
     stamina_unknown_hint: '暂无读数。请登录米游社或刷新；执行时工具仍以游戏内实际数值为准。',
-    stamina_estimate: '根据{1}的{0}估算',
-    track_title: '未来 48 小时',
-    track_now: '现在',
-    track_cap: '上限 {0}',
-    track_aria: '未来 48 小时的{0}：当前 {1}，计划 {2} 批。“日程”页列出了这些批次。',
-    track_dot: '{0}，{1}：{2} → {3} {4}',
-    spend_line_at: '下一批（{0}）约消耗 {1}，剩余约 {2}。',
-    spend_line: '下一批约消耗 {0}，剩余约 {1}。',
-    full_idle: '若不执行，约 {0}后回满（{1}）。',
     full_now: '已满：自然恢复正在溢出',
+    st_full_at: '回满',
+    st_full_in: '若不执行，约 {0}后',
+    st_read: '读取',
     notes_issue: '体力刷新：{0}',
+    col_runs: '接下来的执行',
+    col_goals: '培养目标',
+    tag_next: '下一批',
+    tt_manual: '手动',
+    dailies_line: '每批还会执行：{0}',
+    goals_collected: '已收齐 {0}/{1} 项',
+    goal_all_done: '材料已全部收齐',
+    goal_error: '读取失败',
+    goals_none: '此游戏还没有培养目标。',
+    goals_more: '另有 {0} 个，见“培养”页',
     btn_login_manage: '管理登录',
     btn_login_again: '重新授权',
     btn_login_cancel: '取消登录',
@@ -585,8 +591,6 @@ const I18N = {
     next_batch: '下一批',
     next_batch_at: '下一批 {0}',
     phase_equipment: '装备接续',
-    fact_cap: '上限 {0}',
-    fact_expect: '预计 {0}',
     fact_spend: '约 {0} {1}',
     for_goal: '{0}：{1}',
     btn_details: '详情',
@@ -601,9 +605,6 @@ const I18N = {
     stop_rule: '游戏内体力不足时，或完成 {0} 后',
     nothing_title: '暂无可刷项目',
     keeping: '保留{0}',
-    waiting_title: '等待中（{0}）',
-    waiting_more: '另有 {0} 项，见“培养”页',
-    dailies_title: '每批还会执行',
     latest_run: '最近一次执行',
     no_runs_yet: '尚无执行记录。',
     view_all: '查看全部',
@@ -723,7 +724,8 @@ const I18N = {
     forecast: '预测',
     day_head: '{0} {1}',
     left_after: '剩余约 {0}',
-    plan_empty: '暂无后续时段，请在设置中添加执行时间。',
+    plan_empty_title: '暂无排程',
+    plan_empty: '在设置中添加执行时间后，这里会预测未来三天的执行。',
 
     // Runs
     trigger_schedule: '定时 {0}',
@@ -737,7 +739,9 @@ const I18N = {
     run_done: '确认完成 {0}，上限 {1}',
     run_unverified: '数量待核验',
     run_duration: '耗时 {0}',
-    runs_empty: '暂无执行记录，可在“今日”页手动执行。',
+    runs_empty_title: '尚无执行记录',
+    runs_empty: '在“今日”页启动或按定时执行的批次及其结果会列在这里。',
+    btn_open_today: '前往今日',
     no_games: '未执行游戏',
     btn_more_runs: '显示更早的记录',
 
@@ -1024,10 +1028,7 @@ const GAMES = ['zzz', 'genshin'];
 const TABS = [['today', 'home', 'nav_today'], ['goals', 'target', 'nav_goals'], ['plan', 'calendar', 'nav_plan'],
               ['runs', 'history', 'nav_runs'], ['settings', 'sliders', 'nav_settings']];
 const RECOVERY_MINUTES = { genshin: 8, zzz: 6 };
-const UNIT_ICON = { genshin: 'resin', zzz: 'battery' };
 const STAGES = ['stage_prepare', 'stage_config', 'stage_launch', 'stage_running', 'stage_scan', 'stage_collect'];
-const DAILY_ICON = { daily_mail: 'mail', daily_teapot: 'cup', daily_commission: 'clipboard',
-                     daily_onedragon: 'list', daily_zzz_rewards: 'gift' };
 const RUN_STATUS = { SUCCESS: ['good', 'check'], PARTIAL: ['warn', 'alert'], FAILED: ['bad', 'x'],
                      SKIPPED: ['muted', 'skip'], STOPPED: ['muted', 'stop'], RUNNING: ['info', 'pulse'] };
 const BUSY_KEYS = ['action', 'id', 'key', 'game', 'games', 'dir', 'index', 'channel'];
@@ -1118,7 +1119,6 @@ function alertBox(kind, ic, html, action = '') {
 }
 function linkButton(href, ic, label) { return `<a class="btn sm" href="${href}">${icon(ic)}<span>${label}</span></a>`; }
 function runBadge(status) { const [kind, ic] = RUN_STATUS[status] || ['muted', 'minus']; return badge(kind, ic, t('run_status_' + status)); }
-function unitTerm(game) { return `<span class="term">${icon(UNIT_ICON[game])}<span>${t('unit_' + game)}</span></span>`; }
 function portrait(game, id, name, size = '') {
   const k = `${game}/character/${id}`;
   if (id && ASSETS.has(k)) return `<span class="portrait ${size}"><img src="/assets/${esc(k)}" alt="" loading="lazy"></span>`;
@@ -1390,6 +1390,12 @@ function toggleButton(id) {
   return `<button type="button" class="btn sm quiet" data-action="toggle" data-key="${esc(id)}" aria-expanded="${open}">${icon('chevron', 'chev')}<span class="txt">${t('btn_details')}</span></button>`;
 }
 
+/** An empty view as a sheet: what is missing on its title strip, then how to fill it. */
+function emptySheet(ic, title, text, action = '') {
+  return `<section class="panel empty"><header class="panel-head"><h2>${icon(ic)}<span>${title}</span></h2></header>
+    <div class="empty-body"><p>${text}</p>${action}</div></section>`;
+}
+
 function detailPanel(id, html, cls = '') {
   return `<div class="${cls}" data-detail="${esc(id)}"${OPEN.has(id) ? '' : ' hidden'}>${html}</div>`;
 }
@@ -1399,6 +1405,7 @@ function detailList(rows) {
 }
 
 // ----------------------------------------------------------- 1. Today
+// One band per game on the same grid (stamina, the next runs, the goals), so both games read across the same columns.
 function renderToday() {
   const el = document.getElementById('view-today');
   const r = STATE.runner || {};
@@ -1406,8 +1413,8 @@ function renderToday() {
     ${pageHead(t('nav_today'), '', button('run', 'play', t('btn_run_both'), '', `data-games="zzz,genshin"${r.running || STATE.automation === false ? ' disabled' : ''}`))}
     ${exceptions()}
     ${r.running ? runningPanel(r) : ''}
-    <div class="grid two">${GAMES.map(gameCard).join('')}</div>
-    <div class="mt">${latestRunPanel()}</div>`;
+    ${GAMES.map(gameBand).join('')}
+    ${latestRunPanel()}`;
 }
 
 function exceptions() {
@@ -1463,151 +1470,191 @@ function nextFacts(game) {
   return { at: null, expected: item.expected, spend, left: st && spend != null ? Math.max(0, st.value - spend) : null };
 }
 
-function gameCard(game) {
-  const st = STATE.stamina?.[game];
-  const plan = STATE.plans?.[game] || {};
-  const item = plan.item;
+function gameBand(game) {
   const acc = STATE.accounts?.[game];
-  const health = STATE.health?.['stamina-' + game];
   const running = STATE.runner?.running;
-  const nf = nextFacts(game);
   return `
-    <article class="panel game-card">
-      <header class="panel-head">
-        <div><h2>${t('game_' + game)}</h2><p class="ink-2">${acc ? t('account_line', acc.name || '–', acc.uid) : t('no_account')}</p></div>
+    <section class="band" aria-labelledby="band-${game}">
+      <header class="band-head">
+        <div class="band-title"><h2 id="band-${game}">${t('game_' + game)}</h2><span class="ink-2">${acc ? t('account_line', acc.name || '–', acc.uid) : t('no_account')}</span></div>
         <div class="actions">
           ${button('refresh-notes', 'refresh', t('btn_refresh'), 'sm', `data-game="${game}"${STATE.logged_in && acc ? '' : ' disabled'}`)}
           ${button('run', 'play', t('btn_run_now'), 'sm primary', `data-games="${game}"${running || STATE.automation === false ? ' disabled' : ''}`)}
         </div>
       </header>
-      ${staminaBlock(game, st, nf)}
-      ${health && health.ok === false ? alertBox('warn', 'alert', t('notes_issue', health.reason || ''),
-        acc ? button('login-dialog', 'qr', t('btn_login_manage'), 'sm') : '') : ''}
-      ${item ? nextBlock(game, plan, item, nf) : idleBlock(game, plan)}
-      ${waitingBlock(plan)}
-      ${dailiesBlock(plan)}
-    </article>`;
+      <div class="band-grid">
+        <div class="col col-stamina">${staminaCol(game)}</div>
+        <div class="col col-runs">${runsCol(game)}</div>
+        <div class="col col-goals">${goalsCol(game)}</div>
+      </div>
+    </section>`;
 }
 
-function staminaBlock(game, st, nf) {
-  if (!st) return `<div class="stamina"><div class="figure"><span class="value">?</span>${unitTerm(game)}</div>${help(t('stamina_unknown_hint'))}</div>`;
-  const fullMinutes = (st.cap - st.value) * RECOVERY_MINUTES[game];
-  const facts = [
-    nf && nf.spend > 0 ? [icon('target'), nf.at ? t('spend_line_at', whenLabel(nf.at), num(nf.spend), num(nf.left)) : t('spend_line', num(nf.spend), num(nf.left))] : null,
-    st.value >= st.cap ? [icon('alert'), t('full_now')] : [icon('clock'), t('full_idle', duration(fullMinutes), whenOf(nowMs() + fullMinutes * 60000))],
-    [icon('info'), t('stamina_estimate', st.source, relative(st.seen))]
-  ].filter(Boolean);
+function staminaCol(game) {
+  const st = STATE.stamina?.[game];
+  const acc = STATE.accounts?.[game];
+  const health = STATE.health?.['stamina-' + game];
+  const issue = health && health.ok === false ? alertBox('warn', 'alert', t('notes_issue', health.reason || ''),
+    acc ? button('login-dialog', 'qr', t('btn_login_manage'), 'sm') : '') : '';
+  const head = `<div class="col-head"><h3>${t('unit_' + game)}</h3></div>`;
+  if (!st) {
+    return `${head}<div class="tile"><p class="figure"><span class="value">?</span></p>
+      <span class="meter stamina-meter" aria-hidden="true"></span></div>${help(t('stamina_unknown_hint'))}${issue}`;
+  }
+  const minutes = (st.cap - st.value) * RECOVERY_MINUTES[game];
+  const full = st.value >= st.cap;
   return `
-    <div class="stamina">
-      <div class="figure"><span class="value">${st.value}</span><span class="cap num">/ ${st.cap}</span>${unitTerm(game)}</div>
-      ${staminaTrack(game, st)}
-      <ul class="list facts-list">${facts.map(([ic, text]) => `<li>${ic}<span class="t">${text}</span></li>`).join('')}</ul>
+    ${head}
+    <div class="tile">
+      <p class="figure"><span class="value">${num(st.value)}</span><span class="cap">/${num(st.cap)}</span></p>
+      <span class="meter stamina-meter" aria-hidden="true"><span class="fill" style="width:${Math.min(100, (100 * st.value) / st.cap).toFixed(1)}%"></span></span>
+    </div>
+    ${full ? `<p class="st-full">${icon('alert')}<span>${t('full_now')}</span></p>` : ''}
+    <dl class="st-facts">
+      ${full ? '' : `<div><dt>${t('st_full_at')}</dt><dd><b>${esc(whenOf(nowMs() + minutes * 60000))}</b><span>${t('st_full_in', duration(minutes))}</span></dd></div>`}
+      <div><dt>${t('st_read')}</dt><dd><b>${esc(relative(st.seen))}</b><span>${esc(st.source)}</span></dd></div>
+    </dl>
+    ${issue}`;
+}
+
+/** The next scheduled runs as timetable rows; without a schedule for this game, what Run now would farm. */
+function runsCol(game) {
+  const plan = STATE.plans?.[game] || {};
+  const sched = STATE.settings?.schedule || {};
+  const rows = sched.enabled && (sched.games || []).includes(game)
+    ? (STATE.forecast?.rows || []).filter(r => r.game === game && toMs(r.at) > nowMs()).slice(0, 3) : [];
+  const list = rows.length ? rows.map((r, i) => ttRow(r, i === 0)).join('') : plan.item ? manualRow(game, plan) : '';
+  return `
+    <div class="col-head"><h3>${t('col_runs')}</h3><a href="#/plan">${t('nav_plan')}</a></div>
+    ${plan.item ? '' : idleNote(game, plan)}
+    ${list ? `<ol class="tt">${list}</ol>` : ''}
+    <p class="tt-daily">${icon('gift')}<span>${t('dailies_line', (plan.daily || []).join(tp('list_sep')) || tp('none'))}</span></p>`;
+}
+
+function ttTime(at) {
+  const ms = toMs(at);
+  const day = dayKeyOf(ms) === dayKeyOf(nowMs()) ? '' : `<small>${esc(lookup('weekdays')[cnParts(ms).wd])}</small>`;
+  return `<span class="tt-time">${clockOf(ms)}${day}</span>`;
+}
+
+function ttSpend(spend, left) {
+  return `<span class="tt-spend">${spend == null ? '<b>?</b>' : `<b>−${num(spend)}</b>`}${left != null ? `<span>${t('left_after', num(left))}</span>` : ''}</span>`;
+}
+
+function ttRow(r, first) {
+  const next = first && r.task;
+  const id = `today-${r.game}-${r.at}`;
+  if (!r.task) {
+    return `<li class="tt-row">${ttTime(r.at)}<div class="tt-what"><p class="ink-2">${t('daily_only')}</p></div>
+      <span class="tt-spend">${r.left != null ? `<span>${t('left_after', num(r.left))}</span>` : ''}</span></li>`;
+  }
+  return `
+    <li class="tt-row${next ? ' next' : ''}">
+      ${ttTime(r.at)}
+      <div class="tt-what">
+        <p class="tt-task"><b>${esc(r.task)}</b>${next ? `<span class="tag">${t('tag_next')}</span>` : ''}</p>
+        <p class="ink-2">${r.names ? t('for_goal', r.goal, r.names) : esc(r.goal)}${r.phase === 'equipment' ? ` (${t('phase_equipment')})` : ''}</p>
+        ${next ? `<div class="tt-acts">${toggleButton(id)}${adjustLink(r.goal_id)}</div>` : ''}
+      </div>
+      ${ttSpend(r.spend, r.left)}
+      ${next ? detailPanel(id, detailList(forecastDetails(r)), 'tt-detail') : ''}
+    </li>`;
+}
+
+function manualRow(game, plan) {
+  const item = plan.item;
+  const nf = nextFacts(game);
+  const id = `today-${game}-manual`;
+  return `
+    <li class="tt-row next">
+      <span class="tt-time"><small>${t('tt_manual')}</small></span>
+      <div class="tt-what">
+        <p class="tt-task"><b>${esc(item.label)}</b><span class="tag">${t('tag_next')}</span></p>
+        <p class="ink-2">${item.names ? t('for_goal', item.goal, item.names) : esc(item.goal)}${plan.phase === 'equipment' ? ` (${t('phase_equipment')})` : ''}</p>
+        <div class="tt-acts">${toggleButton(id)}${adjustLink(item.goal_id)}</div>
+      </div>
+      ${ttSpend(nf && nf.spend, nf && nf.left)}
+      ${detailPanel(id, itemDetails(game, item, nf), 'tt-detail')}
+    </li>`;
+}
+
+function idleNote(game, plan) {
+  return `
+    <div class="tt-idle">
+      <p><b>${t('nothing_title')}</b> <span class="ink-2">(${t('keeping', tp('unit_' + game))})</span></p>
+      ${plan.reason ? `<p class="ink-2">${esc(plan.reason)}</p>` : ''}
+      <div class="tt-acts">${linkButton(`#/goals/${game}`, 'edit', t('btn_adjust'))}</div>
     </div>`;
 }
 
-// ----------------------------------------------------------- 48-hour stamina track (recovery up to the cap, a drop per batch)
-const TRACK_HOURS = 48;
-const TRACKS = {};
-
-function trackModel(game, st) {
-  const now = nowMs(), span = TRACK_HOURS * 3600e3, end = now + span;
-  const rate = RECOVERY_MINUTES[game] * 60000;
-  const cap = st.cap;
-  const pts = [[now, st.value]];
-  const marks = [];
-  let t0 = now, v = st.value;
-  const advance = to => {
-    if (v < cap) {
-      const full = t0 + (cap - v) * rate;
-      if (full < to) { pts.push([full, cap]); v = cap; } else v += (to - t0) / rate;
-    }
-    t0 = to;
-    pts.push([t0, v]);
-  };
-  (STATE.forecast?.rows || []).filter(r => r.game === game && r.stamina != null)
-    .map(r => [toMs(r.at), r]).filter(([at]) => at > now && at <= end)
-    .forEach(([at, r]) => {
-      advance(at);
-      if (Math.abs(r.stamina - v) > 1.5) { v = r.stamina; pts.push([at, v]); }  // e.g. the daily ZZZ coffee
-      if (r.spend > 0) {
-        marks.push({ at, before: Math.round(v), after: Math.round(r.left), row: r });
-        v = r.left;
-        pts.push([at, v]);
-      }
-    });
-  advance(end);
-  return { now, span, cap, top: Math.max(cap, ...pts.map(p => p[1])) * 1.1, pts, marks };
+/** Equipment for a character is adjusted on its goal card, like its materials; the fixed fallback in Settings. */
+function adjustLink(goalId) {
+  const goal = goalId ? findGoal(goalId) : null;
+  return linkButton(goal ? `#/goals/${encodeURIComponent(goal.id)}` : '#/settings/set-farming', 'edit', t('btn_adjust'));
 }
 
-function staminaTrack(game, st) {
-  const m = trackModel(game, st);
-  TRACKS[game] = m;
-  const X = time => ((time - m.now) / m.span) * 100;
-  const Y = val => (1 - val / m.top) * 100;
-  const line = m.pts.map(([tt, vv], i) => `${i ? 'L' : 'M'}${(X(tt) * 10).toFixed(1)} ${Y(vv).toFixed(2)}`).join(' ');
-  const unit = tp('unit_' + game);
-  const ticks = [];
-  const p = cnParts(m.now);
-  for (let mid = Date.UTC(p.y, p.m - 1, p.d + 1) - 8 * 3600e3; mid < m.now + m.span; mid += 864e5) ticks.push(mid);
-  const dots = m.marks.map(k => {
-    const x = X(k.at);
-    const side = x > 78 ? ' end' : x < 22 ? ' start' : '';
-    const label = tp('track_dot', whenOf(k.at), k.row.task, k.before, k.after, unit);
-    return `<button type="button" class="trk-dot${side}" style="left:${x.toFixed(2)}%;top:${Y(k.before).toFixed(2)}%" aria-label="${esc(label)}">
-      <span class="trk-tip"><b>${num(k.before)} → ${num(k.after)}</b><span>${esc(whenOf(k.at))}</span><span>${esc(k.row.task)}</span></span></button>`;
+function forecastDetails(r) {
+  const unitName = tp('unit_' + r.game);
+  return r.task ? [
+    [t('detail_task'), `${esc(r.task)} <span class="ink-2">${r.names ? t('for_goal', r.goal, r.names) : esc(r.goal)}</span>`],
+    [t('detail_spend'), r.expected != null ? t('spend_detail', `${r.expected}${r.unit_label || ''}`, r.cost, unitName, r.spend ?? '?') : t('spend_unknown')],
+    [t('detail_stop'), t('stop_rule', `${r.upper}${r.unit_label || ''}`)],
+    [t('detail_calc'), esc(r.reason)]
+  ] : [[t('detail_reason'), esc(r.reason)]];
+}
+
+/** The active goals in queue order: how much each has collected, and what it farms next or waits for. */
+function goalsCol(game) {
+  const list = (STATE.goals?.[game] || []).filter(g => g.enabled);
+  const plan = STATE.plans?.[game] || {};
+  const head = `<div class="col-head"><h3>${t('col_goals')}</h3><a href="#/goals/${game}">${t('view_all')}</a></div>`;
+  if (!list.length) {
+    return `${head}<p class="gl-empty ink-2">${t('goals_none')}</p>
+      <div class="tt-acts">${button('add-goal', 'plus', t('btn_add_goal'), 'sm', `data-game="${game}"`)}</div>`;
+  }
+  const more = list.length > 4 ? `<p class="gl-more"><a href="#/goals/${game}">${t('goals_more', list.length - 4)}</a></p>` : '';
+  return `${head}<ol class="gl">${list.slice(0, 4).map(g => goalRow(g, plan)).join('')}</ol>${more}`;
+}
+
+/** Share of an item already covered: 1 when collected, else the mean covered share of its known material
+ *  quantities (the official shortfall already counts conversion); null when no quantity is known. */
+function itemFraction(it) {
+  if (it.done) return 1;
+  const known = (it.materials || []).filter(m => m.need > 0 && m.remaining != null);
+  if (!known.length) return null;
+  return known.reduce((sum, m) => sum + Math.min(1, Math.max(0, 1 - m.remaining / m.need)), 0) / known.length;
+}
+
+function goalRow(g, plan) {
+  const items = g.items || [];
+  const label = t('goals_collected', items.filter(it => it.done).length, items.length);
+  const parts = items.map(it => {
+    const f = itemFraction(it);
+    return f == null ? '<span class="part unknown"></span>' : `<span class="part"><span style="width:${(100 * f).toFixed(1)}%"></span></span>`;
   }).join('');
+  const ev = g.gear_eval;
+  const gear = ev && ev.target?.farm
+    ? `<p class="gl-gear">${t(GEAR[g.game].title)} <span class="num">${ev.score ?? '–'} / ${ev.target.score}</span>${ev.done || g.gear_owned?.done ? icon('check') : ''}</p>` : '';
   return `
-    <figure class="trk">
-      <figcaption><span>${t('track_title')}</span><a href="#/plan">${t('nav_plan')}</a></figcaption>
-      <div class="trk-plot" data-game="${game}">
-        <svg viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="${t('track_aria', unit, st.value, m.marks.length)}">
-          ${ticks.map(tk => `<line class="trk-grid" x1="${(X(tk) * 10).toFixed(1)}" x2="${(X(tk) * 10).toFixed(1)}" y1="0" y2="100" vector-effect="non-scaling-stroke"/>`).join('')}
-          <line class="trk-grid" x1="0" x2="1000" y1="${Y(m.cap).toFixed(2)}" y2="${Y(m.cap).toFixed(2)}" vector-effect="non-scaling-stroke"/>
-          <path class="trk-area" d="${line} L1000 100 L0 100 Z"/>
-          <path class="trk-line" d="${line}" vector-effect="non-scaling-stroke"/>
-        </svg>
-        <span class="trk-cap" style="top:${Y(m.cap).toFixed(2)}%">${t('track_cap', m.cap)}</span>
-        <span class="trk-dot now" style="left:0%;top:${Y(st.value).toFixed(2)}%" aria-hidden="true"></span>
-        ${dots}
+    <li class="gl-row">
+      ${portrait(g.game, g.character_id, g.name, 'md')}
+      <div class="gl-main">
+        <p class="gl-name"><a href="#/goals/${encodeURIComponent(g.id)}">${esc(g.name)}</a>${items.length ? `<span class="ink-2">${label}</span>` : ''}</p>
+        ${items.length ? `<span class="parts" role="img" aria-label="${label}">${parts}</span>` : ''}
+        <p class="gl-status">${goalStatus(g, plan)}</p>
+        ${gear}
       </div>
-      <div class="trk-axis" aria-hidden="true"><span class="start">${t('track_now')}</span>${ticks.map(tk =>
-        `<span style="left:${X(tk).toFixed(2)}%">${esc(lookup('weekdays')[cnParts(tk).wd])}</span>`).join('')}</div>
-    </figure>`;
+    </li>`;
 }
 
-function trackValueAt(m, time) {
-  for (let i = m.pts.length - 1; i > 0; i--) {
-    const [t1, v1] = m.pts[i], [ta, va] = m.pts[i - 1];
-    if (time >= ta && time <= t1) return t1 === ta ? v1 : va + (v1 - va) * (time - ta) / (t1 - ta);
+function goalStatus(g, plan) {
+  if (g.calc_error || g.observe_error) return `<span class="bad">${icon('alert')}${t('goal_error')}</span>`;
+  if (plan.item && plan.item.goal_id === g.id) {
+    return `<span class="tag">${t('tag_next')}</span><span>${esc(plan.item.label)}${plan.phase === 'equipment' ? ` (${t('phase_equipment')})` : ''}</span>`;
   }
-  return m.pts[0][1];
-}
-
-/** Crosshair: follows the pointer over a track, snapping to a batch when close. */
-function trackPointer(e) {
-  const plot = e.target.closest && e.target.closest('.trk-plot');
-  document.querySelectorAll('.trk-plot .trk-x').forEach(el => { if (!plot || !plot.contains(el)) el.parentElement.querySelectorAll('.trk-x, .trk-read').forEach(n => n.remove()); });
-  if (!plot || e.target.closest('.trk-dot')) { plot?.querySelectorAll('.trk-x, .trk-read').forEach(n => n.remove()); return; }
-  const m = TRACKS[plot.dataset.game];
-  if (!m) return;
-  const rect = plot.getBoundingClientRect();
-  const px = Math.min(rect.width, Math.max(0, e.clientX - rect.left));
-  const mark = m.marks.find(k => Math.abs(((k.at - m.now) / m.span) * rect.width - px) < 14);
-  const time = mark ? mark.at : Math.round((m.now + (px / rect.width) * m.span) / 600000) * 600000;
-  let x = plot.querySelector('.trk-x'), read = plot.querySelector('.trk-read');
-  if (!x) {
-    x = document.createElement('span'); x.className = 'trk-x'; plot.appendChild(x);
-    read = document.createElement('span'); read.className = 'trk-read'; plot.appendChild(read);
-    read.append(document.createElement('b'), document.createElement('span'), document.createElement('span'));
-  }
-  const left = `${(((time - m.now) / m.span) * 100).toFixed(2)}%`;
-  x.style.left = left;
-  read.style.left = left;
-  read.classList.toggle('end', px > rect.width * 0.8);
-  read.classList.toggle('start', px < rect.width * 0.2);
-  read.firstChild.textContent = mark ? `${num(mark.before)} → ${num(mark.after)}` : `≈ ${num(Math.round(trackValueAt(m, time)))}`;
-  read.children[1].textContent = whenOf(time);
-  read.children[2].textContent = mark ? mark.row.task : '';
+  const open = (g.items || []).find(it => !it.done);
+  if (!open) return `<span class="good">${icon('check')}${t('goal_all_done')}</span>`;
+  return `<span class="ink-2">${t('for_goal', open.label, open.paused ? tp('status_paused') : open.why || tp('status_queued'))}</span>`;
 }
 
 function itemDetails(game, item, nf) {
@@ -1622,64 +1669,12 @@ function itemDetails(game, item, nf) {
   ]);
 }
 
-function nextBlock(game, plan, item, nf) {
-  const when = nf.at ? t('next_batch_at', whenLabel(nf.at)) : t('next_batch');
-  const goal = item.goal_id ? findGoal(item.goal_id) : null;
-  const unit = item.unit_label || '';
-  const spend = nf.spend;
-  const detailId = `next-${game}`;
-  const adjust = !goal   // equipment for a character is adjusted on its goal card, like its materials
-    ? linkButton('#/settings/set-farming', 'edit', t('btn_adjust'))
-    : linkButton(`#/goals/${encodeURIComponent(goal.id)}`, 'edit', t('btn_adjust'));
-  return `
-    <section class="sec next">
-      <p class="label">${icon('target')}<span>${when}</span>${plan.phase === 'equipment' ? `<span>(${t('phase_equipment')})</span>` : ''}</p>
-      <div class="who">
-        ${goal ? portrait(game, goal.character_id, goal.name, 'md') : ''}
-        <div><b>${esc(item.label)}</b><p class="ink-2">${item.names ? t('for_goal', item.goal, item.names) : esc(item.goal)}</p></div>
-      </div>
-      <p class="facts">
-        <span>${t('fact_cap', `${item.upper}${unit}`)}</span>
-        <span>${t('fact_expect', nf.expected != null ? `${nf.expected}${unit}` : tp('unknown'))}</span>
-        ${spend != null ? `<span><b>${t('fact_spend', spend, tp('unit_' + game))}</b></span>` : ''}
-      </p>
-      <div class="next-foot">${toggleButton(detailId)}${adjust}</div>
-      ${detailPanel(detailId, itemDetails(game, item, nf))}
-    </section>`;
-}
-
-function idleBlock(game, plan) {
-  return `
-    <section class="sec next idle">
-      <p class="label">${icon('pause')}<b>${t('nothing_title')}</b><span>(${t('keeping', tp('unit_' + game))})</span></p>
-      <p class="ink-2">${esc(plan.reason || '')}</p>
-      <div class="next-foot"><span></span>${linkButton('#/goals', 'edit', t('btn_adjust'))}</div>
-    </section>`;
-}
-
-function waitingBlock(plan) {
-  const list = plan.waiting || [];
-  if (!list.length) return '';
-  const rows = list.slice(0, 3).map(w => `<li>${icon('clock')}<span class="t">${esc(w.label)}<small>${t('for_goal', w.goal, w.why)}</small></span></li>`).join('');
-  const more = list.length > 3 ? `<a href="#/goals">${t('waiting_more', list.length - 3)}</a>` : '';
-  return `<section class="sec"><p class="section-title">${icon('clock')}<span>${t('waiting_title', list.length)}</span></p><ul class="list">${rows}</ul>${more}</section>`;
-}
-
-function dailiesBlock(plan) {
-  const names = plan.daily || [];
-  const keys = plan.daily_keys || [];
-  const items = names.length
-    ? names.map((name, i) => `<li>${icon(DAILY_ICON[keys[i]] || 'check')}<span class="t">${esc(name)}</span></li>`).join('')
-    : `<li>${icon('minus')}<span class="t">${t('none')}</span></li>`;
-  return `<section class="sec"><p class="section-title">${icon('gift')}<span>${t('dailies_title')}</span></p><ul class="list inline">${items}</ul></section>`;
-}
-
 function latestRunPanel() {
   const run = (STATE.runs || [])[0];
   return `
-    <section class="panel">
-      <header class="panel-head"><h2>${icon('history')}<span>${t('latest_run')}</span></h2><a href="#/runs">${t('view_all')}</a></header>
-      ${run ? runBody(run) : `<p class="ink-2">${t('no_runs_yet')}</p>`}
+    <section class="band">
+      <header class="band-head"><div class="band-title"><h2>${t('latest_run')}</h2></div><a href="#/runs">${t('view_all')}</a></header>
+      <div class="band-body">${run ? runBody(run) : `<p class="ink-2">${t('no_runs_yet')}</p>`}</div>
     </section>`;
 }
 
@@ -1696,12 +1691,11 @@ function renderGoals() {
     return `<button type="button" role="tab" aria-selected="${g === GOALS_GAME}" data-action="goals-game" data-game="${g}"><span>${t('game_' + g)}</span><span class="count">${count}</span></button>`;
   }).join('');
   el.innerHTML = `
-    ${pageHead(t('nav_goals'), t('goals_sub'), button('add-goal', 'plus', t('btn_add_goal'), 'primary'))}
+    ${pageHead(t('nav_goals'), t('goals_sub'), active.length ? button('add-goal', 'plus', t('btn_add_goal'), 'primary') : '')}
     <div class="toolbar"><div class="seg" role="tablist" aria-label="${t('nav_goals')}">${tabs}</div>${help(t('stable_list_help'))}</div>
     ${inventoryLine(GOALS_GAME)}
-    ${active.length ? active.map((g, i) => goalCard(g, i, active.length, nextKey)).join('') : `
-      <div class="panel empty">${icon('target')}<h2>${t('goals_empty_title')}</h2><p>${t('goals_empty_desc')}</p>
-        ${button('add-goal', 'plus', t('btn_add_goal'), 'primary')}</div>`}
+    ${active.length ? active.map((g, i) => goalCard(g, i, active.length, nextKey)).join('')
+      : emptySheet('target', t('goals_empty_title'), t('goals_empty_desc'), button('add-goal', 'plus', t('btn_add_goal'), 'primary'))}
     ${canceled.length ? canceledPanel(canceled) : ''}`;
 }
 
@@ -1751,7 +1745,7 @@ function nextLine(g, item, planItem) {
   const detailId = `goal-next-${g.id}`;
   return `
     <div>
-      <p class="next-line">${icon('target')}<b>${nf && nf.at ? t('next_batch_at', whenLabel(nf.at)) : t('next_batch')}</b>
+      <p class="next-line"><span class="tag">${nf && nf.at ? t('next_batch_at', whenLabel(nf.at)) : t('next_batch')}</span>
         <span>${esc(item.label)}</span><span>${spend}</span>${toggleButton(detailId)}</p>
       ${detailPanel(detailId, itemDetails(g.game, planItem, nf), 'mt')}
     </div>`;
@@ -2236,7 +2230,8 @@ function renderPlan() {
       <section class="panel day">
         <div class="day-head"><h2>${dayLabel(day.at) === dateOf(day.at) ? esc(dateOf(day.at)) : t('day_head', dayLabel(day.at), dateOf(day.at))}</h2>${badge('muted', 'clock', t('forecast'))}</div>
         <ul class="entries">${day.rows.map(entry).join('')}</ul>
-      </section>`).join('') : `<div class="panel empty">${icon('calendar')}<p>${t('plan_empty')}</p></div>`}`;
+      </section>`).join('') : emptySheet('calendar', t('plan_empty_title'), t('plan_empty'),
+        linkButton('#/settings/set-schedule', 'sliders', t('btn_open_settings')))}`;
 }
 
 function entry(r) {
@@ -2249,12 +2244,6 @@ function entry(r) {
   const spend = r.spend != null
     ? `<div class="spend"><b>${t('fact_spend', r.spend, unitName)}</b>${r.left != null ? `<span>${t('left_after', r.left)}</span>` : ''}</div>`
     : `<div class="spend"><span>${r.stamina == null ? t('spend_unknown') : t('left_after', r.left ?? r.stamina)}</span></div>`;
-  const rowsDetail = r.task ? [
-    [t('detail_task'), `${esc(r.task)} <span class="ink-2">${r.names ? t('for_goal', r.goal, r.names) : esc(r.goal)}</span>`],
-    [t('detail_spend'), r.expected != null ? t('spend_detail', `${r.expected}${r.unit_label || ''}`, r.cost, unitName, r.spend ?? '?') : t('spend_unknown')],
-    [t('detail_stop'), t('stop_rule', `${r.upper}${r.unit_label || ''}`)],
-    [t('detail_calc'), esc(r.reason)]
-  ] : [[t('detail_reason'), esc(r.reason)]];
   return `
     <li class="entry">
       <div class="entry-row">
@@ -2264,7 +2253,7 @@ function entry(r) {
         ${spend}
         <span class="more-btn">${toggleButton(detailId)}</span>
       </div>
-      ${detailPanel(detailId, detailList(rowsDetail))}
+      ${detailPanel(detailId, detailList(forecastDetails(r)))}
     </li>`;
 }
 
@@ -2301,13 +2290,13 @@ function renderRuns() {
   const list = MORE_RUNS || STATE.runs || [];
   el.innerHTML = `
     ${pageHead(t('nav_runs'), '', button('refresh', 'refresh', t('btn_refresh')))}
-    <section class="panel">
-      ${list.length ? list.map(r => {
+    ${list.length ? `<section class="panel">
+      ${list.map(r => {
         const start = toMs(r.started);
         return `<article class="run"><div class="when"><b>${esc(clock(r.started))}</b><span>${esc(start ? dateOf(start) : '')}</span></div><div>${runBody(r)}</div></article>`;
-      }).join('') : `<div class="empty">${icon('history')}<p>${t('runs_empty')}</p></div>`}
+      }).join('')}
       ${!MORE_RUNS && list.length >= 20 ? `<div class="mt">${button('more-runs', 'history', t('btn_more_runs'), 'sm')}</div>` : ''}
-    </section>`;
+    </section>` : emptySheet('history', t('runs_empty_title'), t('runs_empty'), linkButton('#/today', 'home', t('btn_open_today')))}`;
 }
 
 // ----------------------------------------------------------- 5. Settings
@@ -2675,7 +2664,10 @@ const ACTIONS = {
     if (res && res.error) throw new Error(res.error);
   }, tp('toast_notes')),
   'goals-game': btn => { GOALS_GAME = btn.dataset.game; store.set('gcl_goals_game', GOALS_GAME); render(true); },
-  'add-goal': () => openAddGoal(),
+  'add-goal': btn => {
+    if (GAMES.includes(btn.dataset.game)) { GOALS_GAME = btn.dataset.game; store.set('gcl_goals_game', GOALS_GAME); }
+    openAddGoal();
+  },
   'modal-close': () => closeDialog(),
   'pick-char': btn => {
     MODAL.selected = { id: btn.dataset.id, name: btn.dataset.name };
@@ -2823,12 +2815,16 @@ function showRoute() {
   });
   document.querySelectorAll('main > section').forEach(s => { s.hidden = s.id !== `view-${ROUTE.tab}`; });
   if (ROUTE.tab !== 'runs') MORE_RUNS = null;
-  if (ROUTE.tab === 'goals' && ROUTE.arg && STATE) {
+  const gameArg = ROUTE.tab === 'goals' && GAMES.includes(ROUTE.arg);  // #/goals/zzz: that game's tab
+  if (gameArg) { GOALS_GAME = ROUTE.arg; store.set('gcl_goals_game', GOALS_GAME); }
+  if (ROUTE.tab === 'goals' && ROUTE.arg && STATE && !gameArg) {
     const goal = findGoal(ROUTE.arg);
     if (goal) GOALS_GAME = goal.game;
   }
   render(ROUTE.tab !== prev || Boolean(ROUTE.arg));
-  if (ROUTE.arg) {
+  if (gameArg) {
+    window.scrollTo(0, 0);
+  } else if (ROUTE.arg) {
     const target = document.getElementById(ROUTE.tab === 'goals' ? `goal-${ROUTE.arg}` : ROUTE.arg);
     if (target) {
       target.scrollIntoView({ block: 'start' });
@@ -2884,12 +2880,6 @@ document.addEventListener('submit', e => {
   else if (form.dataset.form === 'gear') submitGearTarget(form);
   else if (form.dataset.form === 'add-goal') submitAddGoal(form);
   else if (form.id === 'settings-form') ACTIONS['settings-save'](document.querySelector('[data-action="settings-save"]'));
-});
-
-document.addEventListener('pointermove', trackPointer);
-document.addEventListener('pointerout', e => {
-  const plot = e.target.closest && e.target.closest('.trk-plot');
-  if (plot && !plot.contains(e.relatedTarget)) plot.querySelectorAll('.trk-x, .trk-read').forEach(n => n.remove());
 });
 
 document.addEventListener('keydown', e => {
