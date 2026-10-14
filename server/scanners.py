@@ -151,7 +151,7 @@ def _open_screen(game: str, hwnd: int) -> None:
         return
     tools.click(hwnd, 130, 71, alt=True)     # menu button (Alt frees the cursor)
     time.sleep(2.5)
-    tools.click(hwnd, *ZZZ_MENU_STORAGE)     # 仓库 (storage) in the menu's bottom bar
+    tools.click(hwnd, *ZZZ_MENU_STORAGE)     # Storage in the menu's bottom bar
     time.sleep(3)
     tools.click(hwnd, 1549, 168)             # Drive Disc tab
     time.sleep(2.5)

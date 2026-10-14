@@ -80,7 +80,18 @@ const I18N = {
     spend_line: 'Next batch uses ≈ {0}, leaving ≈ {1}.',
     full_idle: 'Without runs, full in ≈ {0} ({1}).',
     full_now: 'Full: natural recovery is being wasted',
-    notes_issue: 'Real-Time Notes: {0}',
+    notes_issue: 'Stamina refresh: {0}',
+    btn_widget: 'Complete account connection',
+    btn_widget_manage: 'Manage login',
+    btn_widget_reconnect: 'Authorize again',
+    btn_cancel_login: 'Cancel login',
+    btn_widget_disconnect: 'Sign out of all games',
+    widget_title: 'Miyoushe account connection',
+    widget_hint: 'Scan once with Miyoushe for both games, including stamina, characters and cultivation data. Existing app authorization is reused automatically.',
+    widget_connected: 'One login shared by all games and data sources',
+    widget_disconnected: 'Complete the shared login to enable all data sources',
+    widget_disconnected_done: 'Signed out of all games.',
+    widget_status: 'Authorization status',
     btn_verify: 'Verify',
     btn_new_captcha: 'New captcha',
     dlg_verify_title: 'Miyoushe verification',
@@ -266,7 +277,7 @@ const I18N = {
     secret_saved: 'Saved. Leave empty to keep it.',
     btn_clear: 'Clear',
     acc_signed_in: 'Signed in',
-    acc_desc: 'Scan the QR code with the Miyoushe (米游社) app to read material gaps and Real-Time Notes. CN-server accounts only.',
+    acc_desc: 'Scan once with Miyoushe for stamina, characters and cultivation data across both games. CN-server accounts only.',
     btn_qr: 'Show login QR code',
     btn_qr_new: 'New QR code',
     qr_alt: 'Miyoushe login QR code',
@@ -580,7 +591,18 @@ const I18N = {
     spend_line: '下一批约消耗 {0}，剩余约 {1}。',
     full_idle: '若不执行，约 {0}后回满（{1}）。',
     full_now: '已满：自然恢复正在溢出',
-    notes_issue: '实时便笺：{0}',
+    notes_issue: '体力刷新：{0}',
+    btn_widget: '完善账号连接',
+    btn_widget_manage: '管理登录',
+    btn_widget_reconnect: '重新授权',
+    btn_cancel_login: '取消登录',
+    btn_widget_disconnect: '退出所有游戏登录',
+    widget_title: '米游社账号连接',
+    widget_hint: '米游社扫码一次，原神与绝区零的体力、角色和培养数据共用登录。已有 App 授权会自动复用。',
+    widget_connected: '各游戏及数据读取共用此登录',
+    widget_disconnected: '完善统一登录后，启用全部数据读取通道',
+    widget_disconnected_done: '已退出所有游戏登录。',
+    widget_status: '授权状态',
     btn_verify: '验证',
     btn_new_captcha: '换一个验证码',
     dlg_verify_title: '米游社人机验证',
@@ -766,7 +788,7 @@ const I18N = {
     secret_saved: '已保存，留空则不修改',
     btn_clear: '清除',
     acc_signed_in: '已登录',
-    acc_desc: '使用米游社 App 扫码登录，读取养成缺口与实时便笺。仅支持国服账号。',
+    acc_desc: '米游社扫码一次，原神与绝区零的体力、角色和培养数据共用登录。仅支持国服账号。',
     btn_qr: '显示登录二维码',
     btn_qr_new: '重新生成二维码',
     qr_alt: '米游社登录二维码',
@@ -1284,6 +1306,7 @@ async function refreshState(force = false) {
     return false;
   }
   render(force);
+  updateWidgetDialog();
   return true;
 }
 
@@ -1491,7 +1514,8 @@ function gameCard(game) {
       </header>
       ${staminaBlock(game, st, nf)}
       ${health && health.ok === false ? alertBox('warn', 'alert', t('notes_issue', health.reason || ''),
-        health.captcha && acc ? button('verify', 'shield', t('btn_verify'), 'sm', `data-game="${game}"`) : '') : ''}
+        acc ? button('widget', 'qr', t(STATE.qr?.unified ? 'btn_widget_reconnect' : 'btn_widget'), 'sm') +
+          (health.captcha ? button('verify', 'shield', t('btn_verify'), 'sm', `data-game="${game}"`) : '') : '') : ''}
       ${item ? nextBlock(game, plan, item, nf) : idleBlock(game, plan)}
       ${waitingBlock(plan)}
       ${dailiesBlock(plan)}
@@ -2033,6 +2057,7 @@ async function openVerify(game) {
       ${help(t('verify_hint'), 'shield')}
       <div class="captcha-box" id="captcha-box"></div>
       <p class="captcha-status ink-2" id="captcha-status" role="status">${t('verify_loading')}</p>`,
+    button('widget', 'qr', t('btn_widget'), 'primary') +
     button('verify', 'refresh', t('btn_new_captcha'), 'sm', `data-game="${game}"`), 'verify'));
   const modal = MODAL;
   try {
@@ -2042,12 +2067,44 @@ async function openVerify(game) {
     frame.className = 'captcha-frame';
     frame.title = t('dlg_verify_title');
     frame.setAttribute('sandbox', 'allow-scripts');
+    modal.challenge = challenge;
     frame.srcdoc = captchaPage(challenge);
     modal.frame = frame;
     document.getElementById('captcha-box').replaceChildren(frame);
   } catch (err) {
     if (MODAL === modal) captchaStatus(tp('verify_failed', err.message));
   }
+}
+
+async function openWidget() {
+  MODAL = { kind: 'widget' };
+  openDialog(dialogShell(t('widget_title'), `<div id="widget-connect-body"></div>`, '', 'widget'));
+  updateWidgetDialog();
+  if (!STATE.qr?.unified && (!STATE.qr?.status || STATE.qr.status === 'idle')) {
+    try {
+      STATE.qr = await api('/api/login/start', 'POST', {});
+      updateWidgetDialog();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+}
+
+function updateWidgetDialog() {
+  if (MODAL?.kind !== 'widget') return;
+  const body = document.getElementById('widget-connect-body');
+  if (!body) return;
+  const qr = STATE.qr || {};
+  const signature = JSON.stringify(qr) + CURRENT_LANG;
+  if (MODAL.signature === signature) return;
+  MODAL.signature = signature;
+  const pending = ['creating', 'waiting', 'scanned', 'reading'].includes(qr.status);
+  const img = ['waiting', 'scanned'].includes(qr.status) && qr.svg
+    ? `<img alt="${t('qr_alt')}" src="data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(qr.svg)))}">` : '';
+  body.innerHTML = `${help(t('widget_hint'), 'shield')}
+    <p>${t(qr.unified ? 'widget_connected' : 'widget_disconnected')}</p>
+    <div class="qr-box">${img}<p role="status" aria-label="${t('widget_status')}">${esc(qr.reason || '')}</p></div>
+    <div class="actions">${!pending ? button('widget-start', 'qr', t(qr.unified ? 'btn_widget_reconnect' : 'btn_widget'), 'primary') : ''}
+      ${STATE.logged_in ? button('logout', 'logout', t('btn_widget_disconnect'), 'sm') : pending ? button('cancel-login', 'x', t('btn_cancel_login'), 'sm') : ''}</div>`;
+  reapplyBusy(body);
 }
 
 function captchaStatus(text) {
@@ -2084,7 +2141,7 @@ window.addEventListener('message', async event => {
   else if (kind === 'success' && result && typeof result === 'object') {
     captchaStatus(t('verify_checking'));
     try {
-      const answer = {};
+      const answer = { id: modal.challenge.id };
       ['geetest_challenge', 'geetest_validate', 'geetest_seccode'].forEach(k => { answer[k] = String(result[k] || ''); });
       const res = await api('/api/verify/finish', 'POST', { game: modal.game, answer });
       if (res && res.error) throw new Error(res.error);
@@ -2421,12 +2478,14 @@ function accountPanel() {
       return `<div class="kv-row"><span class="k">${t('game_' + g)}</span><span class="v">${value}</span></div>`;
     }).join('');
     return `${panelHead('set-account', 'user', button('logout', 'logout', t('btn_logout'), 'sm'))}
-      <p style="margin-bottom:12px">${badge('good', 'check', t('acc_signed_in'))}</p><div class="kv">${rows}</div>`;
+      <p style="margin-bottom:12px">${badge('good', 'check', t('acc_signed_in'))}</p><div class="kv">${rows}</div>
+      <p>${t(STATE.qr?.unified ? 'widget_connected' : 'widget_disconnected')}</p>
+      ${button('widget', 'qr', t(STATE.qr?.unified ? 'btn_widget_manage' : 'btn_widget'), 'sm')}`;
   }
   const waiting = ['waiting', 'scanned'].includes(qr.status) && qr.svg;
   const statusIcon = { error: 'alert', expired: 'clock', scanned: 'check', confirmed: 'check' }[qr.status] || 'qr';
   const img = waiting ? `<img alt="${t('qr_alt')}" src="data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(qr.svg)))}">` : '';
-  const action = waiting ? '' : button('login', 'qr', t(['expired', 'error'].includes(qr.status) ? 'btn_qr_new' : 'btn_qr'), 'primary');
+  const action = ['creating', 'waiting', 'scanned', 'reading'].includes(qr.status) ? '' : button('login', 'qr', t(['expired', 'error'].includes(qr.status) ? 'btn_qr_new' : 'btn_qr'), 'primary');
   return `${panelHead('set-account', 'user')}
     <p class="ink-2">${t('acc_desc')}</p>
     <div class="qr-box">${img}${qr.reason ? help(esc(qr.reason), statusIcon) : ''}${action}</div>`;
@@ -2775,9 +2834,20 @@ const ACTIONS = {
   }, tp('toast_order'), undefined, `${goalSel(btn.dataset.id)} .priority`),
   'more-runs': btn => busy(btn, async () => { MORE_RUNS = (await api('/api/runs?limit=200')).rows || []; render(true); }),
   'scroll-to': btn => document.getElementById(btn.dataset.key)?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+  widget: () => openWidget(),
+  'widget-start': btn => busy(btn, async () => {
+    STATE.qr = await api('/api/login/start', 'POST', {});
+    updateWidgetDialog();
+  }),
   login: btn => busy(btn, async () => {
     STATE.qr = await api('/api/login/start', 'POST', {});
     updateLive(document.getElementById('view-settings'));
+    updateWidgetDialog();
+  }),
+  'cancel-login': btn => busy(btn, async () => {
+    await api('/api/logout', 'POST', {});
+    closeDialog();
+    await refreshState(true);
   }),
   logout: btn => {
     if (!confirm(tp('confirm_logout'))) return;

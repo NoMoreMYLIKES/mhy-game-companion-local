@@ -70,7 +70,7 @@ def characters(game: str) -> list[dict]:
 # ---------------------------------------------------------------- tool catalogs
 
 def bgi_bosses(root: str) -> list[str]:
-    """Boss names from BetterGI's '<boss>前往' (go-to) pathing files, minus helper variants."""
+    """Boss names from BetterGI's boss go-to pathing files, minus helper variants."""
     folder = Path(root) / 'GameTask/AutoBoss/Assets/Pathing'
     try:
         names = [p.stem.removesuffix('前往') for p in folder.glob('*前往.json')]
@@ -113,7 +113,7 @@ def zzz_compendium(root: str) -> dict:
 
 
 def zzz_disc_missions(root: str) -> list[str]:
-    """Area Patrol (区域巡防) stage names, as the installed OneDragon or the bundled snapshot lists them."""
+    """Area Patrol stage names, as the installed OneDragon or the bundled snapshot lists them."""
     return [s['name'] for s in zzz_disc_stages(root)]
 
 

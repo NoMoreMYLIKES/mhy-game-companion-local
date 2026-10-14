@@ -31,6 +31,7 @@ The planner follows four rules:
 - **Free dailies**: Genshin Mail, Serenitea Pot and Daily Commission Rewards; OneDragon dailies, Engagement and New Eridu City Fund rewards.
 - **Notifications**: one summary per batch through Windows toast, Telegram, a webhook or a JSON relay.
 - **Captcha**: when Miyoushe asks for human verification (1034), **Verify** on the dashboard shows its captcha; once you solve it, the notes are read again.
+- **One shared login**: scan once with Miyoushe to connect both games. The app derives the credentials for character and cultivation data, and reads resin and battery through the official widgets. Manage or renew this login under Settings → Account; signing out clears it for both games. Existing widget authorization can be upgraded without another scan.
 - **Bilingual, light and dark**: English and Simplified Chinese (`EN / 中文` in the header); System, Light or Dark theme.
 - **Game images**: character portraits, material icons and Drive Disc / Artifact set icons are saved locally the first time the official API returns them; the dashboard never downloads images itself.
 - **Privacy**: listens on `127.0.0.1` only by default, and LAN access requires a password. Credentials are encrypted with Windows DPAPI (on Linux: files only your user can read).
@@ -48,7 +49,7 @@ The planner follows four rules:
 
 1. Double-click `Start.bat`. It asks for administrator rights, because automation needs them to control the game window. The first run creates `.venv` and installs the dependencies, then the dashboard opens at `http://127.0.0.1:18800/`.
 2. In **Settings**:
-   - Scan the login QR code.
+   - Scan the login QR code once for both games and all data sources.
    - Check **Tools & Paths**. A BetterGI One Dragon template is optional: leave it empty to use the bundled morning template.
    - Turn on the schedule if you want one.
 3. In **Goals**, add characters and set their order.
@@ -67,7 +68,7 @@ The backend also runs on Linux, for example on a home server or a VPS, to plan a
 
 It listens on `127.0.0.1` only. From another computer, open it through an SSH tunnel (`ssh -N -L 18800:127.0.0.1:18800 you@server`, then `http://127.0.0.1:18800/`). Linux has no DPAPI, so credentials are stored in files only your user can read.
 
-**Verify** may not work on a VPS: Miyoushe refused captcha answers sent from one (10306) but accepted them from a home PC.
+Legacy website-only sessions can encounter verification refusals such as 10306 or -1. Choose **Complete account connection** in Settings to use the shared app login and official stamina widgets for both games. Existing app authorization is reused. Login and each data source have separate success states: authorization does not guarantee that every official API is available, and an expired or revoked login may need renewal.
 
 ## Documentation
 
@@ -108,6 +109,7 @@ This is a personal automation and planning project. It is not affiliated with Ho
 - **免费日常**：原神领取邮件、尘歌壶奖励、每日委托奖励；绝区零一条龙日常、活跃度与丽都城募奖励。
 - **通知**：每批一条摘要，可通过 Windows 气泡通知、Telegram、Webhook 或 JSON 中转服务发送。
 - **人机验证**：米游社要求人机验证（1034）时，在控制台点击 **验证** 即可显示其验证码；完成后会重新读取便笺。
+- **一次扫码，全项目共用**：米游社扫码一次即可连接原神和绝区零，自动取得角色与培养数据所需凭据，树脂和电量使用官方小组件读取。在“设置 → 账号与连接”统一管理或更新登录，退出后两个游戏同时退出。已有小组件授权可直接升级，无需再扫码。
 - **双语与深浅色**：英文与简体中文（页面顶部 `EN / 中文` 切换）；主题可选跟随系统、浅色或深色。
 - **游戏图片**：角色头像、材料图标与驱动盘、圣遗物套装图标在官方接口首次返回时保存到本地，控制台页面本身不会下载图片。
 - **隐私**：默认只监听 `127.0.0.1`，局域网访问必须设置密码；凭据使用 Windows DPAPI 加密保存（Linux 上为仅当前用户可读的文件）。
@@ -144,7 +146,7 @@ This is a personal automation and planning project. It is not affiliated with Ho
 
 服务只监听 `127.0.0.1`。从其他电脑访问时请使用 SSH 隧道（`ssh -N -L 18800:127.0.0.1:18800 用户名@服务器`，然后打开 `http://127.0.0.1:18800/`）。Linux 没有 DPAPI，凭据保存在仅当前用户可读的文件中。
 
-在 VPS 上 **验证** 可能无效：米游社拒绝了从 VPS 发送的验证结果（10306），从家用电脑发送的则可以通过。
+旧版仅网页登录的会话可能遇到 10306、-1 等验证拒绝。请在设置中选择 **完善账号连接**，统一使用 App 授权和两个游戏的官方体力小组件；已有 App 授权会自动复用。登录和各数据源分别报告状态：授权成功不代表所有官方接口始终可用，授权过期或被撤销后仍可能需要重新登录。
 
 ## 文档
 

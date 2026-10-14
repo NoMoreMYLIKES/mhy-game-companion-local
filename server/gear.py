@@ -150,7 +150,7 @@ def icons(gear: dict, game: str = 'zzz') -> dict:
 # ---------------------------------------------------------------- weights
 
 def family(game: str, pid: int) -> int:
-    """Miyoushe builds name a stat, not its variant: "攻击力" (ATK) may come as flat ATK (12103) for slot 5
+    """Miyoushe builds name a stat, not its variant: ATK may come as flat ATK (12103) for slot 5
     or 6, where only ATK% (12102) exists. A flat HP/ATK/DEF stat and its % stat are one family, keyed by the %."""
     for pct, (flat, _) in RULES[game]['flat_of'].items():
         if pid in (pct, flat):

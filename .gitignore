@@ -12,6 +12,9 @@ server.pid
 logs/
 # Local-only list of personal terms checked by tests/test_smoke.py
 tests/pii_denylist.txt
+# Local diagnostic notes and browser captures can contain account or machine details.
+STARTUP_DIAGNOSIS_FOR_*.md
+.playwright-mcp/
 
 # --------------------------------------------------
 # Python virtual environments and caches
