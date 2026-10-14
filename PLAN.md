@@ -28,7 +28,7 @@ The application is structured strictly around the four fundamental operational p
     ▼                                                               ▼
 ┌──────────────────────────────────────┐       ┌──────────────────────────────────────┐
 │  Pillar 1: Data & Material Engine    │       │  Pillar 2: Stamina Plan Compilation  │
-│  - Miyoushe gap & Real-Time Notes    │ ────► │  - Single material per batch rule    │
+│  - Miyoushe gap & stamina widgets    │ ────► │  - Single material per batch rule    │
 │  - Offline item family tree pooling  │       │  - Live in-game stamina ground truth │
 │  - SEELIE drop rates & domain days   │       │  - Quantitative goals before equip   │
 │  - User-controlled goal parameters   │       │  - User queue priority stability     │
@@ -48,7 +48,7 @@ The application is structured strictly around the four fundamental operational p
 
 ### Pillar 1: Data Acquisition & Material Computation
 - **Miyoushe (米游社) & In-Game Roster Sync**:
-  - QR login with the Miyoushe app (CN-server accounts). Cookies are DPAPI-encrypted and used for Real-Time Notes and the official Enhancement Progression Calculator.
+  - QR login with the Miyoushe app (CN-server accounts). The app grant and the website cookies derived from it are DPAPI-encrypted and used for the official stamina widgets and the official Enhancement Progression Calculator.
   - Zero plaintext credential leakage: secrets are bound to the local Windows user profile.
 - **Integrated Material Knowledge Base**:
   - Offline datasets (`server/datasets/genshin.json`, `server/datasets/zzz.json`) with characters, weapons, materials and domain weekdays (sources: genshin-db, Hakushin, SEELIE).
@@ -65,7 +65,7 @@ The planning engine translates raw deficits into executable decisions using dete
 - **One Material per Batch**:
   - Focuses on a single quantitative bottleneck item until requirements are collected. Avoids splitting precious daily stamina across multiple domains.
 - **Live In-Game Energy as Ground Truth**:
-  - The automation tool reads the real stamina in game and stops when it runs out, so the issued count is an upper bound. Miyoushe Real-Time Notes and the optional OneDragon live Battery Charge adapter only refine the estimate.
+  - The automation tool reads the real stamina in game and stops when it runs out, so the issued count is an upper bound. Miyoushe's stamina widgets and the optional OneDragon live Battery Charge adapter only refine the estimate.
   - A missing reading is recorded as `UNKNOWN`, never guessed or defaulted to `0`.
 - **Quantitative Priorities Precede Equipment Farming**:
   - Talent, ascension and weapon materials come before open-ended equipment farming (Artifacts / Drive Discs).

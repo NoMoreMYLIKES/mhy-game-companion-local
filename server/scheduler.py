@@ -66,13 +66,12 @@ def tick() -> None:
         except Exception as exc:
             core.put(slot_key(at), {'error': str(exc)})
             notify.event('failure', tr('slot_failed_title', slot=at.strftime('%H:%M')), [str(exc)])
-    # stamina notes
+    # stamina (refresh_notes skips a source that is backing off)
     for game in ('genshin', 'zzz'):
         last = core.latest_sample(game)
         seen = core.parse(last['at']) if last else None
         if mihoyo.accounts().get(game) and (seen is None or core.now() - seen >= timedelta(minutes=int(s['sync']['notes_minutes']))):
-            if mihoyo.allowed(mihoyo.notes_key(game)):
-                mihoyo.refresh_notes(game)
+            mihoyo.refresh_notes(game)
     # goal sync (one per tick keeps request bursts small)
     if mihoyo.logged_in() and not runner.busy():
         due = goals.due_for_sync(float(s['sync']['goals_hours']))

@@ -12,6 +12,7 @@ import os
 import secrets
 import sqlite3
 import threading
+import traceback
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -41,6 +42,11 @@ def setup_logging() -> None:
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     root.addHandler(handler)
+
+
+def stack(exc: BaseException) -> str:
+    """Where an exception came from, without its message: messages can carry tokens or account data."""
+    return ''.join(traceback.format_tb(exc.__traceback__)).rstrip()
 
 
 # ---------------------------------------------------------------- time

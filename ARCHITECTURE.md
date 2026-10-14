@@ -25,7 +25,7 @@ mhy-game-companion-local/
 │   ├── i18n.py                 # Backend message catalog (English base, Chinese translation)
 │   ├── auth.py                 # One app QR grant, CN cookie derivation and shared login
 │   ├── widget.py               # Genshin and ZZZ official stamina widgets
-│   ├── mihoyo.py               # Accounts, source health, legacy verification and calculators
+│   ├── mihoyo.py               # Accounts, stamina, source health, character state and calculators
 │   ├── goals.py                # Goal CRUD, ordering, official sync, executed-unit allowance
 │   ├── gear.py                 # Drive Discs / Artifacts: read, score, equipment targets, next set to farm
 │   ├── materials.py            # Datasets, farming routes, units and expected-yield conversion
@@ -49,7 +49,7 @@ mhy-game-companion-local/
 | :--- | :--- | :--- | :--- |
 | `core` | Foundation | `sqlite3`, Windows `crypt32` | `data/app.db`, `data/settings.json`, `data/*.dpapi.json` |
 | `i18n` | `tr(key, **params)` in the current UI language | `core.settings()` | – |
-| `mihoyo` | Official data through `genshin.py` (CN region, `zh-cn`) | `core` | secrets, `accounts`, `health:*`, stamina samples |
+| `mihoyo` | Official data through `genshin.py` (CN region, `zh-cn`) | `core`, `auth`, `widget` | secrets, `health:*`, stamina samples |
 | `goals` | Goals and their stable lists | `mihoyo`, `materials`, `gear` | `goals` table |
 | `gear` | Drive Disc / Artifact scores, equipment targets and the next set (pure functions over the goal document) | – | – |
 | `materials` | Material rows → farmable *items* with a unit count | datasets, tool catalogs | – |
@@ -142,9 +142,9 @@ CREATE TABLE IF NOT EXISTS outbox  (id TEXT PRIMARY KEY, created TEXT, payload T
 }
 ```
 
-**KV keys**: `patch_journal`, `mute_journal`, `current_run`, `device` (Miyoushe device id/fingerprint), `accounts`, `account_candidates`, `health:<notes-genshin|notes-zzz|calc|detail>` (`detail`: the Genshin character detail that carries artifacts), `slot_done:<YYYY-MM-DD@HH:MM>`, `equip_used:<game>`, `asset_sources` (image URL per asset key), `asset_failed` (last failed download per key), `inventory:<game>` (the last scan: `at`, `source`, `located`, `pieces` in the observation's format plus `uid`, `location`, `lock`), `inventory_at:<game>`.
+**KV keys**: `patch_journal`, `mute_journal`, `current_run`, `device` (Miyoushe device id/fingerprint), `health:<stamina-genshin|stamina-zzz|calc|detail>` (`detail`: the Genshin character detail that carries artifacts), `slot_done:<YYYY-MM-DD@HH:MM>`, `equip_used:<game>`, `asset_sources` (image URL per asset key), `asset_failed` (last failed download per key), `inventory:<game>` (the last scan: `at`, `source`, `located`, `pieces` in the observation's format plus `uid`, `location`, `lock`), `inventory_at:<game>`.
 
-Stamina samples store their source as a message key (`source_notes`, `source_onedragon`) and are translated when shown.
+Stamina samples store their source as a message key (`source_widget`, `source_onedragon`; `source_notes` on rows read before the widgets) and are translated when shown.
 
 ### 2.2 Secrets (DPAPI)
 
@@ -174,7 +174,7 @@ Unit conversion (`materials`): Genshin talent / weapon domains count **20 Origin
   └─ worker thread _batch:
        morning scheduled slot (< 12:00) and features.mute_morning → audio mute, save mute_journal
        for game in (zzz, genshin):
-         refresh Real-Time Notes (best effort) → planner.plan(game)
+         refresh stamina (best effort) → planner.plan(game)
          equipment batch for a character → re-read its discs (goals.sync, observe) and plan again
          scan due (scanners.due: after an equipment batch, else once a day) → ZZZ runs OneDragon without -c
          tool missing → FAILED;  game already running → skip or restart (execution.if_game_running)
@@ -184,7 +184,7 @@ Unit conversion (`materials`): Genshin talent / weapon domains count **20 Origin
          before closing the game, when a scan is due: open the bag / Drive Disc storage, run the scanner, store the inventory (a note on the run)
          receipt → completed units → allowance (goal) or equip_used (+ the character's gear_runs) (equipment)
        finally: unmute, final status, notification, delete current_run
-  after: re-sync a material goal at +60 s and +180 s; refresh Real-Time Notes at +60 s
+  after: re-sync a material goal at +60 s and +180 s; refresh stamina at +60 s
 ```
 
 Status per game: `STOPPED` (user stop), `FAILED` (timeout, or errors without the tool's success marker), `PARTIAL` (no success marker), `SKIPPED`, else `SUCCESS`. The batch takes the worst game status.
@@ -204,7 +204,7 @@ Loopback only by default. With `server.lan` enabled the server binds `0.0.0.0` a
 | `/api/runs` | GET | `?limit=50` | Run documents |
 | `/assets/<game>/<kind>/<id>` | GET | – | A cached image (`kind` is `character`, `material`, `disc` (ZZZ set by suit id) or `artifact` (Genshin set by set id)); 404 when not saved |
 | `/api/login/start` | POST | `{}` | QR state (`status`, `svg`, `reason`) |
-| `/api/widget/start` | POST | `{}` | Compatibility alias for the shared login flow; no separate widget grant |
+| `/api/login/cancel` | POST | `{}` | Stops a pending QR login; the current login stays. QR state |
 | `/api/logout` | POST | `{}` | Clears cookies and accounts |
 | `/api/accounts/select` | POST | `{game, uid}` | Picks one of several game accounts |
 | `/api/goals/create` | POST | `{game, character_id, name, target?, current?}` | Goal |
@@ -213,8 +213,6 @@ Loopback only by default. With `server.lan` enabled the server binds `0.0.0.0` a
 | `/api/goals/order` | POST | `{game, ids}` | – |
 | `/api/goals/sync` | POST | `{id, observe}` | Goal after official sync |
 | `/api/notes/refresh` | POST | `{game}` | `{current, cap}` or `{error}` |
-| `/api/verify/start` | POST | `{game}` | `{gt, challenge, new_captcha}`: a Miyoushe captcha for this account (after a 1034) |
-| `/api/verify/finish` | POST | `{game, answer}` | The solved captcha (`geetest_challenge`, `geetest_validate`, `geetest_seccode`) goes to Miyoushe; then `{current, cap}` or `{error}` as for a notes refresh |
 | `/api/run` | POST | `{games}` | `{run_id}` |
 | `/api/stop` | POST | `{}` | – |
 | `/api/settings` | POST | `{settings, secrets}` | `{ok, restart_needed}`; toggles the logon task when `schedule.autostart` changes |
@@ -277,22 +275,24 @@ A scan never equips, locks or dismantles anything; its result or failure is a no
 | Tool or game hangs | `execution.timeout_minutes` | Processes are killed (`taskkill /T /F`), configs restored, game marked `FAILED` |
 | User stop | `/api/stop` | Waits are interrupted; same cleanup; `STOPPED` |
 | Missing stamina reading | Notes / logs unavailable | Stamina is UNKNOWN (`null`), never 0; the tool still decides with the in-game value |
-| Miyoushe login expired | retcode -100 / 10001 / -10001 | Error shown in the UI, one `login` notification, source backs off |
+| Miyoushe login expired | retcode -100 / 10001 / -1071 | Website cookies are renewed from the app grant and the request runs once more; if that fails, the error is shown in the UI with one `login` notification and the source backs off |
 | Captcha / network / API errors | retcode or exception type | Per-source backoff: 15 min doubling up to 6 h (`mihoyo.record`) |
 | Missed slot | Backend not running at slot time | Runs late within `schedule.catchup_hours`, otherwise marked skipped |
 | Notification delivery fails | Channel raises | Outbox retry with exponential delay, up to 6 attempts |
 | Mute fails | `audio.ps1` error | Note on the run; the batch continues |
 | Startup fails (port in use, exception, invalid settings) | Backend exit code and `startup-error.json` | `server.launcher` explains it and exits nonzero (7.1) |
 
-**Shared account login.** `server/auth.py` creates and polls one Passport app QR grant with client type 3. It requires an explicit stoken v2, account ID and mid, then calls the CN `getLTokenBySToken` and `getCookieAccountInfoBySToken` endpoints to derive website cookies ([CN Passport implementation reference](https://github.com/BTMuli/TeyvatGuide/blob/master/src/request/passportReq.ts)). The cookie-token response must confirm the grant owner; the LToken response may omit its UID. Role discovery must succeed before the old login is replaced. App and website credentials, discovered roles and the current selections are atomically saved together in `mihoyo.dpapi.json`; stoken is never added to ordinary SDK requests. Only public QR progress and a `unified` flag are returned to the UI. Logout cancels pending authorization and clears both games' credentials. Requests recheck login and selected role before saving results.
+**Shared account login.** `server/auth.py` creates and polls one Passport app QR grant with client type 3. It requires an explicit stoken v2, account ID and mid, then calls the CN `getLTokenBySToken` and `getCookieAccountInfoBySToken` endpoints to derive website cookies ([CN Passport implementation reference](https://github.com/BTMuli/TeyvatGuide/blob/master/src/request/passportReq.ts)). The cookie-token response must confirm the grant owner; the LToken response may omit its UID. Role discovery must succeed before the old login is replaced. App and website credentials, discovered roles and the current selections are atomically saved together in `mihoyo.dpapi.json`; stoken is never added to ordinary SDK requests. Only public QR progress is returned to the UI. Logout cancels pending authorization and clears both games' credentials. Requests recheck login and selected role before saving results.
 
-**Official stamina widgets.** Both games share that app grant. Genshin uses `game_record/app/genshin/aapi/widget/v2`; ZZZ uses `event/game_record_zzz/api/zzz/widget` ([ZZZ implementation reference](https://github.com/ZZZure/ZZZeroUID/blob/master/ZZZeroUID/utils/api/request.py)). Requests use the saved device identity, record API X4 DS and client type 5. ZZZ reads `energy.progress.current/max`. An explicitly returned role must match the selection. Widgets may ignore role parameters, so a response without role identifiers requires a fresh role lookup with exactly one matching role for that game. Ambiguous or absent data never becomes a zero sample. Each widget has its own source health and backoff; the dashboard displays the active source's state. Old captcha dialogs cannot replace an active widget source.
+**Official stamina widgets.** Both games share that app grant. Genshin uses `game_record/app/genshin/aapi/widget/v2`; ZZZ uses `event/game_record_zzz/api/zzz/widget` ([ZZZ implementation reference](https://github.com/ZZZure/ZZZeroUID/blob/master/ZZZeroUID/utils/api/request.py)). Requests use the saved device identity, record API X4 DS and client type 5. ZZZ reads `energy.progress.current/max`. An explicitly returned role must match the selection. Widgets may ignore role parameters, so a response without role identifiers requires a role lookup with exactly one matching role for that game; a match is reused for six hours or until the login or selected role changes. Ambiguous or absent data never becomes a zero sample. Each game's widget has its own source health and backoff (`health:stamina-<game>`). Real-Time Notes is not read: Miyoushe answered it with Geetest captchas (1034 for Genshin, later 10035 for ZZZ), and answers solved on a VPS were refused (10306). The widgets have not asked for one in live checks.
 
-Existing separate widget grants are accepted only while their old account binding matches. **Complete account connection** derives shared credentials from that grant without another scan, and retires the separate secret after success. Website-only installs need one app scan. There is one login management UI, with no per-game authorization or disconnect. Login completion and successful reads are reported separately; upstream revocation or API restrictions can still require action.
+**Cookie renewal.** The website cookies can lapse while the app grant stays valid. When a request answers with a lapsed-login code (-100, 10001, -1071), `mihoyo.run` asks `auth.renew` to derive fresh cookies from the grant through the same two Passport endpoints, then runs the request once more. Renewals are serialized; for ten minutes a later lapse reuses the last result instead of asking again, so a revoked grant costs one request. A renewal keeps the login's generation, so reads in flight stay valid. Only a revoked or expired app grant needs a new scan.
 
-**Legacy verification.** Website-only installs retain manual Geetest verification. Creation and submission reuse the same client cookie jar, bind to a short-lived server session ID, and consume answers once. Only the server-issued access proof is encrypted and reused for later reads. Account or role changes invalidate proofs. Refusals report only the code, never raw API responses, and direct the user toward shared login instead of repeatedly asking for new captchas. Geetest runs in an opaque-origin sandboxed frame and is completed by the user.
+**Other requests.** Of the other reads, only the Genshin artifact read (`game_record/app/genshin/api/character/detail`) belongs to the game-record service that asks for captchas. No widget carries artifacts, so a captcha there backs off `health:detail` while levels are still read; the inventory scan (6.3) reads artifacts without Miyoushe. The calculator, the ZZZ cultivation tool and the account list are other services; they need the website cookies, which renewal keeps fresh.
 
-Offline tests cover one-scan login, grant validation, token derivation, cancellation, migration, role attribution, missing data, source backoff and verification reuse. Live checks with an existing grant confirmed both stamina widgets and both character data sources using derived website cookies. These checks do not establish indefinite authorization or long-term API availability. UI layout checks use synthetic account and QR responses separately from live credential checks.
+A login from an earlier version that holds only website cookies counts as logged out; one scan replaces it. There is one login management UI, the login dialog, opened from Settings → Account or a game card, with no per-game authorization or disconnect. Login completion and successful reads are reported separately; upstream revocation or API restrictions can still require action.
+
+Offline tests cover one-scan login, grant validation, token derivation, cookie renewal, cancellation, role attribution, missing data and source backoff. Live checks with an existing grant confirmed both stamina widgets and both character data sources using derived website cookies. These checks do not establish indefinite authorization or long-term API availability. UI layout checks use synthetic account and QR responses separately from live credential checks.
 
 
 ### 7.1 Starting and stopping

@@ -1,6 +1,5 @@
-"""One-scan login, CN token derivation and cancellation without network access."""
+"""One-scan login, CN token derivation, cookie renewal and cancellation without network access."""
 import asyncio
-import hashlib
 import json
 import shutil
 import tempfile
@@ -15,8 +14,8 @@ import genshin
 
 class AuthTest(unittest.TestCase):
     def setUp(self):
-        from server import auth, core, mihoyo, widget
-        self.auth, self.core, self.mihoyo, self.widget = auth, core, mihoyo, widget
+        from server import auth, core, mihoyo
+        self.auth, self.core, self.mihoyo = auth, core, mihoyo
         self.home = Path(tempfile.gettempdir()).resolve() / ('gcl_auth_' + uuid.uuid4().hex)
         self.home.mkdir()
         self.addCleanup(shutil.rmtree, self.home)
@@ -37,12 +36,26 @@ class AuthTest(unittest.TestCase):
                            for g, a in zip(('genshin', 'zzz'), self.roles)}
         auth.cancel()
         self.addCleanup(auth.cancel)
-        self.addCleanup(mihoyo.PENDING.clear)
+        auth.RENEWED.clear()
+        self.addCleanup(auth.RENEWED.clear)
 
     def pending(self):
         row = {'run': 'test-run', 'binding': self.auth.binding()}
         self.auth.QR.update(status='creating', run=row['run'])
         return row
+
+    def login(self, prepare, refresh=None):
+        """One QR login confirmed at the first poll; prepare stands in for cookie derivation and role discovery."""
+        async def exchange(url, headers, **kwargs):
+            if url == self.auth.CREATE:
+                return {'url': 'https://user.mihoyo.com/qr/test', 'ticket': 'test-ticket-123'}
+            return self.response
+        with mock.patch.object(self.auth, 'exchange', exchange), \
+                mock.patch.object(self.auth, 'prepare', prepare), \
+                mock.patch.object(self.mihoyo, '_ensure_fp', mock.AsyncMock()), \
+                mock.patch.object(self.mihoyo, 'refresh_notes', refresh or mock.Mock(return_value={})) as refreshed:
+            self.auth._worker(self.pending())
+        return refreshed
 
     def test_explicit_stoken_required_and_untrusted_fields_not_saved(self):
         for patch in ({'tokens': [{'token_type': 4, 'token': self.token}]},
@@ -100,17 +113,14 @@ class AuthTest(unittest.TestCase):
         self.assertEqual(set(self.mihoyo.accounts()), {'genshin', 'zzz'})
         self.assertEqual(refresh.call_args_list, [mock.call('genshin', force=True), mock.call('zzz', force=True)])
         self.assertEqual(self.auth.state()['status'], 'confirmed')
-        self.assertTrue(self.auth.state()['unified'])
+        self.assertTrue(self.mihoyo.logged_in())
         self.assertNotIn('svg', self.auth.state())
         self.assertNotIn(self.token, json.dumps(self.auth.state()))
-        self.assertEqual(self.core.load_secret('widget'), {})
 
     def test_failed_derivation_does_not_replace_working_login(self):
-        self.core.save_secret('mihoyo', {'cookies': self.cookies})
+        self.core.save_secret('mihoyo', {'cookies': self.cookies, 'app': self.grant, 'generation': 'working'})
         before = self.core.load_secret('mihoyo')
-        with mock.patch.object(self.auth, 'prepare', mock.AsyncMock(side_effect=OSError())), \
-                mock.patch.object(self.mihoyo, 'refresh_notes') as refresh:
-            self.auth._worker({**self.pending(), 'legacy': self.grant})
+        refresh = self.login(mock.AsyncMock(side_effect=OSError()))
         self.assertEqual(self.auth.state()['status'], 'error')
         self.assertEqual(self.core.load_secret('mihoyo'), before)
         refresh.assert_not_called()
@@ -121,29 +131,16 @@ class AuthTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.auth.install(self.grant, self.cookies, self.candidates, pending['binding'], pending['run'])
         pending = self.pending()
-        self.core.save_secret('mihoyo', {'cookies': {'ltuid': '999', 'ltoken': 'other'}})
+        self.core.save_secret('mihoyo', {'cookies': {'ltuid': '999', 'ltoken': 'other'},
+                                         'app': {**self.grant, 'aid': '999'}, 'generation': 'other'})
         with self.assertRaises(ValueError):
             self.auth.install(self.grant, self.cookies, self.candidates, pending['binding'], pending['run'])
         self.assertEqual(self.mihoyo.cookies()['ltuid'], '999')
-
-    def test_existing_app_grant_upgrade_needs_no_new_scan(self):
-        self.core.save_secret('mihoyo', {'cookies': self.cookies})
-        self.core.put('accounts', {g: rows[0] for g, rows in self.candidates.items()})
-        a = self.mihoyo.accounts()['genshin']
-        old_binding = hashlib.sha256(json.dumps({'cookies': self.cookies, 'uid': a['uid'], 'server': a['server']}, sort_keys=True).encode()).hexdigest()
-        self.core.save_secret('widget', {**self.grant, 'binding': old_binding})
-        with mock.patch.object(self.auth, 'prepare', mock.AsyncMock(return_value=(self.cookies, self.candidates))), \
-                mock.patch.object(self.auth, 'exchange', side_effect=AssertionError('must reuse existing grant')), \
-                mock.patch.object(self.mihoyo, 'refresh_notes', return_value={}):
-            self.auth._worker({**self.pending(), 'legacy': self.widget.legacy_credentials()})
-        self.assertTrue(self.auth.state()['unified'])
-        self.assertTrue(self.widget.available())
-        self.assertEqual(self.core.load_secret('widget'), {})
-
-    def test_no_scan_reuse_for_other_account(self):
-        self.core.save_secret('mihoyo', {'cookies': {'ltuid': '999', 'ltoken': 'other'}})
-        self.core.save_secret('widget', {**self.grant, 'binding': 'old'})
-        self.assertEqual(self.widget.legacy_credentials(), {})
+        pending = self.pending()
+        self.auth.cancel()
+        with self.assertRaises(ValueError):
+            self.auth.install(self.grant, self.cookies, self.candidates, pending['binding'], pending['run'])
+        self.assertEqual(self.auth.state()['status'], 'idle')
 
     def test_role_discovery_failure_and_expired_qr_preserve_login(self):
         self.core.save_secret('mihoyo', {'cookies': self.cookies})
@@ -153,8 +150,7 @@ class AuthTest(unittest.TestCase):
             self.auth._worker(self.pending())
         self.assertEqual(self.auth.state()['status'], 'expired')
         self.assertEqual(self.core.load_secret('mihoyo'), before)
-        with mock.patch.object(self.auth, 'prepare', mock.AsyncMock(side_effect=TimeoutError())):
-            self.auth._worker({**self.pending(), 'legacy': self.grant})
+        self.login(mock.AsyncMock(side_effect=TimeoutError()))
         self.assertEqual(self.core.load_secret('mihoyo'), before)
 
     def test_ambiguous_roles_require_selection_and_existing_selection_survives(self):
@@ -168,11 +164,10 @@ class AuthTest(unittest.TestCase):
         self.assertTrue(self.auth.credentials())
 
     def test_source_failure_after_login_is_reported_without_requesting_another_scan(self):
-        with mock.patch.object(self.auth, 'prepare', mock.AsyncMock(return_value=(self.cookies, self.candidates))), \
-                mock.patch.object(self.mihoyo, 'refresh_notes', side_effect=[{}, {'error': 'Test source unavailable'}]):
-            self.auth._worker({**self.pending(), 'legacy': self.grant})
+        self.login(mock.AsyncMock(return_value=(self.cookies, self.candidates)),
+                   mock.Mock(side_effect=[{}, {'error': 'Test source unavailable'}]))
         self.assertEqual(self.auth.state()['status'], 'confirmed')
-        self.assertTrue(self.auth.state()['unified'])
+        self.assertTrue(self.mihoyo.logged_in())
         self.assertIn('Test source unavailable', self.auth.state()['reason'])
 
     def test_failed_atomic_save_keeps_previous_login_and_roles(self):
@@ -183,11 +178,56 @@ class AuthTest(unittest.TestCase):
         self.assertEqual(self.core.load_secret('mihoyo'), before)
         self.assertNotIn('zzz', self.mihoyo.accounts())
 
-    def test_shared_bundle_roles_are_authoritative_over_legacy_database(self):
-        self.core.put('accounts', {'genshin': {'uid': '100000009', 'server': 'cn_gf01'}})
+    def test_website_only_login_counts_as_logged_out(self):
+        self.core.save_secret('mihoyo', {'cookies': self.cookies})
+        self.assertFalse(self.mihoyo.logged_in())
         self.auth.install(self.grant, self.cookies, self.candidates, self.auth.binding())
-        self.assertEqual(self.mihoyo.accounts()['genshin']['uid'], self.candidates['genshin'][0]['uid'])
+        self.assertTrue(self.mihoyo.logged_in())
         self.assertEqual(self.mihoyo.account_candidates(), self.candidates)
+
+    def test_lapsed_website_cookies_are_renewed_from_the_grant(self):
+        self.auth.install(self.grant, self.cookies, self.candidates, self.auth.binding())
+        before = self.auth.binding('genshin')
+        fresh = {**self.cookies, 'cookie_token': 'n' * 32}
+        seen = []
+        async def read():
+            seen.append(self.mihoyo.cookies())
+            if len(seen) % 2:
+                raise genshin.GenshinException({'retcode': -100, 'message': ''})
+            return 'read'
+        with mock.patch.object(self.auth, 'derive_cookies', mock.AsyncMock(return_value=fresh)) as derive:
+            self.assertEqual(self.mihoyo.run(read), 'read')
+            self.assertEqual(seen, [self.cookies, fresh])
+            self.assertEqual(self.mihoyo.run(read), 'read')  # a renewal minutes ago counts: retried, not derived again
+        derive.assert_awaited_once()
+        self.assertEqual(self.mihoyo.cookies(), fresh)
+        self.assertEqual(self.auth.binding('genshin'), before)  # the same login: reads in flight stay valid
+        self.assertTrue(self.mihoyo.logged_in())
+
+    def test_failed_renewal_reports_the_lapse_and_waits_before_asking_again(self):
+        self.auth.install(self.grant, self.cookies, self.candidates, self.auth.binding())
+        async def read():
+            raise genshin.GenshinException({'retcode': -100, 'message': ''})
+        with mock.patch.object(self.auth, 'derive_cookies', mock.AsyncMock(side_effect=genshin.GenshinException({'retcode': -100}))) as derive:
+            for _ in range(2):
+                with self.assertRaises(genshin.GenshinException) as caught:
+                    self.mihoyo.run(read)
+                self.assertEqual(caught.exception.retcode, -100)
+        derive.assert_awaited_once()
+        self.assertEqual(self.mihoyo.cookies(), self.cookies)
+
+    def test_other_errors_and_logged_out_reads_are_not_renewed(self):
+        async def lapsed():
+            raise genshin.GenshinException({'retcode': -100, 'message': ''})
+        async def captcha():
+            raise genshin.GenshinException({'retcode': 1034, 'message': ''})
+        with mock.patch.object(self.auth, 'derive_cookies', mock.AsyncMock()) as derive:
+            with self.assertRaises(genshin.GenshinException):
+                self.mihoyo.run(lapsed)
+            self.auth.install(self.grant, self.cookies, self.candidates, self.auth.binding())
+            with self.assertRaises(genshin.GenshinException):
+                self.mihoyo.run(captcha)
+        derive.assert_not_awaited()
 
     def test_exchange_rejects_unapproved_hosts_before_io(self):
         with self.assertRaises(ValueError):

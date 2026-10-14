@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import tempfile
+import time
 import unittest
 import uuid
 from pathlib import Path
@@ -28,30 +29,35 @@ class WidgetTest(unittest.TestCase):
             self.assertEqual(Path(con.execute('PRAGMA database_list').fetchone()[2]).resolve(), self.home / 'app.db')
         self.roles = {'genshin': {'uid': '100000001', 'server': 'cn_gf01', 'name': 'Test'},
                       'zzz': {'uid': '10000002', 'server': 'prod_gf_cn', 'name': 'Test'}}
-        core.put('accounts', self.roles)
         core.put('device', {'id': 'test-device', 'fp': 'test-fingerprint'})
         self.token = 'v2_' + 'x' * 30
         self.app = {'aid': '123', 'mid': 'test-mid-123', 'stoken': self.token, 'identity': auth.identity()}
-        core.save_secret('mihoyo', {'cookies': {'ltuid': '123', 'ltoken': 'test-login'}, 'app': self.app})
+        self.login()
         auth.cancel()
         self.addCleanup(auth.cancel)
+        auth.RENEWED.clear()
+        self.addCleanup(auth.RENEWED.clear)
+        widget.ROLE_CHECKS.clear()
+        self.addCleanup(widget.ROLE_CHECKS.clear)
+
+    def login(self, **extra):
+        self.core.save_secret('mihoyo', {'cookies': {'ltuid': '123', 'ltoken': 'test-login'}, 'app': self.app,
+                                         'accounts': self.roles, 'generation': 'test-login', **extra})
 
     def bound_roles(self, game):
         a = self.roles[game]
         return [SimpleNamespace(game=self.mihoyo.GAMES[game], uid=int(a['uid']), server=a['server'])]
 
     def read(self, game, response, roles=None):
+        self.widget.ROLE_CHECKS.clear()  # each read looks the roles up
         client = SimpleNamespace(get_game_accounts=mock.AsyncMock(return_value=roles if roles is not None else self.bound_roles(game)))
         with mock.patch.object(self.widget, 'exchange', mock.AsyncMock(return_value=response)), \
                 mock.patch.object(self.mihoyo, 'client', return_value=client):
             return asyncio.run(self.widget.note(game))
 
     def test_one_grant_serves_both_games_without_exposing_secrets(self):
-        self.assertTrue(self.widget.available())
-        self.assertTrue(self.auth.state()['unified'])
-        self.assertEqual(self.mihoyo.notes_key('genshin'), 'widget-genshin')
-        self.assertEqual(self.mihoyo.notes_key('zzz'), 'widget-zzz')
-        public = json.dumps([self.auth.state(), self.widget.state()])
+        self.assertTrue(self.mihoyo.logged_in())
+        public = json.dumps(self.auth.state())
         self.assertNotIn(self.token, public)
         self.assertNotIn('identity', public)
         self.assertNotIn(self.token, (self.home / 'app.db').read_bytes().decode(errors='ignore'))
@@ -70,6 +76,21 @@ class WidgetTest(unittest.TestCase):
                 for roles in ([], wrong, valid + wrong):
                     with self.assertRaises(ValueError):
                         self.read(game, value, roles)
+
+    def test_role_lookup_is_reused_until_the_login_changes_or_it_expires(self):
+        client = SimpleNamespace(get_game_accounts=mock.AsyncMock(return_value=self.bound_roles('genshin')))
+        with mock.patch.object(self.widget, 'exchange', mock.AsyncMock(return_value={'current_resin': 26, 'max_resin': 200})), \
+                mock.patch.object(self.mihoyo, 'client', return_value=client):
+            for _ in range(2):
+                self.assertEqual(asyncio.run(self.widget.note('genshin')), (26, 200))
+            self.assertEqual(client.get_game_accounts.await_count, 1)
+            self.core.save_secret('mihoyo', {**self.core.load_secret('mihoyo'), 'generation': 'another login'})
+            asyncio.run(self.widget.note('genshin'))
+            self.assertEqual(client.get_game_accounts.await_count, 2)
+            login, _ = self.widget.ROLE_CHECKS['genshin']
+            self.widget.ROLE_CHECKS['genshin'] = (login, time.monotonic() - self.widget.ROLE_CHECK_SECONDS - 1)
+            asyncio.run(self.widget.note('genshin'))
+            self.assertEqual(client.get_game_accounts.await_count, 3)
 
     def test_response_role_and_region_must_match(self):
         value = {'uid': '100000001', 'region': 'cn_gf01', 'current_resin': 0, 'max_resin': 200}
@@ -111,24 +132,23 @@ class WidgetTest(unittest.TestCase):
                 self.mihoyo.logout()
                 return {'uid': self.roles[game]['uid'], 'server': self.roles[game]['server'],
                         'current_resin': 17, 'max_resin': 200, 'energy': {'progress': {'current': 17, 'max': 240}}}
-            self.core.save_secret('mihoyo', {'cookies': {'ltuid': '123', 'ltoken': 'test-login'}, 'app': self.app})
-            self.core.put('accounts', self.roles)
+            self.login()
             with mock.patch.object(self.widget, 'exchange', exchange):
                 self.assertIn('error', self.mihoyo.refresh_notes(game, force=True))
             self.assertIsNone(self.core.latest_sample(game))
-            self.assertEqual(self.mihoyo.health('widget-' + game), {})
+            self.assertEqual(self.mihoyo.health('stamina-' + game), {})
 
-    def test_both_games_ignore_historical_captcha_backoff(self):
-        for game, cap in (('genshin', 200), ('zzz', 240)):
-            self.mihoyo.record('notes-' + game, False, 'old captcha', captcha=True)
-            with mock.patch.object(self.widget, 'note', mock.AsyncMock(return_value=(55, cap))), \
-                    mock.patch.object(self.mihoyo, 'client', side_effect=AssertionError('must not call ordinary notes')):
-                result = self.mihoyo.refresh_notes(game)
-                self.assertEqual(result, {'current': 55, 'cap': cap})
-                self.assertEqual(self.mihoyo.finish_verification(game, {}), result)
-            self.assertTrue(self.mihoyo.health('widget-' + game)['ok'])
-            self.assertTrue(self.mihoyo.health('notes-' + game)['captcha'])
-            self.assertEqual(self.core.latest_sample(game)['source'], 'source_widget')
+    def test_role_lookup_with_lapsed_cookies_renews_them_and_keeps_the_sample(self):
+        lapsed = genshin.GenshinException({'retcode': -100, 'message': ''})
+        client = SimpleNamespace(get_game_accounts=mock.AsyncMock(side_effect=[lapsed, self.bound_roles('zzz')]))
+        fresh = {'ltuid': '123', 'ltoken': 'renewed-login'}
+        with mock.patch.object(self.widget, 'exchange', mock.AsyncMock(return_value={'energy': {'progress': {'current': 40, 'max': 240}}})), \
+                mock.patch.object(self.mihoyo, 'client', return_value=client), \
+                mock.patch.object(self.auth, 'derive_cookies', mock.AsyncMock(return_value=fresh)):
+            self.assertEqual(self.mihoyo.refresh_notes('zzz', force=True), {'current': 40, 'cap': 240})
+        self.assertEqual(self.mihoyo.cookies(), fresh)
+        self.assertEqual(self.core.latest_sample('zzz')['source'], 'source_widget')
+        self.assertTrue(self.mihoyo.health('stamina-zzz')['ok'])
 
     def test_failure_preserves_previous_sample_and_uses_source_backoff(self):
         self.core.add_sample('zzz', 44, 240, 'source_widget')
@@ -138,12 +158,12 @@ class WidgetTest(unittest.TestCase):
             self.assertTrue(self.mihoyo.refresh_notes('zzz')['deferred'])
             self.assertEqual(read.await_count, 1)
         self.assertEqual(self.core.latest_sample('zzz'), before)
-        self.assertFalse(self.mihoyo.health('widget-zzz')['captcha'])
+        self.assertFalse(self.mihoyo.health('stamina-zzz')['ok'])
 
     def test_selecting_role_keeps_shared_grant_but_rejects_inflight_read(self):
         before = self.auth.credentials()
         other = {**self.roles['zzz'], 'uid': '10000003'}
-        self.core.put('account_candidates', {'zzz': [self.roles['zzz'], other]})
+        self.login(candidates={'zzz': [self.roles['zzz'], other]})
         async def exchange(*args, **kwargs):
             self.mihoyo.select_account('zzz', other['uid'])
             return {'uid': self.roles['zzz']['uid'], 'server': self.roles['zzz']['server'],
@@ -153,15 +173,13 @@ class WidgetTest(unittest.TestCase):
         self.assertEqual(self.auth.credentials(), before)
         self.assertIsNone(self.core.latest_sample('zzz'))
 
-    def test_web_only_login_retains_fallback_notes(self):
+    def test_website_only_login_reads_no_stamina(self):
         saved = self.core.load_secret('mihoyo')
         saved.pop('app')
         self.core.save_secret('mihoyo', saved)
-        client = SimpleNamespace(custom_headers={}, get_zzz_notes=mock.AsyncMock(return_value=SimpleNamespace(battery_charge=SimpleNamespace(current=40, max=240))))
-        with mock.patch.object(self.mihoyo, 'client', return_value=client), \
-                mock.patch.object(self.mihoyo, '_ensure_fp', mock.AsyncMock()), \
-                mock.patch.object(self.widget, 'note', side_effect=AssertionError('no grant')):
-            self.assertEqual(self.mihoyo.refresh_notes('zzz', force=True), {'current': 40, 'cap': 240})
+        with mock.patch.object(self.widget, 'note', side_effect=AssertionError('no grant')):
+            self.assertIn('error', self.mihoyo.refresh_notes('zzz', force=True))
+        self.assertIsNone(self.core.latest_sample('zzz'))
 
 
 if __name__ == '__main__':

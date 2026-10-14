@@ -81,27 +81,12 @@ const I18N = {
     full_idle: 'Without runs, full in ≈ {0} ({1}).',
     full_now: 'Full: natural recovery is being wasted',
     notes_issue: 'Stamina refresh: {0}',
-    btn_widget: 'Complete account connection',
-    btn_widget_manage: 'Manage login',
-    btn_widget_reconnect: 'Authorize again',
-    btn_cancel_login: 'Cancel login',
-    btn_widget_disconnect: 'Sign out of all games',
-    widget_title: 'Miyoushe account connection',
-    widget_hint: 'Scan once with Miyoushe for both games, including stamina, characters and cultivation data. Existing app authorization is reused automatically.',
-    widget_connected: 'One login shared by all games and data sources',
-    widget_disconnected: 'Complete the shared login to enable all data sources',
-    widget_disconnected_done: 'Signed out of all games.',
-    widget_status: 'Authorization status',
-    btn_verify: 'Verify',
-    btn_new_captcha: 'New captcha',
-    dlg_verify_title: 'Miyoushe verification',
-    verify_hint: 'Miyoushe wants a person to confirm this account before it shows the notes. Solve its captcha below; the notes are then read again.',
-    verify_loading: 'Loading the captcha from Miyoushe…',
-    verify_solve: 'Solve the captcha.',
-    verify_checking: 'Sending the answer to Miyoushe…',
-    verify_closed: 'The captcha was closed. Choose New captcha to try again.',
-    verify_failed: 'The captcha did not load: {0}',
-    verify_rejected: 'Not verified: {0}',
+    btn_login_manage: 'Manage login',
+    btn_login_again: 'Authorize again',
+    btn_login_cancel: 'Cancel login',
+    login_title: 'Miyoushe login',
+    login_shared: 'One login shared by all games and data sources',
+    login_status: 'Login status',
     next_batch: 'Next batch',
     next_batch_at: 'Next batch at {0}',
     phase_equipment: 'Equipment continuation',
@@ -491,7 +476,6 @@ const I18N = {
     toast_batch_started: 'Run started',
     toast_stop_sent: 'Stopping the current run…',
     toast_notes: 'Real-Time Notes refreshed',
-    toast_verified: 'Verified; Real-Time Notes read again',
     toast_logged_out: 'Logged out',
     toast_goal_added: '{0} added',
     toast_goal_canceled: 'Cultivation canceled for {0}',
@@ -592,27 +576,12 @@ const I18N = {
     full_idle: '若不执行，约 {0}后回满（{1}）。',
     full_now: '已满：自然恢复正在溢出',
     notes_issue: '体力刷新：{0}',
-    btn_widget: '完善账号连接',
-    btn_widget_manage: '管理登录',
-    btn_widget_reconnect: '重新授权',
-    btn_cancel_login: '取消登录',
-    btn_widget_disconnect: '退出所有游戏登录',
-    widget_title: '米游社账号连接',
-    widget_hint: '米游社扫码一次，原神与绝区零的体力、角色和培养数据共用登录。已有 App 授权会自动复用。',
-    widget_connected: '各游戏及数据读取共用此登录',
-    widget_disconnected: '完善统一登录后，启用全部数据读取通道',
-    widget_disconnected_done: '已退出所有游戏登录。',
-    widget_status: '授权状态',
-    btn_verify: '验证',
-    btn_new_captcha: '换一个验证码',
-    dlg_verify_title: '米游社人机验证',
-    verify_hint: '米游社需要先确认是本人在查看，才会返回便笺。请完成下方的验证码，完成后会重新读取便笺。',
-    verify_loading: '正在从米游社加载验证码…',
-    verify_solve: '请完成验证码。',
-    verify_checking: '正在向米游社提交验证结果…',
-    verify_closed: '验证码已关闭。点击“换一个验证码”重试。',
-    verify_failed: '验证码未能加载：{0}',
-    verify_rejected: '验证未通过：{0}',
+    btn_login_manage: '管理登录',
+    btn_login_again: '重新授权',
+    btn_login_cancel: '取消登录',
+    login_title: '米游社登录',
+    login_shared: '各游戏及数据读取共用此登录',
+    login_status: '登录状态',
     next_batch: '下一批',
     next_batch_at: '下一批 {0}',
     phase_equipment: '装备接续',
@@ -1002,7 +971,6 @@ const I18N = {
     toast_batch_started: '已开始执行',
     toast_stop_sent: '正在停止当前执行…',
     toast_notes: '实时便笺已刷新',
-    toast_verified: '验证通过，已重新读取实时便笺',
     toast_logged_out: '已退出登录',
     toast_goal_added: '已添加{0}',
     toast_goal_canceled: '已取消{0}的培养',
@@ -1306,7 +1274,7 @@ async function refreshState(force = false) {
     return false;
   }
   render(force);
-  updateWidgetDialog();
+  updateLoginDialog();
   return true;
 }
 
@@ -1500,7 +1468,7 @@ function gameCard(game) {
   const plan = STATE.plans?.[game] || {};
   const item = plan.item;
   const acc = STATE.accounts?.[game];
-  const health = STATE.health?.['notes-' + game];
+  const health = STATE.health?.['stamina-' + game];
   const running = STATE.runner?.running;
   const nf = nextFacts(game);
   return `
@@ -1514,8 +1482,7 @@ function gameCard(game) {
       </header>
       ${staminaBlock(game, st, nf)}
       ${health && health.ok === false ? alertBox('warn', 'alert', t('notes_issue', health.reason || ''),
-        acc ? button('widget', 'qr', t(STATE.qr?.unified ? 'btn_widget_reconnect' : 'btn_widget'), 'sm') +
-          (health.captcha ? button('verify', 'shield', t('btn_verify'), 'sm', `data-game="${game}"`) : '') : '') : ''}
+        acc ? button('login-dialog', 'qr', t('btn_login_manage'), 'sm') : '') : ''}
       ${item ? nextBlock(game, plan, item, nf) : idleBlock(game, plan)}
       ${waitingBlock(plan)}
       ${dailiesBlock(plan)}
@@ -2048,112 +2015,41 @@ function dialogShell(title, body, foot, form) {
     </form>`;
 }
 
-/** Miyoushe's captcha after a 1034. Geetest's script runs in a sandboxed frame with an opaque origin, so it
- *  can neither read this page nor call the API (POST needs the X-GC header, which a cross-origin page cannot
- *  send without CORS); only its answer is posted back, and the backend hands it to Miyoushe. */
-async function openVerify(game) {
-  MODAL = { kind: 'verify', game, frame: null };
-  openDialog(dialogShell(t('dlg_verify_title'), `
-      ${help(t('verify_hint'), 'shield')}
-      <div class="captcha-box" id="captcha-box"></div>
-      <p class="captcha-status ink-2" id="captcha-status" role="status">${t('verify_loading')}</p>`,
-    button('widget', 'qr', t('btn_widget'), 'primary') +
-    button('verify', 'refresh', t('btn_new_captcha'), 'sm', `data-game="${game}"`), 'verify'));
-  const modal = MODAL;
+const LOGIN_PENDING = ['creating', 'waiting', 'scanned', 'reading'];
+
+/** The one login UI: log in, authorize again or log out. A QR code starts at once when logged out. */
+async function openLogin() {
+  MODAL = { kind: 'login' };
+  openDialog(dialogShell(t('login_title'), '<div id="login-body"></div>', '', 'login'));
+  updateLoginDialog();
+  const qr = STATE.qr || {};
+  if (STATE.logged_in || LOGIN_PENDING.includes(qr.status)) return;
   try {
-    const challenge = await api('/api/verify/start', 'POST', { game });
-    if (MODAL !== modal) return;  // closed or replaced meanwhile
-    const frame = document.createElement('iframe');
-    frame.className = 'captcha-frame';
-    frame.title = t('dlg_verify_title');
-    frame.setAttribute('sandbox', 'allow-scripts');
-    modal.challenge = challenge;
-    frame.srcdoc = captchaPage(challenge);
-    modal.frame = frame;
-    document.getElementById('captcha-box').replaceChildren(frame);
-  } catch (err) {
-    if (MODAL === modal) captchaStatus(tp('verify_failed', err.message));
-  }
+    STATE.qr = await api('/api/login/start', 'POST', {});
+    updateLoginDialog();
+  } catch (err) { toast(err.message, 'error'); }
 }
 
-async function openWidget() {
-  MODAL = { kind: 'widget' };
-  openDialog(dialogShell(t('widget_title'), `<div id="widget-connect-body"></div>`, '', 'widget'));
-  updateWidgetDialog();
-  if (!STATE.qr?.unified && (!STATE.qr?.status || STATE.qr.status === 'idle')) {
-    try {
-      STATE.qr = await api('/api/login/start', 'POST', {});
-      updateWidgetDialog();
-    } catch (err) { toast(err.message, 'error'); }
-  }
-}
-
-function updateWidgetDialog() {
-  if (MODAL?.kind !== 'widget') return;
-  const body = document.getElementById('widget-connect-body');
+function updateLoginDialog() {
+  if (MODAL?.kind !== 'login') return;
+  const body = document.getElementById('login-body');
   if (!body) return;
   const qr = STATE.qr || {};
-  const signature = JSON.stringify(qr) + CURRENT_LANG;
+  const signature = JSON.stringify(qr) + STATE.logged_in + CURRENT_LANG;
   if (MODAL.signature === signature) return;
   MODAL.signature = signature;
-  const pending = ['creating', 'waiting', 'scanned', 'reading'].includes(qr.status);
+  const pending = LOGIN_PENDING.includes(qr.status);
   const img = ['waiting', 'scanned'].includes(qr.status) && qr.svg
     ? `<img alt="${t('qr_alt')}" src="data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(qr.svg)))}">` : '';
-  body.innerHTML = `${help(t('widget_hint'), 'shield')}
-    <p>${t(qr.unified ? 'widget_connected' : 'widget_disconnected')}</p>
-    <div class="qr-box">${img}<p role="status" aria-label="${t('widget_status')}">${esc(qr.reason || '')}</p></div>
-    <div class="actions">${!pending ? button('widget-start', 'qr', t(qr.unified ? 'btn_widget_reconnect' : 'btn_widget'), 'primary') : ''}
-      ${STATE.logged_in ? button('logout', 'logout', t('btn_widget_disconnect'), 'sm') : pending ? button('cancel-login', 'x', t('btn_cancel_login'), 'sm') : ''}</div>`;
+  const statusIcon = { error: 'alert', expired: 'clock', scanned: 'check', confirmed: 'check' }[qr.status] || 'qr';
+  const start = ['expired', 'error'].includes(qr.status) ? 'btn_qr_new' : STATE.logged_in ? 'btn_login_again' : 'btn_qr';
+  body.innerHTML = `${help(t('acc_desc'), 'shield')}
+    ${STATE.logged_in ? `<p class="mt">${badge('good', 'check', t('login_shared'))}</p>` : ''}
+    <div class="qr-box">${img}<div role="status" aria-label="${t('login_status')}">${qr.reason ? help(esc(qr.reason), statusIcon) : ''}</div></div>
+    <div class="actions mt">${pending ? button('login-cancel', 'x', t('btn_login_cancel'), 'sm') : button('login-start', 'qr', t(start), 'primary')}
+      ${STATE.logged_in ? button('logout', 'logout', t('btn_logout'), 'sm') : ''}</div>`;
   reapplyBusy(body);
 }
-
-function captchaStatus(text) {
-  const el = document.getElementById('captcha-status');
-  if (el) el.textContent = text;
-}
-
-function captchaPage(c) {
-  const config = JSON.stringify({
-    gt: c.gt, challenge: c.challenge, new_captcha: c.new_captcha !== false, offline: false, product: 'bind',
-    https: true, api_server: 'api.geetest.com', lang: CURRENT_LANG === 'zh' ? 'zh-cn' : 'en',
-  }).replace(/</g, '\\u003c');
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<style>html, body { margin: 0; height: 100%; background: transparent; }</style>
-<script src="https://static.geetest.com/static/js/gt.0.5.2.js"></script></head><body><script>
-const send = (kind, result) => parent.postMessage({ gclCaptcha: kind, result }, '*');
-if (typeof initGeetest !== 'function') send('error', 'static.geetest.com');
-else initGeetest(${config}, c => {
-  c.onReady(() => { send('ready'); c.verify(); });
-  c.onSuccess(() => send('success', c.getValidate()));
-  c.onError(e => send('error', String((e && (e.msg || e.error_code)) || '')));
-  c.onClose(() => send('close'));
-});
-</script></body></html>`;
-}
-
-window.addEventListener('message', async event => {
-  const modal = MODAL;
-  if (modal?.kind !== 'verify' || !modal.frame || event.source !== modal.frame.contentWindow) return;
-  const { gclCaptcha: kind, result } = event.data || {};
-  if (kind === 'ready') captchaStatus(t('verify_solve'));
-  else if (kind === 'close') captchaStatus(t('verify_closed'));
-  else if (kind === 'error') captchaStatus(tp('verify_failed', String(result || '')));
-  else if (kind === 'success' && result && typeof result === 'object') {
-    captchaStatus(t('verify_checking'));
-    try {
-      const answer = { id: modal.challenge.id };
-      ['geetest_challenge', 'geetest_validate', 'geetest_seccode'].forEach(k => { answer[k] = String(result[k] || ''); });
-      const res = await api('/api/verify/finish', 'POST', { game: modal.game, answer });
-      if (res && res.error) throw new Error(res.error);
-      if (MODAL === modal) closeDialog();
-      await refreshState(true);
-      toast(tp('toast_verified'));
-    } catch (err) {
-      if (MODAL === modal) captchaStatus(tp('verify_rejected', err.message));
-      await refreshState(true);
-    }
-  }
-});
 
 function openTargets(goal) {
   MODAL = { kind: 'targets', id: goal.id, error: '', dirty: false };
@@ -2466,7 +2362,6 @@ function panelHead(id, ic, extra = '') {
 }
 
 function accountPanel() {
-  const qr = STATE.qr || {};
   if (STATE.logged_in) {
     const rows = GAMES.map(g => {
       const acc = STATE.accounts?.[g];
@@ -2477,18 +2372,13 @@ function accountPanel() {
         : acc ? `<span>${t('account_line', acc.name || '–', acc.uid)}</span>` : `<span class="ink-2">${t('no_account')}</span>`;
       return `<div class="kv-row"><span class="k">${t('game_' + g)}</span><span class="v">${value}</span></div>`;
     }).join('');
-    return `${panelHead('set-account', 'user', button('logout', 'logout', t('btn_logout'), 'sm'))}
+    return `${panelHead('set-account', 'user', button('login-dialog', 'qr', t('btn_login_manage'), 'sm'))}
       <p style="margin-bottom:12px">${badge('good', 'check', t('acc_signed_in'))}</p><div class="kv">${rows}</div>
-      <p>${t(STATE.qr?.unified ? 'widget_connected' : 'widget_disconnected')}</p>
-      ${button('widget', 'qr', t(STATE.qr?.unified ? 'btn_widget_manage' : 'btn_widget'), 'sm')}`;
+      <p class="ink-2 mt">${t('login_shared')}</p>`;
   }
-  const waiting = ['waiting', 'scanned'].includes(qr.status) && qr.svg;
-  const statusIcon = { error: 'alert', expired: 'clock', scanned: 'check', confirmed: 'check' }[qr.status] || 'qr';
-  const img = waiting ? `<img alt="${t('qr_alt')}" src="data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(qr.svg)))}">` : '';
-  const action = ['creating', 'waiting', 'scanned', 'reading'].includes(qr.status) ? '' : button('login', 'qr', t(['expired', 'error'].includes(qr.status) ? 'btn_qr_new' : 'btn_qr'), 'primary');
   return `${panelHead('set-account', 'user')}
     <p class="ink-2">${t('acc_desc')}</p>
-    <div class="qr-box">${img}${qr.reason ? help(esc(qr.reason), statusIcon) : ''}${action}</div>`;
+    <div class="actions mt">${button('login-dialog', 'qr', t('btn_qr'), 'primary')}</div>`;
 }
 
 function envRow(label, ok, okText, badText, detail = '', kind = 'bad') {
@@ -2780,7 +2670,6 @@ const ACTIONS = {
   },
   run: btn => commit(btn, () => api('/api/run', 'POST', { games: btn.dataset.games.split(',') }), tp('toast_batch_started'), 'starting'),
   stop: btn => commit(btn, () => api('/api/stop', 'POST', {}), tp('toast_stop_sent')),
-  verify: btn => openVerify(btn.dataset.game),
   'refresh-notes': btn => commit(btn, async () => {
     const res = await api('/api/notes/refresh', 'POST', { game: btn.dataset.game });
     if (res && res.error) throw new Error(res.error);
@@ -2834,20 +2723,14 @@ const ACTIONS = {
   }, tp('toast_order'), undefined, `${goalSel(btn.dataset.id)} .priority`),
   'more-runs': btn => busy(btn, async () => { MORE_RUNS = (await api('/api/runs?limit=200')).rows || []; render(true); }),
   'scroll-to': btn => document.getElementById(btn.dataset.key)?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-  widget: () => openWidget(),
-  'widget-start': btn => busy(btn, async () => {
+  'login-dialog': () => openLogin(),
+  'login-start': btn => busy(btn, async () => {
     STATE.qr = await api('/api/login/start', 'POST', {});
-    updateWidgetDialog();
+    updateLoginDialog();
   }),
-  login: btn => busy(btn, async () => {
-    STATE.qr = await api('/api/login/start', 'POST', {});
-    updateLive(document.getElementById('view-settings'));
-    updateWidgetDialog();
-  }),
-  'cancel-login': btn => busy(btn, async () => {
-    await api('/api/logout', 'POST', {});
-    closeDialog();
-    await refreshState(true);
+  'login-cancel': btn => busy(btn, async () => {
+    STATE.qr = await api('/api/login/cancel', 'POST', {});
+    updateLoginDialog();
   }),
   logout: btn => {
     if (!confirm(tp('confirm_logout'))) return;

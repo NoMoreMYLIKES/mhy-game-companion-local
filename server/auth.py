@@ -1,7 +1,7 @@
 """One Miyoushe app QR grant for every game and data source.
 
-Web cookies are derived from the app grant before replacing a working login.
-Only public QR progress leaves this module; tokens stay in encrypted storage.
+Web cookies are derived from the app grant before replacing a working login, and derived again
+when they lapse. Only public QR progress leaves this module; tokens stay in encrypted storage.
 """
 from __future__ import annotations
 
@@ -23,6 +23,8 @@ from genshin.utility.ds import get_ds_headers
 from . import core
 from .i18n import tr
 
+log = logging.getLogger('gcl.auth')
+APP_VERSION = '2.115.0'  # current Miyoushe app (Snap Hutao Remastered and TeyvatGuide, October 2026)
 CREATE = 'https://passport-api.mihoyo.com/account/ma-cn-passport/app/createQRLogin'
 QUERY = 'https://passport-api.mihoyo.com/account/ma-cn-passport/app/queryQRLoginStatus'
 LTOKEN = 'https://passport-api.mihoyo.com/account/auth/api/getLTokenBySToken'
@@ -32,14 +34,18 @@ WIDGETS = {
     'zzz': 'https://api-takumi-record.mihoyo.com/event/game_record_zzz/api/zzz/widget',
 }
 QR: dict = {'status': 'idle'}
+RENEW_SECONDS = 600
+RENEW_LOCK = threading.Lock()
+RENEWED: dict = {}  # login binding -> (monotonic time, success) of its last cookie renewal
 
 
 def binding(game: str | None = None) -> str:
-    """Bind asynchronous results to the full login and, optionally, a selected role."""
+    """Bind asynchronous results to the installed login and, optionally, its selected role.
+    Each QR login is a new generation; renewing its website cookies keeps it."""
     saved = core.load_secret('mihoyo')
-    value = [{k: v for k, v in saved.items() if k not in ('accounts', 'candidates')}]
+    value = [(saved.get('app') or {}).get('aid'), saved.get('generation')]
     if game is not None:
-        value.append(saved.get('accounts', core.get('accounts', {})).get(game))
+        value.append(saved.get('accounts', {}).get(game))
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
 
@@ -53,9 +59,7 @@ def credentials() -> dict:
 
 def state() -> dict:
     with core.LOCK:
-        result = {k: QR[k] for k in ('status', 'reason', 'svg', 'at') if k in QR}
-        result['unified'] = bool(credentials())
-        return result
+        return {k: QR[k] for k in ('status', 'reason', 'svg', 'at') if k in QR}
 
 
 def cancel() -> None:
@@ -67,7 +71,7 @@ def cancel() -> None:
 def identity() -> dict:
     from . import mihoyo
     device = mihoyo.device()
-    headers = {'User-Agent': genshin.Client.USER_AGENT, 'x-rpc-app_version': mihoyo.APP_VERSION,
+    headers = {'User-Agent': genshin.Client.USER_AGENT, 'x-rpc-app_version': APP_VERSION,
                'x-rpc-device_id': device['id'], 'Referer': 'https://webstatic.mihoyo.com/',
                'Origin': 'https://webstatic.mihoyo.com'}
     if device.get('fp'):
@@ -88,21 +92,21 @@ async def exchange(url: str, headers: dict, *, body: dict | None = None,
                 raise OSError('Miyoushe HTTP ' + str(response.status))
             payload = await response.json()
     if not isinstance(payload, dict) or type(payload.get('retcode')) is not int:
-        raise ValueError(tr('widget_format'))
+        raise ValueError(tr('bad_response'))
     if payload['retcode'] != 0:
         # Response bodies and request URLs can contain tickets or account information.
         raise genshin.GenshinException({'retcode': payload['retcode'], 'message': ''})
     if not isinstance(payload.get('data'), dict):
-        raise ValueError(tr('widget_format'))
+        raise ValueError(tr('bad_response'))
     return payload['data']
 
 
 def parse_grant(value: dict, headers: dict) -> dict:
     info, tokens = value.get('user_info'), value.get('tokens')
     if value.get('need_realperson'):
-        raise ValueError(tr('widget_realperson'))
+        raise ValueError(tr('login_realperson'))
     if not isinstance(info, dict) or not isinstance(tokens, list):
-        raise ValueError(tr('widget_format'))
+        raise ValueError(tr('bad_response'))
     aid = str(info.get('aid') or info.get('uid') or '')
     candidates = [v.get('token') for v in tokens if isinstance(v, dict)
                   and (str(v.get('token_type')) == '1' or v.get('name') in ('stoken', 'stoken_v2'))]
@@ -111,7 +115,7 @@ def parse_grant(value: dict, headers: dict) -> dict:
             or not isinstance(candidates[0], str)
             or not re.fullmatch(r'v2_[A-Za-z0-9._~+/%=-]{20,8192}', candidates[0])
             or not isinstance(mid, str) or not re.fullmatch(r'[A-Za-z0-9_-]{8,100}', mid)):
-        raise ValueError(tr('widget_token'))
+        raise ValueError(tr('login_token'))
     return {'aid': aid, 'mid': mid, 'stoken': candidates[0], 'identity': dict(headers)}
 
 
@@ -127,7 +131,7 @@ async def derive_cookies(grant: dict) -> dict:
     lt, ct = results
     # The LToken response normally has no UID; CookieToken must confirm the grant owner.
     if str(ct.get('uid')) != grant['aid'] or ('uid' in lt and str(lt['uid']) != grant['aid']):
-        raise ValueError(tr('widget_account'))
+        raise ValueError(tr('login_account'))
     for row, key in ((lt, 'ltoken'), (ct, 'cookie_token')):
         if not isinstance(row.get(key), str) or not re.fullmatch(r'[A-Za-z0-9._~+/%=-]{16,8192}', row[key]):
             raise ValueError(tr('qr_no_cookies'))
@@ -168,23 +172,39 @@ def install(grant: dict, cookies: dict, candidates: dict, before: str, run_id: s
                 selected[game] = match or choices[0]
         core.save_secret('mihoyo', {'cookies': cookies, 'app': grant, 'accounts': selected,
                                    'candidates': candidates, 'at': core.stamp(), 'generation': uuid.uuid4().hex})
-        mihoyo.PENDING.clear()
-        # The shared file is authoritative. Old secrets are already invalidated by
-        # its new generation even if retiring one of those files fails.
-        for name in ('verification', 'widget'):
-            try:
-                core.save_secret(name, {})
-            except OSError:
-                logging.getLogger('gcl.auth').warning('Could not retire obsolete %s credentials', name)
+
+
+def renew() -> bool:
+    """Derive fresh website cookies from the app grant after Miyoushe reports them lapsed. True when they are
+    fresh: renewed now or by another request within a few minutes. A failure is not retried for a few
+    minutes either, so a revoked grant costs one request, not one per read."""
+    with RENEW_LOCK:
+        grant, before = credentials(), binding()
+        if not grant:
+            return False
+        last = RENEWED.get(before)
+        if last and time.monotonic() - last[0] < RENEW_SECONDS:
+            return last[1]
+        try:
+            cookies = asyncio.run(asyncio.wait_for(derive_cookies(grant), 30))
+        except Exception as exc:
+            log.warning('Website cookie renewal failed: %s (code %s)', type(exc).__name__, getattr(exc, 'retcode', None))
+            cookies = None
+        with core.LOCK:
+            ok = cookies is not None and before == binding()
+            if ok:
+                core.save_secret('mihoyo', {**core.load_secret('mihoyo'), 'cookies': cookies})
+        RENEWED[before] = (time.monotonic(), ok)
+        if ok:
+            log.info('Renewed the website cookies from the app grant')
+        return ok
 
 
 def start() -> dict:
     with core.LOCK:
         if QR.get('status') in ('creating', 'waiting', 'scanned', 'reading'):
             return state()
-        from . import widget
-        pending = {'run': uuid.uuid4().hex, 'binding': binding(),
-                   'legacy': widget.legacy_credentials() if QR.get('status') != 'error' else {}}
+        pending = {'run': uuid.uuid4().hex, 'binding': binding()}
         QR.clear()
         QR.update(status='creating', run=pending['run'], at=core.stamp(), reason=tr('login_creating'))
         threading.Thread(target=_worker, args=(pending,), daemon=True, name='qr-login').start()
@@ -211,14 +231,6 @@ def _worker(pending: dict) -> None:
     import qrcode.image.svg
 
     async def flow():
-        if pending.get('legacy'):
-            _update(pending, status='reading', reason=tr('login_preparing'))
-            grant = {k: pending['legacy'][k] for k in ('aid', 'mid', 'stoken', 'identity')}
-            cookies, candidates = await prepare(grant)
-            with core.LOCK:
-                install(grant, cookies, candidates, pending['binding'], pending['run'])
-                pending['binding'] = binding()
-            return True
         await mihoyo._ensure_fp()
         base = identity()
         headers = {**base, 'x-rpc-app_id': 'bll8iq97cem8', 'x-rpc-game_biz': 'bbs_cn', 'x-rpc-client_type': '3'}
@@ -229,7 +241,7 @@ def _worker(pending: dict) -> None:
                 or not (parsed.hostname in ('mihoyo.com', 'miyoushe.com')
                         or parsed.hostname.endswith(('.mihoyo.com', '.miyoushe.com')))
                 or not isinstance(ticket, str) or not re.fullmatch(r'[A-Za-z0-9_-]{8,500}', ticket)):
-            raise ValueError(tr('widget_format'))
+            raise ValueError(tr('bad_response'))
         out = io.BytesIO()
         qrcode.make(url, image_factory=qrcode.image.svg.SvgPathImage, box_size=8, border=2).save(out)
         if not _update(pending, status='waiting', svg=out.getvalue().decode(), reason=tr('qr_scan')):
@@ -252,7 +264,7 @@ def _worker(pending: dict) -> None:
             if status in ('Expired', 'Timeout'):
                 break
             if status not in ('Created', 'Init', 'Scanned'):
-                raise ValueError(tr('widget_format'))
+                raise ValueError(tr('bad_response'))
             if status == 'Scanned':
                 _update(pending, status='scanned', reason=tr('qr_scanned'))
             await asyncio.sleep(3)

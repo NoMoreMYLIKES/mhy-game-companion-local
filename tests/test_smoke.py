@@ -202,57 +202,6 @@ class SmokeTest(unittest.TestCase):
         self.assertIn('--service', usage.stdout)
         self.assertNotIn('set -u', usage.stdout)
 
-    def test_captcha_verification_flow(self):
-        """A 1034 on Real-Time Notes offers the captcha; a solved one's token reaches the notes request."""
-        from unittest import mock
-        import genshin
-        import server.core as core
-        import server.mihoyo as mihoyo
-        from server.i18n import tr
-        core.save_secret('mihoyo', {'cookies': {'ltuid_v2': '1', 'ltoken_v2': 'x'}})
-        core.put('accounts', {'genshin': {'uid': '100000001', 'name': 'T', 'server': 'cn_gf01'}})
-        sent = {}
-
-        class FakeClient:
-            def __init__(self):
-                self.custom_headers = {}
-                from types import SimpleNamespace
-                self.cookie_manager = SimpleNamespace(cookies=mihoyo.cookies())
-
-            async def get_genshin_notes(self, uid, autoauth=False):
-                sent['challenge'] = self.custom_headers.get('x-rpc-challenge')
-                sent['retry_version'] = self.custom_headers.get('x-rpc-app_version')
-                raise genshin.GenshinException({'retcode': 1034, 'message': 'verification required'})
-
-            async def request_hoyolab(self, url, method=None, params=None, data=None, headers=None):
-                sent.update(url=url, method=method, data=data, headers=dict(self.custom_headers))
-                if url.endswith('createVerification'):
-                    return {'gt': 'g' * 32, 'challenge': 'c' * 32}
-                return {'challenge': 'token-from-miyoushe'}
-
-        async def no_fp():
-            return {}
-
-        with mock.patch.object(mihoyo, 'client', lambda game=None: FakeClient()), \
-                mock.patch.object(mihoyo, '_ensure_fp', no_fp):
-            self.assertIn('error', mihoyo.refresh_notes('genshin', force=True))
-            self.assertTrue(mihoyo.health('notes-genshin')['captcha'])
-            with self.assertRaises(ValueError) as caught:
-                mihoyo.finish_verification('genshin', {'geetest_challenge': 'c'})
-            self.assertEqual(str(caught.exception), tr('captcha_incomplete'))
-            challenge = mihoyo.start_verification('genshin')
-            answer = {'geetest_challenge': 'c' * 32, 'geetest_validate': 'v', 'geetest_seccode': 'v|jordan'}
-            mihoyo.finish_verification('genshin', {**answer, 'id': challenge['id']})
-            self.assertEqual(mihoyo._proof('genshin'), 'token-from-miyoushe')
-            with self.assertRaises(ValueError):
-                mihoyo.finish_verification('genshin', {**answer, 'id': challenge['id']})
-        self.assertTrue(sent['url'].endswith('/card/wapi/verifyVerification'))
-        self.assertEqual((sent['method'], sent['data']), ('POST', answer))
-        self.assertEqual(sent['headers']['x-rpc-challenge_game'], '2')
-        self.assertEqual(sent['headers']['x-rpc-app_version'], mihoyo.APP_VERSION)  # the record page's identity
-        self.assertEqual(sent['challenge'], 'token-from-miyoushe')  # the retry carried the token
-        self.assertEqual(sent['retry_version'], mihoyo.APP_VERSION)
-
 
 if __name__ == '__main__':
     unittest.main()

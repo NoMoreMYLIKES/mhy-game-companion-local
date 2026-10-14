@@ -12,7 +12,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import assets, core, gear, goals, inventory, materials, mihoyo, notify, planner, runner, scheduler, tools, widget
+from . import assets, auth, core, gear, goals, inventory, materials, mihoyo, notify, planner, runner, scheduler, tools
 from .i18n import tr
 
 log = logging.getLogger('gcl.web')
@@ -25,7 +25,7 @@ IDENTITY: dict = {}            # instance id, launch token, shutdown token, proc
 # (e.g. .js as text/plain, which browsers then refuse to run with nosniff).
 for _ext, _type in (('.html', 'text/html'), ('.js', 'text/javascript'), ('.css', 'text/css'),
                     ('.svg', 'image/svg+xml'), ('.json', 'application/json'), ('.png', 'image/png'),
-                    ('.jpg', 'image/jpeg'), ('.webp', 'image/webp'), ('.gif', 'image/gif')):
+                    ('.jpg', 'image/jpeg'), ('.webp', 'image/webp'), ('.gif', 'image/gif'), ('.woff2', 'font/woff2')):
     mimetypes.add_type(_type, _ext)
 
 
@@ -66,13 +66,12 @@ def full_state() -> dict:
     return {
         'version': core.VERSION, 'now': core.stamp(), 'game_date': str(core.game_date()), 'weekday': weekday,
         'admin': core.is_admin(), 'automation': tools.automation(), 'logged_in': mihoyo.logged_in(), 'accounts': mihoyo.accounts(),
-        'candidates': mihoyo.account_candidates(), 'qr': mihoyo.qr_state(), 'widget': widget.state(),
+        'candidates': mihoyo.account_candidates(), 'qr': auth.state(),
         'runner': runner.state(), 'next_slot': scheduler.next_slot(),
         'plans': plans, 'stamina': {g: planner.estimate(g) for g in ('zzz', 'genshin')},
         'goals': {g: [goal_view(x, ctx, weekday) for x in core.goals(g)] for g in ('zzz', 'genshin')},
         'forecast': planner.forecast(3), 'runs': core.runs(20),
-        'health': {'notes-genshin': mihoyo.health(mihoyo.notes_key('genshin')),
-                   'notes-zzz': mihoyo.health(mihoyo.notes_key('zzz')), 'calc': mihoyo.health('calc')},
+        'health': {k: mihoyo.health(k) for k in ('stamina-genshin', 'stamina-zzz', 'calc')},
         'settings': public_settings(), 'check': env_check(), 'notifications': notify.recent(10),
         'assets': assets.cached(), 'assets_status': assets.status(),
         'inventory': {g: inventory_view(g) for g in ('zzz', 'genshin')},
@@ -211,14 +210,17 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as exc:
             return self._json({'error': str(exc)}, 400)
         except Exception as exc:
-            log.error('API error: %s (code %s)', type(exc).__name__, getattr(exc, 'retcode', None))
+            code = getattr(exc, 'retcode', None)
+            # A Miyoushe answer is explained by its code; anything else needs the place it failed.
+            log.error('API error: %s (code %s)%s', type(exc).__name__, code, '' if code is not None else '\n' + core.stack(exc))
             return self._json({'error': mihoyo.describe_error(exc)}, 500)
 
     def route(self, path: str, b: dict):
         if path == '/api/login/start':
-            return mihoyo.start_login()
-        if path == '/api/widget/start':
-            return mihoyo.start_login()
+            return auth.start()
+        if path == '/api/login/cancel':
+            auth.cancel()
+            return auth.state()
         if path == '/api/logout':
             return mihoyo.logout()
         if path == '/api/accounts/select':
@@ -266,10 +268,6 @@ class Handler(BaseHTTPRequestHandler):
             return {'ok': True}
         if path == '/api/notes/refresh':
             return mihoyo.refresh_notes(b['game'], force=True)
-        if path == '/api/verify/start':  # Miyoushe's captcha, shown on the dashboard after a 1034
-            return mihoyo.start_verification(b['game'])
-        if path == '/api/verify/finish':
-            return mihoyo.finish_verification(b['game'], b.get('answer') or {})
         if path == '/api/shutdown':
             return request_shutdown(b)
         if path == '/api/assets/sync':
