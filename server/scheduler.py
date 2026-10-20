@@ -77,7 +77,8 @@ def tick() -> None:
         due = goals.due_for_sync(float(s['sync']['goals_hours']))
         if due and mihoyo.allowed('calc'):
             goal = goals.sync(due[0]['id'])
-            mihoyo.record('calc', not goal.get('calc_error'), goal.get('calc_error') or '')
+            if goal:  # None: deleted while it synced
+                mihoyo.record('calc', not goal.get('calc_error'), goal.get('calc_error') or '')
     notify.drain()
 
 

@@ -15,6 +15,7 @@ from .i18n import tr
 
 log = logging.getLogger('gcl.notify')
 CHANNELS = ('relay', 'telegram', 'webhook', 'toast')
+ATTEMPTS = 6  # a message is given up after this many tries
 
 
 def event(kind: str, title: str, lines: list[str], ok: bool = False) -> None:
@@ -88,10 +89,16 @@ def toast(title: str, text: str) -> None:
 def drain(limit: int = 10) -> None:
     with core.db() as con:
         rows = [dict(r) for r in con.execute(
-            'SELECT * FROM outbox WHERE sent_at IS NULL AND attempts < 6 AND next_at <= ? ORDER BY created LIMIT ?',
-            (core.stamp(), limit))]
+            'SELECT * FROM outbox WHERE sent_at IS NULL AND attempts < ? AND next_at <= ? ORDER BY created LIMIT ?',
+            (ATTEMPTS, core.stamp(), limit))]
+    channels = core.settings()['notify']['channels']
     for row in rows:
         p = json.loads(row['payload'])
+        if not channels.get(p['channel'], {}).get('enabled'):
+            # turned off after it was queued: it is not sent, and the list says so
+            with core.db() as con:
+                con.execute('UPDATE outbox SET attempts=?, error=? WHERE id=?', (ATTEMPTS, tr('channel_off'), row['id']))
+            continue
         try:
             send(p['channel'], p['title'], p['text'])
             update = ('UPDATE outbox SET sent_at=?, error=NULL, attempts=attempts+1 WHERE id=?', (core.stamp(), row['id']))

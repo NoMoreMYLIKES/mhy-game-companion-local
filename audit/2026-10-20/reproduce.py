@@ -129,7 +129,7 @@ class LogicAudit(unittest.TestCase):
 
     def test_sync_does_not_undo_cancel(self):
         g = self.goal()
-        def observed(_):
+        def observed(_, **__):
             goals.update(g['id'], {'enabled': False})
             return {'current': {'level': 60}}
         with mock.patch.object(mihoyo, 'observe', side_effect=observed), mock.patch.object(mihoyo, 'calculate', return_value=[]):
@@ -138,7 +138,7 @@ class LogicAudit(unittest.TestCase):
 
     def test_sync_does_not_undo_target_edit(self):
         g = self.goal()
-        def observed(_):
+        def observed(_, **__):
             goals.update(g['id'], {'target': {'special': 11}})
             return {'current': {'special': 10}}
         with mock.patch.object(mihoyo, 'observe', side_effect=observed), mock.patch.object(mihoyo, 'calculate', return_value=[]):
@@ -147,7 +147,7 @@ class LogicAudit(unittest.TestCase):
 
     def test_sync_does_not_recreate_deleted_goal(self):
         g = self.goal()
-        def observed(_):
+        def observed(_, **__):
             goals.remove(g['id'])
             return {'current': {'level': 60}}
         with mock.patch.object(mihoyo, 'observe', side_effect=observed), mock.patch.object(mihoyo, 'calculate', return_value=[]):
@@ -187,7 +187,7 @@ class LogicAudit(unittest.TestCase):
     def test_goal_sync_rejects_old_account_reply(self):
         _, new = self.account_setup()
         g = self.goal(current={'level': 10})
-        def observed(_):
+        def observed(_, **__):
             mihoyo.select_account('zzz', new['uid'])
             return {'current': {'level': 59}}
         with mock.patch.object(mihoyo, 'observe', side_effect=observed), mock.patch.object(mihoyo, 'calculate', return_value=[]):

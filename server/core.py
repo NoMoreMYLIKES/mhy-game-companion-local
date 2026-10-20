@@ -101,7 +101,8 @@ SCHEMA = (
     'CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
     'CREATE TABLE IF NOT EXISTS goals (id TEXT PRIMARY KEY, data TEXT NOT NULL)',
     'CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, started TEXT NOT NULL, data TEXT NOT NULL)',
-    'CREATE TABLE IF NOT EXISTS samples (id INTEGER PRIMARY KEY AUTOINCREMENT, game TEXT, at TEXT, current INTEGER, cap INTEGER, source TEXT)',
+    # stamina readings, each of the game role it was read for (account_key); the older samples table named no role
+    'CREATE TABLE IF NOT EXISTS stamina (id INTEGER PRIMARY KEY AUTOINCREMENT, game TEXT, account TEXT, at TEXT, current INTEGER, cap INTEGER, source TEXT)',
     'CREATE TABLE IF NOT EXISTS outbox (id TEXT PRIMARY KEY, created TEXT, payload TEXT, attempts INTEGER DEFAULT 0, next_at TEXT, sent_at TEXT, error TEXT)',
 )
 
@@ -153,15 +154,26 @@ def goal(goal_id: str) -> dict | None:
     return json.loads(row[0]) if row else None
 
 
+_GOALS = {'version': 0}
+
+
+def goals_version() -> int:
+    """Changes with every goal write in this process: a cache of anything derived from goals keys on it
+    (``updated`` has whole seconds only, so two edits within one second look alike)."""
+    return _GOALS['version']
+
+
 def save_goal(value: dict) -> None:
     value['updated'] = stamp()
     with db() as con:
         con.execute('INSERT OR REPLACE INTO goals VALUES (?,?)', (value['id'], json.dumps(value, ensure_ascii=False)))
+        _GOALS['version'] += 1
 
 
 def delete_goal(goal_id: str) -> None:
     with db() as con:
         con.execute('DELETE FROM goals WHERE id=?', (goal_id,))
+        _GOALS['version'] += 1
 
 
 def save_run(run: dict) -> None:
@@ -178,15 +190,40 @@ def runs(limit: int = 30, since: str | None = None) -> list[dict]:
         return [json.loads(r[0]) for r in rows]
 
 
-def add_sample(game: str, current: int, cap: int | None, source: str, at: str | None = None) -> None:
-    with db() as con:
-        con.execute('INSERT INTO samples(game,at,current,cap,source) VALUES (?,?,?,?,?)', (game, at or stamp(), current, cap, source))
-        con.execute('DELETE FROM samples WHERE id NOT IN (SELECT id FROM samples ORDER BY id DESC LIMIT 2000)')
+SELECTED = object()  # account argument: the game role selected now
+_ROLES: dict = {}
 
 
-def latest_sample(game: str) -> dict | None:
+def account_key(game: str) -> str | None:
+    """The selected game role (uid@server) that readings, calculations and stamina allowances belong to.
+    Read again whenever the login file is replaced (a new file has a new inode)."""
+    path = DATA / 'mihoyo.dpapi.json'
+    try:
+        info = path.stat()
+        version = (str(path), info.st_ino, info.st_mtime_ns, info.st_size)
+    except OSError:
+        version = (str(path), None)
+    with LOCK:
+        if _ROLES.get('version') != version:
+            _ROLES.update(version=version, accounts=load_secret('mihoyo').get('accounts') or {})
+        account = _ROLES['accounts'].get(game)
+    return f"{account['uid']}@{account.get('server', '')}" if account else None
+
+
+def add_sample(game: str, current: int, cap: int | None, source: str, at: str | None = None, account=SELECTED) -> None:
+    account = account_key(game) if account is SELECTED else account
     with db() as con:
-        row = con.execute('SELECT * FROM samples WHERE game=? ORDER BY at DESC, id DESC LIMIT 1', (game,)).fetchone()
+        con.execute('INSERT INTO stamina(game,account,at,current,cap,source) VALUES (?,?,?,?,?,?)',
+                    (game, account, at or stamp(), current, cap, source))
+        con.execute('DELETE FROM stamina WHERE id NOT IN (SELECT id FROM stamina ORDER BY id DESC LIMIT 2000)')
+
+
+def latest_sample(game: str, account=SELECTED) -> dict | None:
+    """The newest reading of the selected role; another role's stamina is never this one's."""
+    account = account_key(game) if account is SELECTED else account
+    with db() as con:
+        row = con.execute('SELECT * FROM stamina WHERE game=? AND account IS ? ORDER BY at DESC, id DESC LIMIT 1',
+                          (game, account)).fetchone()
     return dict(row) if row else None
 
 
@@ -351,13 +388,76 @@ def instance_id() -> str:
     return data['id']
 
 
+# Equipment continuations: the game whose stamina each spends, and the field naming its stage.
+ALLOWANCES = {'artifact': ('genshin', 'domain'), 'disc': ('zzz', 'mission')}
+
+
+def prepare_settings(patch: dict) -> tuple[dict, list[str]]:
+    """The settings file content a patch would leave, checked but not written, and the games whose equipment
+    allowance it grants to a newly selected role. Nothing is stored when this raises."""
+    patch = copy.deepcopy(patch or {})
+    for key in ALLOWANCES:  # which role an allowance belongs to is recorded here, never taken from a request
+        if isinstance((patch.get('planning') or {}).get(key), dict):
+            patch['planning'][key].pop('account', None)
+    current = read_json(DATA / 'settings.json', {})
+    current = current if isinstance(current, dict) else {}
+    merged = _merge(current, patch)
+    before, after = _merge(DEFAULTS, current), _merge(DEFAULTS, merged)
+    validate_settings(after)
+    if isinstance(merged.get('schedule'), dict) and 'times' in merged['schedule']:
+        merged['schedule']['times'] = sorted(set(merged['schedule']['times']))  # one slot per time
+    if after['schedule']['enabled'] and not after['schedule']['times']:
+        raise ValueError(tr('schedule_needs_times'))
+    if after['schedule']['enabled'] and not after['schedule']['games']:
+        raise ValueError(tr('schedule_needs_games'))
+    moved = []
+    for key, (game, field) in ALLOWANCES.items():
+        old, new = before['planning'][key], after['planning'][key]
+        if any(old.get(k) != new.get(k) for k in ('enabled', 'cap', field)):
+            # changing an allowance grants it to the role selected now: it spends that role's stamina only
+            role = account_key(game)
+            merged.setdefault('planning', {}).setdefault(key, {})['account'] = role
+            if role != old.get('account'):
+                moved.append(game)
+    return merged, moved
+
+
 def save_settings(patch: dict) -> dict:
     with LOCK:
-        current = read_json(DATA / 'settings.json', {})
-        merged = _merge(current, patch)
-        validate_settings(_merge(DEFAULTS, merged))
+        merged, moved = prepare_settings(patch)
         write_json(DATA / 'settings.json', merged)
+        for game in moved:  # a role's cumulative cap starts from nothing it did not use
+            put('equip_used:' + game, 0)
     return settings()
+
+
+def grant_allowance(game: str) -> None:
+    """Grant the game's equipment allowance, unchanged, to the role selected now (it named another role or none)."""
+    key = next((k for k, (g, _) in ALLOWANCES.items() if g == game), None)
+    if key is None:
+        raise ValueError(tr('invalid_game'))
+    with LOCK:
+        merged = read_json(DATA / 'settings.json', {})
+        merged = merged if isinstance(merged, dict) else {}
+        role = account_key(game)
+        conf = merged.setdefault('planning', {}).setdefault(key, {})
+        if conf.get('account', SELECTED) != role:
+            conf['account'] = role
+            write_json(DATA / 'settings.json', merged)
+            put('equip_used:' + game, 0)
+
+
+def allowance_role_ok(game: str, conf: dict) -> bool:
+    """An equipment allowance spends stamina only of the role it was granted for."""
+    return 'account' in conf and conf['account'] == account_key(game)
+
+
+def _number(value, low, high, field: str, integer: bool = False) -> None:
+    """A finite number within the business range; JSON booleans and text are not numbers."""
+    import math
+    if (isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
+            or (integer and value != int(value)) or not low <= value <= high):
+        raise ValueError(tr('bad_number', field=tr(field), low=low, high=high))
 
 
 def validate_settings(value: dict) -> None:
@@ -370,18 +470,25 @@ def validate_settings(value: dict) -> None:
         raise ValueError(tr('bad_port'))
     if not isinstance(value['server']['lan'], bool):
         raise ValueError(tr('bad_lan'))
+    if not isinstance(value['schedule']['enabled'], bool) or not isinstance(value['schedule']['autostart'], bool):
+        raise ValueError(tr('bad_switch'))
     if value['execution']['if_game_running'] not in ('restart', 'skip'):
         raise ValueError(tr('bad_if_running'))
     if value['planning']['genshin_claim_mode'] not in ('double', 'single'):
         raise ValueError(tr('bad_claim_mode'))
-    if not 10 <= int(value['execution']['timeout_minutes']) <= 480:
-        raise ValueError(tr('bad_timeout'))
-    for game in value['schedule']['games']:
-        if game not in ('genshin', 'zzz'):
-            raise ValueError(tr('bad_game'))
-    for key in ('artifact', 'disc'):
-        if int(value['planning'][key]['cap']) < 0:
-            raise ValueError(tr('bad_cap'))
+    _number(value['execution']['timeout_minutes'], 10, 480, 'fld_timeout', integer=True)
+    _number(value['execution']['window_width'], 640, 7680, 'fld_window', integer=True)
+    _number(value['execution']['window_height'], 480, 4320, 'fld_window', integer=True)
+    _number(value['schedule']['catchup_hours'], 0, 24, 'fld_catchup')
+    _number(value['sync']['notes_minutes'], 5, 1440, 'fld_notes_minutes', integer=True)
+    _number(value['sync']['goals_hours'], 1, 168, 'fld_goals_hours')
+    _number(value['planning']['genshin_boss_yield'], 0.5, 10, 'fld_boss_yield')  # runs = shortfall / yield
+    _number(value['planning']['zzz_coffee_forecast'], 0, 300, 'fld_coffee', integer=True)
+    games = value['schedule']['games']
+    if not isinstance(games, list) or any(game not in ('genshin', 'zzz') for game in games):
+        raise ValueError(tr('bad_game'))
+    for key in ALLOWANCES:
+        _number(value['planning'][key]['cap'], 0, 100000, 'fld_cap', integer=True)
     if value['ui']['lang'] not in LANGS:
         raise ValueError(tr('bad_lang'))
 

@@ -31,6 +31,7 @@ ZZZ_EXP_TOP = {'资深调查员记录': ('调查专项', 'c_xp'), '音擎能源�
 ZZZ_EXP_VALUE = 3000
 ZZZ_LOWER_EXP = ('见习调查员记录', '正式调查员记录', '音擎蓄电池', '音擎电源')
 COST = {'card': 20, 'claim20': 20, 'boss': 40, 'zzz_boss': 40, 'disc': 60}
+ZZZ_SERIES = ('chip', 'seal_c', 'seal_w')  # kinds whose tiers convert 3:1 and 1:3: one pool per series
 # Dataset typeText of Genshin series that convert 3:1 (talent books, weapon ascension, enemy drops, gems).
 GENSHIN_FAMILY_TYPES = ('角色天赋素材', '武器突破素材', '角色与武器培养素材', '角色突破素材')
 
@@ -232,13 +233,73 @@ def _ceil(value: float) -> int:
     return int(math.ceil(round(value, 6)))
 
 
-def items_for_goal(goal: dict, ctx: dict) -> list[dict]:
+# ---------------------------------------------------------------- the account's stock, shared by the goals
+
+def stock(goals: list[dict]) -> dict[str, list]:
+    """What the account owns of each material, by the newest calculation that tells: {id: [count, exact]}.
+
+    ZZZ answers say what is owned. Genshin answers say only what is lacking, so a count is exact where some goal
+    lacks the material, and otherwise only a lower bound (each goal's own need is covered)."""
+    found: dict[str, list] = {}
+    for goal in sorted(goals, key=lambda g: g.get('calc_at') or ''):
+        for m in goal.get('materials') or []:
+            mid = str(m['id'])
+            if m.get('owned') is not None:
+                found[mid] = [int(m['owned']), True]
+            elif m.get('remaining') is not None:
+                have = int(m.get('need') or 0) - int(m['remaining'])
+                if m['remaining'] > 0:
+                    found[mid] = [have, True]
+                elif mid not in found or found[mid][0] < have:
+                    found[mid] = [have, False]
+    return found
+
+
+def ledger(goals: list[dict]) -> dict:
+    """The stock the goals share. items_for_goal hands it out, one goal after another in goal order, so a piece of
+    stock serves one goal only; the actual stock is never changed."""
+    found = stock(goals)
+    return {'left': {k: list(v) for k, v in found.items()}, 'start': {k: v[0] for k, v in found.items()}, 'pools': {}}
+
+
+def _take(book: dict, mid: str, need: int) -> tuple[int | None, int, int | None]:
+    """Give a goal up to ``need`` of one material: (still short or None when unknown, held by earlier goals,
+    left for this goal or None when unknown)."""
+    entry = book['left'].get(str(mid))
+    if entry is None:
+        return None, 0, None
+    count, exact = entry
+    take = min(count, need)
+    entry[0] -= take
+    short = need - take
+    return (None if short and not exact else short), book['start'][str(mid)] - count, count if exact else None
+
+
+def _pool(book: dict, group: str) -> list:
+    """A ZZZ series in base-tier units ([left, start]): its tiers convert 3:1 and 1:3, so they are one stock.
+    Tiers no answer reported are not counted."""
+    if group not in book['pools']:
+        total = sum(entry[0] * 3 ** int(info.get('tier') or 0)
+                    for mid, info in dataset('zzz').get('materials', {}).items()
+                    if info.get('group') == group and info.get('kind') in ZZZ_SERIES
+                    for entry in [book['left'].get(mid)] if entry)
+        book['pools'][group] = [total, total]
+    return book['pools'][group]
+
+
+def items_for_goal(goal: dict, ctx: dict, book: dict | None = None) -> list[dict]:
     """Group a goal's materials into farmable items in the goal's category order.
 
     ``ctx`` carries tool catalogs: ``bosses`` (Genshin) and ``compendium`` (ZZZ).
-    Each item has ``units`` (int, or None for UNKNOWN) and an explanatory ``note``.
+    ``book`` is the stock this goal shares with the goals before it (ledger); by default it has the stock
+    to itself. Each item has ``units`` (int, or None for UNKNOWN) and an explanatory ``note``.
     """
+    book = book if book is not None else ledger([goal])
     rows = [m for m in goal.get('materials', []) if (m.get('need') or 0) > 0]
+    if goal['game'] == 'zzz':  # a series' other tiers, needed or not, show the stock it is pooled with
+        groups = {meta('zzz', m['id']).get('group') for m in rows if meta('zzz', m['id']).get('kind') in ZZZ_SERIES} - {None}
+        rows += [m for m in goal.get('materials', []) if not m.get('need') and meta('zzz', m['id']).get('group') in groups
+                 and meta('zzz', m['id']).get('kind') in ZZZ_SERIES]
     paused = set(goal.get('paused', []))
     order = goal.get('category_order') or ['level', 'talents', 'weapon']
     rank = lambda m: min((order.index(c) for c in m.get('categories', [m.get('category')]) if c in order), default=len(order))
@@ -282,7 +343,7 @@ def items_for_goal(goal: dict, ctx: dict) -> list[dict]:
     result = []
     for key, item in items.items():
         item['paused'] = item['key'] in paused or key in paused  # full item key (UI) or legacy short key
-        item['units'], item['note'] = _units(goal, item)
+        item['units'], item['note'] = _units(goal, item, book)
         item['names'] = tr('sep').join(dict.fromkeys(m['name'] for m in item['materials']))
         item['done'] = item['units'] == 0
         item['tint'] = tint(goal['game'], item['materials'][0])
@@ -290,8 +351,45 @@ def items_for_goal(goal: dict, ctx: dict) -> list[dict]:
     return sorted(result, key=lambda i: (i['rank'], i['kind'] == 'manual', i['key']))
 
 
-def _units(goal: dict, item: dict) -> tuple[int | None, str]:
+def _units(goal: dict, item: dict, book: dict) -> tuple[int | None, str]:
+    """Units to farm for an item, after the stock earlier goals hold (book), and why."""
+    row = meta(goal['game'], item['materials'][0]['id'])
+    if goal['game'] == 'zzz' and item['kind'] != 'manual' and row.get('kind') in ZZZ_SERIES and row.get('group'):
+        return _series(item, book, row)
+    held, unknown = 0, False
+    shown = []
+    for m in item['materials']:  # each material once: what is still short after earlier goals took their share
+        short, earlier, left = _take(book, m['id'], int(m.get('need') or 0))
+        held, unknown = held + earlier, unknown or (short is None and str(m['id']) in book['left'])
+        shown.append({**m, 'remaining': short, 'owned': left})
+    item['materials'] = shown
+    units, note = _count_units(item, shown)
+    if unknown and units is None and item['kind'] != 'manual':
+        note = tr('note_shared_unknown')
+    elif held:
+        note += tr('sentence', text=tr('note_shared', held=held))
+    return units, note
+
+
+def _series(item: dict, book: dict, row: dict) -> tuple[int | None, str]:
+    """A ZZZ series is one pool in base-tier units (3:1 synthesis, 1:3 split), shared in goal order."""
     mats = item['materials']
+    if any(str(m['id']) not in book['left'] for m in mats):
+        return None, tr('note_owned_unknown')
+    need = sum(m['need'] * 3 ** int(meta('zzz', m['id']).get('tier') or 0) for m in mats)
+    pool = _pool(book, row['group'])
+    held = pool[1] - pool[0]
+    take = min(pool[0], need)
+    pool[0] -= take
+    left = need - take
+    drops = dataset('zzz').get('farming', {}).get('drops', {}).get('4', {})
+    rate = drops.get(row['kind']) or {'chip': 15.3, 'seal_c': 12.5, 'seal_w': 18.6}[row['kind']]
+    cards = _ceil(left / rate) if left else 0
+    note = tr('note_series', left=left, rate=f'{rate:g}', cards=cards)
+    return cards, note + (tr('sentence', text=tr('note_shared', held=held)) if held else '')
+
+
+def _count_units(item: dict, mats: list[dict]) -> tuple[int | None, str]:
     if item['kind'] == 'manual':
         left = [m['remaining'] for m in mats]
         if all(v == 0 for v in left):
@@ -312,18 +410,7 @@ def _units(goal: dict, item: dict) -> tuple[int | None, str]:
         runs = _ceil(left / rate) if left else 0
         return runs, tr('note_runs', left=left, rate=f'{rate:g}', runs=runs)
     drops = dataset('zzz').get('farming', {}).get('drops', {}).get('4', {})
-    row = meta('zzz', mats[0]['id'])
-    kind = row.get('kind')
-    if kind in ('chip', 'seal_c', 'seal_w'):
-        need = sum(m['need'] * 3 ** int(meta('zzz', m['id']).get('tier') or 0) for m in mats)
-        owned = sum((m.get('owned') or 0) * 3 ** int(meta('zzz', m['id']).get('tier') or 0) for m in mats)
-        if any(m.get('owned') is None for m in mats):
-            left = sum(m['remaining'] * 3 ** int(meta('zzz', m['id']).get('tier') or 0) for m in mats)
-        else:
-            left = max(0, need - owned)  # 3:1 synthesis and 1:3 split make the series one pool
-        rate = drops.get(kind) or {'chip': 15.3, 'seal_c': 12.5, 'seal_w': 18.6}[kind]
-        cards = _ceil(left / rate) if left else 0
-        return cards, tr('note_series', left=left, rate=f'{rate:g}', cards=cards)
+    kind = meta('zzz', mats[0]['id']).get('kind')
     name = mats[0]['name']
     left = sum(m['remaining'] for m in mats)
     if name in ZZZ_EXP_TOP:

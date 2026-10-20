@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import struct
 import threading
 import urllib.request
 from datetime import timedelta
@@ -30,6 +31,8 @@ RETRY_AFTER = timedelta(days=7)
 _LOCK = threading.Lock()
 _PENDING: set[str] = set()
 _STATE = {'running': False}
+_CHECKED: dict[str, tuple] = {}  # path -> (inode, mtime, size, complete) of its last check
+EDGE = 32  # bytes read from each end of a saved image to check it
 
 
 def root() -> Path:
@@ -40,12 +43,51 @@ def key(game: str, kind: str, ident) -> str:
     return f'{game}/{kind}/{ident}'
 
 
+def complete(head: bytes, tail: bytes, size: int, ext: str) -> bool:
+    """Whether bytes are a whole image of the type: its header with a non-zero picture size and its end marker.
+    A response cut short, or one that only starts like an image, has no end marker."""
+    if ext == '.png':
+        return (len(head) >= 24 and head[:8] == b'\x89PNG\r\n\x1a\n' and head[12:16] == b'IHDR'
+                and min(struct.unpack('>II', head[16:24])) > 0 and tail[-8:-4] == b'IEND')
+    if ext == '.jpg':
+        return size > 4 and head[:3] == b'\xff\xd8\xff' and b'\xff\xd9' in tail  # some encoders pad after it
+    if ext == '.webp':
+        return (len(head) >= 12 and head[:4] == b'RIFF' and head[8:12] == b'WEBP'
+                and int.from_bytes(head[4:8], 'little') + 8 in (size, size - 1))
+    if ext == '.gif':
+        return (len(head) >= 10 and head[:6] in (b'GIF87a', b'GIF89a')
+                and min(struct.unpack('<HH', head[6:10])) > 0 and tail.endswith(b';'))
+    return False
+
+
+def _whole(path: Path) -> bool:
+    """A saved image is used only while it is complete; a damaged one counts as missing and is downloaded again."""
+    try:
+        info = path.stat()
+    except OSError:
+        return False
+    version = (info.st_ino, info.st_mtime_ns, info.st_size)
+    seen = _CHECKED.get(str(path))
+    if seen and seen[:3] == version:
+        return seen[3]
+    try:
+        with open(path, 'rb') as f:
+            head = f.read(EDGE)
+            f.seek(max(0, info.st_size - EDGE))
+            tail = f.read(EDGE)
+    except OSError:
+        return False
+    ok = complete(head, tail, info.st_size, path.suffix)
+    _CHECKED[str(path)] = (*version, ok)
+    return ok
+
+
 def file(k: str) -> Path | None:
     """The saved image for a key, or None."""
     if not KEY.fullmatch(k):
         return None
     base = root() / k
-    return next((p for p in (base.with_suffix(ext) for ext in TYPES.values()) if p.is_file()), None)
+    return next((p for p in (base.with_suffix(ext) for ext in TYPES.values()) if p.is_file() and _whole(p)), None)
 
 
 def cached() -> list[str]:
@@ -53,7 +95,7 @@ def cached() -> list[str]:
     if not folder.is_dir():
         return []
     return sorted(p.relative_to(folder).with_suffix('').as_posix() for p in folder.glob('*/*/*')
-                  if p.suffix in MAGIC)
+                  if p.suffix in MAGIC and _whole(p))
 
 
 def allowed(url: str) -> bool:
@@ -134,8 +176,8 @@ def _download(k: str) -> None:
             raise ValueError('redirected to a host that is not allowed')
         ext = TYPES.get(resp.headers.get_content_type())
         data = resp.read(MAX_BYTES + 1)
-    if not ext or len(data) > MAX_BYTES or not data.startswith(MAGIC[ext]):
-        raise ValueError('not an image of an accepted type and size')
+    if not ext or len(data) > MAX_BYTES or not complete(data[:EDGE], data[-EDGE:], len(data), ext):
+        raise ValueError('not a whole image of an accepted type and size')
     target = (root() / k).with_suffix(ext)
     target.parent.mkdir(parents=True, exist_ok=True)
     temp = target.with_name(target.name + '.tmp')

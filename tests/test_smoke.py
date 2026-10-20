@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -17,9 +18,13 @@ class SmokeTest(unittest.TestCase):
     def setUpClass(cls):
         cls.temp_dir = tempfile.mkdtemp(prefix='gcl_test_')
         os.environ['GCL_HOME'] = cls.temp_dir
+        from server import core  # an earlier test module may have imported it already: GCL_HOME alone would not reach it
+        cls.data = mock.patch.object(core, 'DATA', Path(cls.temp_dir))
+        cls.data.start()
 
     @classmethod
     def tearDownClass(cls):
+        cls.data.stop()
         shutil.rmtree(cls.temp_dir, ignore_errors=True)
 
     def test_imports(self):

@@ -291,9 +291,11 @@ def parse_bgi(text: str) -> dict:
             extra.append(f'{kind}×{amount}')
     errors = [line.strip()[:200] for line in text.splitlines()
               if re.search(r'\[ERR|异常|失败|找不到|未解锁|传送失败', line)][-6:]
+    logged = [line.strip()[:200] for line in text.splitlines() if '[ERR]' in line][-6:]  # BetterGI's error level
     return {'claims20': used[20], 'claims40': used[40], 'resin': used[20] * 20 + used[40] * 40,
             'extra': extra, 'terminal': BGI_TERMINAL in text,
-            'insufficient': bool(re.search(r'树脂不足|当前可用树脂选项无法满足', text)), 'errors': errors}
+            'insufficient': bool(re.search(r'树脂不足|当前可用树脂选项无法满足', text)), 'errors': errors,
+            'tool_errors': logged}
 
 
 # ---------------------------------------------------------------- ZZZ OneDragon
@@ -372,13 +374,18 @@ def zzz_receipt(plan_ids: list[str]) -> dict:
     return {'completed': completed, 'battles': battles, 'energy_stop': stop if isinstance(stop, dict) else None}
 
 
+def _last_outcome(text: str, command: str) -> str | None:
+    """How a OneDragon command ended: its last 'succeeded' / 'failed' line (a retry can follow a failure,
+    a failure can follow an earlier success). None without one."""
+    found = re.findall(r'指令\[\s*' + command + r'\s*\]\s*执行(成功|失败)', text)
+    return None if not found else 'success' if found[-1] == '成功' else 'failed'
+
+
 def parse_zzz(text: str) -> dict:
     # OneDragon log lines: command [OneDragon] / [Charge Plan] succeeded or failed, remaining
     # battery, battle node finished, cards used by the plan this battle.
-    one = 'success' if re.search(r'指令\[\s*一条龙\s*\]\s*执行成功', text) else \
-        'failed' if re.search(r'指令\[\s*一条龙\s*\]\s*执行失败', text) else None
-    charge = 'success' if re.search(r'指令\[\s*体力刷本\s*\]\s*执行成功', text) else \
-        'failed' if re.search(r'指令\[\s*体力刷本\s*\]\s*执行失败', text) else None
+    one = _last_outcome(text, '一条龙')
+    charge = _last_outcome(text, '体力刷本')
     remaining = [int(x) for x in re.findall(r'剩余电量\s*[:：]?\s*(\d+)', text)]
     errors = [line.strip()[:200] for line in text.splitlines()
               if re.search(r'\[ERR|执行失败|找不到|未解锁|Traceback', line)][-6:]

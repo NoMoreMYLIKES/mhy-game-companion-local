@@ -91,7 +91,7 @@ Rows hold JSON documents; the schema stays small and the document shapes evolve 
 CREATE TABLE IF NOT EXISTS kv      (key TEXT PRIMARY KEY, value TEXT NOT NULL);           -- JSON values
 CREATE TABLE IF NOT EXISTS goals   (id TEXT PRIMARY KEY, data TEXT NOT NULL);             -- goal document
 CREATE TABLE IF NOT EXISTS runs    (id TEXT PRIMARY KEY, started TEXT NOT NULL, data TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS samples (id INTEGER PRIMARY KEY AUTOINCREMENT, game TEXT, at TEXT,
+CREATE TABLE IF NOT EXISTS stamina (id INTEGER PRIMARY KEY AUTOINCREMENT, game TEXT, account TEXT, at TEXT,
                                     current INTEGER, cap INTEGER, source TEXT);           -- stamina readings (last 2000)
 CREATE TABLE IF NOT EXISTS outbox  (id TEXT PRIMARY KEY, created TEXT, payload TEXT, attempts INTEGER DEFAULT 0,
                                     next_at TEXT, sent_at TEXT, error TEXT);              -- notifications (14 days)
@@ -111,7 +111,8 @@ CREATE TABLE IF NOT EXISTS outbox  (id TEXT PRIMARY KEY, created TEXT, payload T
   "materials": [{"id": "104321", "name": "…", "need": 9, "owned": null, "remaining": 3,
                  "category": "talents", "categories": ["talents"], "domain": "…", "weekdays": [0, 3, 6], "monster": "…"}],
   "allowance": {"<item key>": {"calc_at": "…", "units": 7, "done": 2}},
-  "calc_at": "…", "calc_error": null, "sync_at": "…", "observe_at": "…", "observe_error": null,
+  "calc_at": "…", "calc_error": null, "calc_stale": false, "account": "<uid>@<server>",
+  "sync_at": "…", "observe_at": "…", "observe_error": null,
   "gear": {"at": "…", "base": {"2": 938}, "discs": [{"slot": 1, "level": 15, "rarity": "S", "set_id": 31000, "set": "…",
            "main": {"id": 11103, "value": "2200", …}, "subs": [{"id": 20103, "value": "7.2%", "number": 7.2, "percent": true, "level": 3, "valid": true}]}],
            "plan": {"name": "…", "sets": [{"id": 31000, "name": "…"}], "main": {"4": [20103]}, "subs": [20103, 21103], "names": {"20103": "…"}}},
@@ -120,9 +121,13 @@ CREATE TABLE IF NOT EXISTS outbox  (id TEXT PRIMARY KEY, created TEXT, payload T
 }
 ```
 
-`gear` is what the last observation read: the equipped pieces (`discs`, for either game), base HP/ATK/DEF and the build: for ZZZ the plan the account follows in Miyoushe's upgrade guide; for Genshin the character detail's `recommend_relic_property` (the account's own picks when it has any, else Miyoushe's recommendation; no sets). A substat's `level` is its roll count (ZZZ `level`; Genshin `times` + 1). `gear_target` holds only what the user changed: `sets`, `main` and `weights` left out follow the build, `stage` empty picks the stage automatically. `gear_runs` counts equipment runs farmed for this character.
+`gear` is what the last observation read: the equipped pieces (`discs`, for either game), base HP/ATK/DEF and the build: for ZZZ the plan the account follows in Miyoushe's upgrade guide; for Genshin the character detail's `recommend_relic_property` (the account's own picks when it has any, else Miyoushe's recommendation; no sets). A substat's `level` is its roll count (ZZZ `level`; Genshin `times` + 1). `gear_target` holds only what the user changed: `sets`, `main` and `weights` left out follow the build, `stage` empty picks the stage automatically. `gear_runs` counts equipment battles fought for this character (a 40-resin claim is one battle with two reward units; the cumulative cap counts reward units).
 
-`materials` are the official calculator rows (`remaining = null` means UNKNOWN). `allowance` is the **stable list**: the unit count issued at the last calculation and how many were executed since, so a run is never repeated while the official inventory catches up.
+`materials` are the official calculator rows (`remaining = null` means UNKNOWN); a ZZZ answer's stock of a series' other tiers is kept as rows with `need` 0, since the tiers convert into each other. A calculator row must name its amount (`num`, or `cnt`); a row without one is a format change, never a zero. `allowance` is the **stable list**: the unit count issued at the last calculation and how many were executed since, so a run is never repeated while the official inventory catches up (and never more than today's gap).
+
+`account` is the game role (`core.account_key`) the levels, equipment and materials were read for. `calc_stale` is set when the targets, current levels or weapon change, and cleared by the calculation of the new values. A goal whose calculation is missing, stale or of another role is not farmed (`planner.calc_block`); after a role switch the scheduler syncs it again within 15 minutes. A sync never writes the target: a target below the current level stays as saved and only the request to the calculator asks for the current level. The calculator is never asked with an unknown current level (no default of 1).
+
+**Sync** (`goals.sync`): the official answers arrive later than the request, so they are merged into the record as it is then, under `core.LOCK`: a goal deleted meanwhile stays deleted (`sync` returns `None`); cancel, rename and order changes stay; current levels or a weapon the user edited meanwhile win over the reading; a calculation for inputs that changed meanwhile is dropped (the edit queued its own); and nothing is stored when the login or the selected role changed during the request (`auth.binding`).
 
 **Run document** (`runs.data`):
 
@@ -156,8 +161,8 @@ Secrets are encrypted with `CryptProtectData` (`CRYPTPROTECT_UI_FORBIDDEN`), bou
 
 One rule serves the dashboard preview, the 3-day forecast and execution. Per game, per batch, exactly one item:
 
-1. Enabled goals in user order → the goal's category order → the first item that is not collected, has an automatic route, is not paused, has a known unit count, is open today (Genshin domain weekdays, 04:00 reset) and still has allowance left.
-2. Otherwise the optional equipment continuation (Genshin Domain of Blessing / ZZZ Area Patrol mission) while its cumulative cap has room. With an inventory scan, a character also counts as finished once the best arrangement of pieces it owns meets its target (`inventory.arrange`: in goal order, from unequipped pieces and its own, never another character's; each character takes its picks off the table), and its next set comes from that arrangement; the goal card lists the pieces to equip. When any enabled goal of that game has `farm` on in its equipment target, the first such character (goal order) whose equipment does not meet the target decides where: its next set (the first unmet target set, else the 4-piece set) and the place that drops it: the ZZZ Area Patrol stage (the installed OneDragon's compendium, else `zzz_disc_stages.json`) or the Genshin Domain of Blessing (`genshin_artifact_domains.json`, named as BetterGI names it). When every such character is finished, nothing is farmed; the stage or domain in Settings is used only while no character steers farming.
+1. Enabled goals in user order → the goal's category order → the first item that is not collected, has an automatic route, is not paused, has a known unit count, is open today (Genshin domain weekdays, 04:00 reset) and still has allowance left. The account's stock serves the goals once, in that order (`materials.ledger`, `planner.items_by_goal`): what an earlier goal needs is not counted again for a later one. ZZZ answers state the stock; Genshin answers state only the gap, so a Genshin count is exact where some goal lacks the material and otherwise only "each goal alone is covered", which leaves a later goal's share UNKNOWN rather than covered. A ZZZ series is one pool in base-tier units. Goals whose calculation is missing, stale or of another role wait (see the goal document).
+2. Otherwise the optional equipment continuation (Genshin Domain of Blessing / ZZZ Area Patrol mission) while its cumulative cap has room. The cap spends one game role's stamina: changing the continuation in Settings grants it to the role selected then (`planning.<artifact|disc>.account`, never taken from a request), and after a role switch it waits until the user allows it for the new role (`/api/equip/grant`, which starts the new role's count at 0). The plan's reason names the block whenever a character asked for equipment, also while the continuation is off. With an inventory scan, a character also counts as finished once the best arrangement of pieces it owns meets its target (`inventory.arrange`: in goal order, from unequipped pieces and its own, never another character's; each character takes its picks off the table), and its next set comes from that arrangement; the goal card lists the pieces to equip. When any enabled goal of that game has `farm` on in its equipment target, the first such character (goal order) whose equipment does not meet the target decides where: its next set (the first unmet target set, else the 4-piece set) and the place that drops it: the ZZZ Area Patrol stage (the installed OneDragon's compendium, else `zzz_disc_stages.json`) or the Genshin Domain of Blessing (`genshin_artifact_domains.json`, named as BetterGI names it). While that first unfinished character has no stage (unread equipment, no target set, no known stage, read for another role), nothing is farmed for the characters after it: the block is shown instead. When every such character is finished, nothing is farmed; the stage or domain in Settings is used only while no character steers farming. With an inventory scan that names wearers, a character's own pieces are the ones worn under its wearer name (`inventory.wearer`: the name wearing most of the pieces Miyoushe shows on it); a piece another character wears is never available, even one with identical stats.
 3. Otherwise nothing: stamina is kept and only free daily tasks run.
 
 **Equipment score** (`gear`): each substat counts its value in top-rarity rolls (A and B discs roll smaller steps; Genshin rolls are 70–100 % of a maximum roll, so each counts its share of one) times its weight; a piece scores that against the best a piece with its main stat could hold (four different weighted substats plus five upgrades of the best one), from 0 to 100; the set score is the mean over all slots (six discs, five artifacts), an empty slot counting 0. Each piece also reports its wasted upgrades (upgrades into substats that do not count), and the set its counted rolls per substat. Weights default to 1 for the substats the followed build recommends, with flat HP/ATK/DEF worth their share of the agent's base stat; the user can set all ten. Builds name stat families, not variants (Miyoushe may send flat ATK for "ATK"): a recommended family gives its % stat 1 and its flat stat the base-stat share, and a main-stat pick becomes the variant the slot can carry (flat ATK on slot 5 → ATK%); the main-stat check compares families. A target is met when all six slots are filled, the target sets and slot 4–6 main stats match and the score reaches the target. Unknown (unreadable substats, no weights) is never met.
@@ -180,14 +185,15 @@ Unit conversion (`materials`): Genshin talent / weapon domains count **20 Origin
          tool missing → FAILED;  game already running → skip or restart (execution.if_game_running)
          write tool config (journaled) → launch game → launch tool hidden
          wait: tool exit | execution.timeout_minutes | stop request | BetterGI end-of-run log line + 30 s
-         finally: kill tool and game, read new log text / plan counters, restore journal
+         finally: kill tool and game, read new log text (from the baseline taken before the config, and only
+                  once the tool started) / plan counters, restore journal
          before closing the game, when a scan is due: open the bag / Drive Disc storage, run the scanner, store the inventory (a note on the run)
          receipt → completed units → allowance (goal) or equip_used (+ the character's gear_runs) (equipment)
        finally: unmute, final status, notification, delete current_run
   after: re-sync a material goal at +60 s and +180 s; refresh stamina at +60 s
 ```
 
-Status per game: `STOPPED` (user stop), `FAILED` (timeout, or errors without the tool's success marker), `PARTIAL` (no success marker), `SKIPPED`, else `SUCCESS`. The batch takes the worst game status.
+Status per game: `STOPPED` (user stop), `FAILED` (timeout, or errors without the tool's success marker), `PARTIAL` (no success marker; or the tool finished but the run has an error, such as a config that was not restored; or the completed amount is not known), `SKIPPED`, else `SUCCESS`. A OneDragon command's outcome is its last 成功/失败 line, so a failure after a success fails. BetterGI `[ERR]` lines in a finished run become a note. The batch takes the worst game status.
 
 ---
 
@@ -211,14 +217,15 @@ Loopback only by default. With `server.lan` enabled the server binds `0.0.0.0` a
 | `/api/goals/update` | POST | `{id, patch}` | `enabled`, `name`, `target`, `current`, `weapon_id`, `category_order`, `paused`, `gear_target` (validated by `gear.clean_target`, `null` follows the build again) |
 | `/api/goals/delete` | POST | `{id}` | – |
 | `/api/goals/order` | POST | `{game, ids}` | – |
-| `/api/goals/sync` | POST | `{id, observe}` | Goal after official sync |
+| `/api/goals/sync` | POST | `{id, observe}` | Goal after official sync (HTTP 200 also when a read failed: `observe_error`, `gear_error`, `calc_error` say which); `{ok}` when it was deleted meanwhile |
 | `/api/notes/refresh` | POST | `{game}` | `{current, cap}` or `{error}` |
 | `/api/run` | POST | `{games}` | `{run_id}` |
 | `/api/stop` | POST | `{}` | – |
-| `/api/settings` | POST | `{settings, secrets}` | `{ok, restart_needed}`; toggles the logon task when `schedule.autostart` changes |
+| `/api/settings` | POST | `{settings, secrets}` | `{ok, restart_needed}`; all or nothing: the whole request is validated first, then the logon task changes (when `schedule.autostart` does), then secrets and settings are stored; a refusal leaves all of them as they were |
 | `/api/lang` | POST | `{lang: "en" \| "zh"}` | Language for backend-generated text |
 | `/api/notify/test` | POST | `{channel}` | Sends a test message |
 | `/api/equip/reset` | POST | `{game}` | Resets the equipment cap counter |
+| `/api/equip/grant` | POST | `{game}` | Grants the game's equipment cap, unchanged, to the role selected now (count starts at 0) |
 | `/api/assets/sync` | POST | `{}` | Retries every known image that is not saved yet; returns the cache status |
 | `/api/shutdown` | POST | `{token, force?}` | `{ok}`; `token` comes from `server.pid`. Refused while a batch runs unless `force`, which stops the batch, waits up to 5 minutes for its configs to be restored, then exits |
 
@@ -278,7 +285,8 @@ A scan never equips, locks or dismantles anything; its result or failure is a no
 | Miyoushe login expired | retcode -100 / 10001 / -1071 | Website cookies are renewed from the app grant and the request runs once more; if that fails, the error is shown in the UI with one `login` notification and the source backs off |
 | Captcha / network / API errors | retcode or exception type | Per-source backoff: 15 min doubling up to 6 h (`mihoyo.record`) |
 | Missed slot | Backend not running at slot time | Runs late within `schedule.catchup_hours`, otherwise marked skipped |
-| Notification delivery fails | Channel raises | Outbox retry with exponential delay, up to 6 attempts |
+| Notification delivery fails | Channel raises | Outbox retry with exponential delay, up to 6 attempts; a message whose channel was turned off meanwhile is closed as not sent |
+| Damaged cached image | Header without a picture size or no end marker | Treated as missing and downloaded again; a download is saved only when it is a whole image |
 | Mute fails | `audio.ps1` error | Note on the run; the batch continues |
 | Startup fails (port in use, exception, invalid settings) | Backend exit code and `startup-error.json` | `server.launcher` explains it and exits nonzero (7.1) |
 
@@ -376,7 +384,9 @@ After a failure `Start.bat` waits for a key when it was opened by double-click; 
 ## 11. Invariants for Contributors and AI Agents
 
 1. **No personal data in the repository**: no real names, UIDs, account names, usernames, home-folder paths, host or tailnet names, IP addresses or e-mail addresses. Put terms you want guarded in the git-ignored `tests/pii_denylist.txt`; the smoke test also scans for generic patterns.
-2. **Never treat an unread stamina value as 0**: UNKNOWN is `None` end to end.
+2. **Never treat an unread value as 0 or 1**: UNKNOWN is `None` end to end (stamina, owned amounts, calculator amounts, current levels).
+2a. **Readings belong to a game role**: stamina, goal levels and materials, equipment scans and the equipment cap carry the role they were read or granted for; another role's data is never used for the selected one.
+2b. **A late answer never undoes the user**: official answers are merged into the record as it is when they arrive (`goals.sync`).
 3. **Never change a tool config outside the patch journal**: journal first, then write; always restore.
 4. **English base language**: comments, logs and new strings in English; every UI string in both `I18N.en` and `I18N.zh`, every backend message in `server/i18n.py`.
 5. **PowerShell 7 only** (`C:\Program Files\PowerShell\7\pwsh.exe`), never Windows PowerShell 5.1.

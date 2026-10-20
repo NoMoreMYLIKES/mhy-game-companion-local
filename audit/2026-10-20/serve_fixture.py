@@ -32,7 +32,7 @@ core.save_goal(g)
 gate = threading.Event()
 entered = threading.Event()
 mode = {'gated': False}
-def observed(goal):
+def observed(goal, force=False):
     if not mode['gated']:
         raise ValueError('Synthetic observation failure')
     entered.set()

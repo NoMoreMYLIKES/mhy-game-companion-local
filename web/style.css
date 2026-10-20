@@ -561,6 +561,8 @@ main { max-width: var(--maxw); margin: 0 auto; padding: 24px var(--gutter) 112px
 .main-group .check { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 2px 0; }
 .weights { margin-top: 8px; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
 fieldset:disabled { opacity: 0.6; }
+.gear-block { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 8px; }
+.gear-block .help .ic { color: var(--warn); }
 .owned { margin-top: 12px; padding: 10px 12px; border-radius: var(--r-control); background: var(--wash); display: grid; gap: 6px; }
 .owned > p { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .owned > p .ic { color: var(--good); }

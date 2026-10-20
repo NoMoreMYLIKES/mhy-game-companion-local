@@ -324,20 +324,51 @@ def observe(goal: dict, force: bool = False) -> dict:
 
 # ---------------------------------------------------------------- calculators
 
+def _count(value) -> int:
+    """A non-negative whole amount from a calculator answer; anything else means its format changed."""
+    if isinstance(value, str) and value.isdigit():
+        value = int(value)
+    if type(value) is not int or value < 0:
+        raise ValueError(tr('calc_format'))
+    return value
+
+
+def _quantity(item: dict) -> int:
+    """How many of a material a calculator row asks for. Rows have been seen naming it num or cnt; a row with
+    neither (or with disagreeing ones) is a format change, never 'nothing needed'."""
+    found = {_count(item[k]) for k in ('num', 'cnt', 'amount') if k in item}
+    if len(found) != 1:
+        raise ValueError(tr('calc_format'))
+    return found.pop()
+
+
 def calculate(goal: dict) -> list[dict]:
-    """Official requirement rows: need, owned (ZZZ) and remaining (official gap)."""
+    """Official requirement rows: need, owned (ZZZ) and remaining (official gap).
+
+    Every current level the request needs must have been read or entered: an unknown one is never taken as
+    level 1. A saved target below the current level asks for nothing; the target itself stays as saved."""
+    from . import materials
     game, cid = goal['game'], int(goal['character_id'])
-    cur, tgt = goal.get('current', {}), goal.get('target', {})
+    cur = goal.get('current') or {}
+    tgt = {k: max(v, cur[k]) if cur.get(k) is not None and k != 'promotion' else v
+           for k, v in (goal.get('target') or {}).items()}
+    talents = ('attack', 'skill', 'burst') if game == 'genshin' else tuple(SKILLS)
+    needed = ['level'] + [k for k in talents if k in tgt]
+    if goal.get('weapon_id') and 'weapon' in tgt:
+        needed.append('weapon')
+    missing = [k for k in needed if cur.get(k) is None]
+    if missing:
+        raise ValueError(tr('calc_current_unknown', fields=tr('sep').join(missing)))
 
     async def genshin_calc():
         c = client(game)
-        b = c.calculator().set_character(cid, int(cur.get('level', 1)), int(tgt.get('level', 1)))
-        if int(tgt.get('weapon', 0)) > int(cur.get('weapon', 0)):
+        b = c.calculator().set_character(cid, int(cur['level']), int(tgt.get('level', cur['level'])))
+        if 'weapon' in tgt and (cur.get('weapon') is None or tgt['weapon'] > cur['weapon']):
             if not goal.get('weapon_id'):
                 raise ValueError(tr('weapon_needed'))
-            b.set_weapon(int(goal['weapon_id']), int(cur.get('weapon', 1)), int(tgt['weapon']))
-        talents = {k: int(tgt.get(k, 1)) for k in ('attack', 'skill', 'burst')}
-        wanted = [k for k in talents if talents[k] > int(cur.get(k, 1))]
+            b.set_weapon(int(goal['weapon_id']), int(cur['weapon']), int(tgt['weapon']))
+        levels = {k: int(tgt[k]) for k in talents if k in tgt}
+        wanted = [k for k in levels if levels[k] > int(cur[k])]
         group_ids = goal.get('talent_groups') or {}
         if any(k not in group_ids for k in wanted):  # goals observed before the group ids were kept
             row = next((x for x in await _genshin_avatars(c) if x.get('id') == cid), None)
@@ -347,7 +378,7 @@ def calculate(goal: dict) -> list[dict]:
         for k in wanted:
             if k not in group_ids:
                 raise ValueError(tr('calc_format'))
-            b.add_talent(group_ids[k], int(cur.get(k, 1)), talents[k])
+            b.add_talent(group_ids[k], int(cur[k]), levels[k])
         # With the account's uid and server the calculator also returns what the backpack lacks
         # (has_user_info); genshin.py's batch_calculator() leaves them out, so every gap was unknown.
         uid = int(accounts()['genshin']['uid'])
@@ -379,13 +410,13 @@ def calculate(goal: dict) -> list[dict]:
     async def zzz_calc():
         c = client(game)
         uid = int(accounts()['zzz']['uid'])  # genshin.py logs in to the cultivation tool on its own
-        skills = [{'skill_type': kind, 'level': int(tgt.get(k, 1)), 'init_level': int(cur.get(k, 1))}
-                  for k, kind in SKILLS.items()]
+        skills = [{'skill_type': kind, 'level': int(tgt.get(k, cur[k])), 'init_level': int(cur[k])}
+                  for k, kind in SKILLS.items() if k in tgt or cur.get(k) is not None]  # targeted ones are known
         bounds = [10, 20, 30, 40, 50]
-        wlevel = int(cur.get('weapon', 0))
-        body = {'avatar_id': cid, 'avatar_level': int(tgt.get('level', 1)),
-                'avatar_current_level': int(cur.get('level', 1)),
-                'avatar_current_promotes': int(cur.get('promotion', 1 + sum(int(cur.get('level', 1)) > b for b in bounds))),
+        level = int(cur['level'])
+        wlevel = int(cur.get('weapon') or 0)  # 0 is a real W-Engine level; unknown only without a W-Engine id
+        body = {'avatar_id': cid, 'avatar_level': int(tgt.get('level', level)), 'avatar_current_level': level,
+                'avatar_current_promotes': int(cur.get('promotion', 1 + sum(level > b for b in bounds))),
                 'skills': skills,
                 'weapon_info': {'weapon_id': int(goal.get('weapon_id') or 0), 'weapon_level': int(tgt.get('weapon', wlevel)),
                                 'weapon_init_level': wlevel, 'weapon_promotes': sum(wlevel > b for b in bounds)}}
@@ -398,16 +429,27 @@ def calculate(goal: dict) -> list[dict]:
             if not isinstance(raw.get(field), list):
                 raise ValueError(tr('calc_format'))
             for item in raw[field]:
+                if not isinstance(item, dict) or 'id' not in item:
+                    raise ValueError(tr('calc_format'))
                 mid = str(item['id'])
                 if isinstance(item.get('icon'), str):
                     _collect_icons({assets.key(game, 'material', mid): item['icon']})
                 row = merged.setdefault(mid, {'id': mid, 'name': item.get('name', mid), 'need': 0, 'categories': []})
-                row['need'] += int(item.get('num', item.get('amount', 0)))
+                row['need'] += _quantity(item)
                 if category not in row['categories']:
                     row['categories'].append(category)
+        # A series converts 3:1 and 1:3, so stock of its other tiers counts too: keep what the answer reports of them.
+        series = {}
+        for mid, row in merged.items():
+            info = materials.meta('zzz', mid)
+            if info.get('kind') in materials.ZZZ_SERIES and info.get('group'):
+                series.setdefault(info['group'], row['categories'])
+        for mid, info in materials.dataset('zzz').get('materials', {}).items():
+            if info.get('group') in series and info.get('kind') in materials.ZZZ_SERIES and mid in owns and mid not in merged:
+                merged[mid] = {'id': mid, 'name': info.get('name', mid), 'need': 0, 'categories': list(series[info['group']])}
         rows = []
         for mid, row in merged.items():
-            owned = int(owns[mid]) if mid in owns else None
+            owned = _count(owns[mid]) if mid in owns else None
             rows.append({**row, 'category': row['categories'][0], 'owned': owned,
                          'remaining': max(0, row['need'] - owned) if owned is not None else None})
         return rows

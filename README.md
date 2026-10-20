@@ -23,7 +23,7 @@ The planner follows four rules:
 
 ## Features
 
-- **Goals**: targets per character (level, talents / skills, weapon or W-Engine). Material gaps come from the official Enhancement Progression Calculator, and you set the order.
+- **Goals**: targets per character (level, talents / skills, weapon or W-Engine). Material gaps come from the official Enhancement Progression Calculator, and you set the order; what you own counts once, for the first goal in that order that needs it.
 - **Plan and forecast**: Today shows each game's stamina, its next runs as a timetable (what each batch farms, what it spends and why), and how far each goal has come. A 3-day forecast uses the same rule.
 - **Inventory scan (optional)**: with an OCR scanner installed (a maintained [yas](https://github.com/wormtql/yas) fork for Genshin, [ZZZ-Scanner.Next](https://github.com/ZztIsolation/ZZZ-Scanner.Next) for ZZZ), the app opens the bag or the Drive Disc storage after equipment farming and scans every piece you own. Farming then stops once pieces you own meet a character's target, and the goal card lists what to equip. The app never equips, locks or dismantles anything.
 - **Drive Discs and Artifacts**: the equipped gear of each goal's character is read at its sync (only the characters you added) and scored against the build Miyoushe recommends for it, or your own picks there: every substat roll that counts, against the best a piece could hold, with wasted upgrades shown. Give a character an equipment target (score, sets, main stats, adjustable substat weights) and Drive Disc or Artifact farming goes to the first unfinished character, on the Area Patrol stage or Domain of Blessing that drops the set it still needs, until the target is met or your cap is reached.

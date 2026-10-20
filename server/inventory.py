@@ -24,7 +24,8 @@ def save(game: str, pieces: list[dict], source: str, located: bool = True) -> di
     ``located`` is False when the scanner does not report who wears a piece or whether it is locked."""
     for i, p in enumerate(pieces):
         p['uid'] = str(i)
-    value = {'at': core.stamp(), 'source': source, 'pieces': pieces, 'located': located}
+    value = {'at': core.stamp(), 'source': source, 'pieces': pieces, 'located': located,
+             'account': core.account_key(game)}  # the role logged in to the game is taken to be the selected one
     core.put('inventory:' + game, value)
     core.put('inventory_at:' + game, value['at'])
     _CACHE.pop(game, None)
@@ -32,7 +33,7 @@ def save(game: str, pieces: list[dict], source: str, located: bool = True) -> di
 
 
 def load(game: str) -> dict | None:
-    """The last scan (cached while its time stamp is unchanged)."""
+    """The last scan of the selected role (cached while its time stamp is unchanged)."""
     at = core.get('inventory_at:' + game)
     if not at:
         return None
@@ -40,7 +41,8 @@ def load(game: str) -> dict | None:
     if not cached or cached['at'] != at:
         cached = {'at': at, 'value': core.get('inventory:' + game), 'arranged': None}
         _CACHE[game] = cached
-    return cached['value']
+    value = cached['value']
+    return value if value and value.get('account') == core.account_key(game) else None
 
 
 def summary(game: str) -> dict | None:
@@ -61,16 +63,26 @@ def _signature(p: dict) -> tuple:
     return p['slot'], p['set_id'], p.get('level'), (p.get('main') or {}).get('id'), tuple(sorted(subs, key=str))
 
 
-def available_to(goal: dict, piece: dict, worn_by_others: set | None = None) -> bool:
-    """Unequipped pieces, and the ones this character wears now; never a piece another character wears.
+def wearer(goal: dict, pieces: list[dict]) -> str | None:
+    """The character's name as the scan lists wearers: the one wearing most of the pieces Miyoushe shows on it.
+    None when none of them is in the scan, or when two wearers tie."""
+    own = {_signature(d) for d in (goal.get('gear') or {}).get('discs') or []}
+    counts: dict[str, int] = {}
+    for p in pieces:
+        if p.get('location') and _signature(p) in own:
+            counts[p['location']] = counts.get(p['location'], 0) + 1
+    top = sorted(counts.items(), key=lambda kv: -kv[1])
+    return top[0][0] if top and (len(top) == 1 or top[0][1] > top[1][1]) else None
+
+
+def available_to(goal: dict, piece: dict, worn_by_others: set | None = None, worn_as: str | None = None) -> bool:
+    """Unequipped pieces, and the ones this character wears (``worn_as``: its wearer name in the scan, see wearer);
+    never a piece another character wears, even one with the same stats.
     Without wearers in the scan, ``worn_by_others`` (what the other goal characters wear, from Miyoushe)
     keeps their pieces out; a piece of a character that is not a goal cannot be told apart."""
     if worn_by_others is not None:
         return _signature(piece) not in worn_by_others
-    if not piece.get('location'):
-        return True
-    own = (goal.get('gear') or {}).get('discs') or []
-    return any(_signature(piece) == _signature(e) for e in own)
+    return not piece.get('location') or (worn_as is not None and piece['location'] == worn_as)
 
 
 # ---------------------------------------------------------------- arrangement
@@ -136,18 +148,19 @@ def arrange(game: str) -> dict | None:
     inv = load(game)
     if not inv:
         return None
-    goals = [g for g in core.goals(game) if g.get('enabled') and gear.effective_target(g)['farm']]
-    key = tuple((g['id'], g.get('updated')) for g in goals)
+    key = core.goals_version()
     cached = _CACHE[game]
     if cached['arranged'] and cached['arranged'][0] == key:
         return cached['arranged'][1]
+    goals = [g for g in core.goals(game) if g.get('enabled') and gear.effective_target(g)['farm']]
     located = inv.get('located', True)
     worn = {g['id']: {_signature(d) for d in (g.get('gear') or {}).get('discs') or []} for g in core.goals(game)}
     used: set[str] = set()
     result = {}
     for goal in goals:
         others = None if located else set().union(*(v for k, v in worn.items() if k != goal['id']))
-        pool = [p for p in inv['pieces'] if p['uid'] not in used and available_to(goal, p, others)]
+        worn_as = wearer(goal, inv['pieces']) if located else None
+        pool = [p for p in inv['pieces'] if p['uid'] not in used and available_to(goal, p, others, worn_as)]
         found = best(goal, pool)
         if found:
             used.update(found['picks'].values())

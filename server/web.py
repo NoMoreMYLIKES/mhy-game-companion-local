@@ -42,9 +42,10 @@ def public_settings() -> dict:
     return s
 
 
-def goal_view(goal: dict, ctx: dict, weekday: int) -> dict:
+def goal_view(goal: dict, ctx: dict, weekday: int, shared: list[dict] | None = None) -> dict:
+    """shared: the goal's collection items with the account's stock handed out (planner.items_by_goal)."""
     items = []
-    for item in planner.goal_items(goal, ctx):
+    for item in planner.goal_items(goal, ctx, shared):
         items.append({k: item.get(k) for k in ('key', 'label', 'names', 'kind', 'unit', 'unit_label', 'units', 'available',
                                                'executed', 'note', 'progress', 'paused', 'done', 'rank', 'weekdays',
                                                'tint', 'cost')}
@@ -65,6 +66,7 @@ def full_state() -> dict:
     weekday = core.game_date().weekday()
     s = core.settings()
     plans = {g: planner.plan(g) for g in ('zzz', 'genshin')}
+    shared = {g: planner.items_by_goal(g, ctx) for g in ('zzz', 'genshin')}
     return {
         'version': core.VERSION, 'now': core.stamp(), 'game_date': str(core.game_date()), 'weekday': weekday,
         'admin': core.is_admin(), 'automation': tools.automation(), 'logged_in': mihoyo.logged_in(), 'accounts': mihoyo.accounts(),
@@ -73,7 +75,7 @@ def full_state() -> dict:
         'candidates': mihoyo.account_candidates(), 'qr': auth.state(),
         'runner': runner.state(), 'next_slot': scheduler.next_slot(),
         'plans': plans, 'stamina': {g: planner.estimate(g) for g in ('zzz', 'genshin')},
-        'goals': {g: [goal_view(x, ctx, weekday) for x in core.goals(g)] for g in ('zzz', 'genshin')},
+        'goals': {g: [goal_view(x, ctx, weekday, shared[g].get(x['id'])) for x in core.goals(g)] for g in ('zzz', 'genshin')},
         'forecast': planner.forecast(3), 'runs': core.runs(20),
         'health': {k: mihoyo.health(k) for k in ('stamina-genshin', 'stamina-zzz', 'calc')},
         'settings': public_settings(), 'check': env_check(), 'notifications': notify.recent(10),
@@ -255,24 +257,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/api/stop':
             return runner.request_stop()
         if path == '/api/settings':
-            before = core.settings()
-            if b.get('secrets'):
-                core.save_secrets(b['secrets'])
-            lan = (b.get('settings') or {}).get('server', {}).get('lan', before['server']['lan'])
-            if lan and not core.secrets_store().get('password'):
-                raise ValueError(tr('lan_needs_password'))
-            after = core.save_settings(b.get('settings') or {})
-            if after['schedule']['enabled'] and not before['schedule']['enabled']:
-                scheduler.mark_past_slots_done()
-            if after['schedule']['autostart'] != before['schedule']['autostart']:
-                try:
-                    scheduler.set_autostart(after['schedule']['autostart'])
-                except ValueError:
-                    core.save_settings({'schedule': {'autostart': before['schedule']['autostart']}})
-                    raise
-            _CHECK.clear()
-            restart = after['server'] != before['server']
-            return {'ok': True, 'restart_needed': restart}
+            return save_settings(b.get('settings') or {}, b.get('secrets') or {})
         if path == '/api/notify/test':
             notify.send(b['channel'], tr('test_title'), tr('test_body'))
             return {'ok': True}
@@ -288,7 +273,39 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/api/equip/reset':
             core.put('equip_used:' + b['game'], 0)
             return {'ok': True}
+        if path == '/api/equip/grant':  # the allowance named another role: the user grants it to the selected one
+            core.grant_allowance(b['game'])
+            return {'ok': True}
         raise ValueError(tr('unknown_api'))
+
+
+def save_settings(patch: dict, secrets: dict) -> dict:
+    """All or nothing: the whole request is checked first, then the logon task (the step the system may refuse)
+    changes, then the files. A refused request leaves the schedule, the task and the secrets as they were."""
+    before = core.settings()
+    merged, _ = core.prepare_settings(patch)
+    after = core._merge(core.DEFAULTS, merged)
+    password = secrets['password'] if 'password' in secrets else core.secrets_store().get('password')
+    if after['server']['lan'] and not password:
+        raise ValueError(tr('lan_needs_password'))
+    autostart = after['schedule']['autostart'] != before['schedule']['autostart']
+    if autostart:
+        scheduler.set_autostart(after['schedule']['autostart'])
+    try:
+        if secrets:
+            core.save_secrets(secrets)
+        after = core.save_settings(patch)
+    except Exception:
+        if autostart:
+            try:
+                scheduler.set_autostart(before['schedule']['autostart'])
+            except Exception:
+                log.exception('Could not put the logon task back')
+        raise
+    if after['schedule']['enabled'] and not before['schedule']['enabled']:
+        scheduler.mark_past_slots_done()
+    _CHECK.clear()
+    return {'ok': True, 'restart_needed': after['server'] != before['server']}
 
 
 def request_shutdown(body: dict) -> dict:

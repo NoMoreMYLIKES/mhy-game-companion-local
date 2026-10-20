@@ -158,11 +158,13 @@ def _run_game(run_id: str, game: str) -> dict:
             return _finish(result, 'SKIPPED', tr('skip_game_running'))
         tools.kill_path(game_exe)
     tools.kill_path(tool_exe)
+    role = core.account_key(game)  # an in-game reading is of the role selected when the run began
     proc = None
     plan_ids: list[str] = []
     baseline: dict = {}
     timed_out = False
     try:
+        baseline = tools.log_baseline(game)  # this batch's logs start here; earlier lines are never its receipt
         _stage('stage_config')
         if game == 'genshin':
             profile = tools.bgi_prepare(item)
@@ -170,7 +172,6 @@ def _run_game(run_id: str, game: str) -> dict:
             plan_ids = tools.zzz_prepare(run_id, item)
             if item and not tools.zzz_patch_ok():
                 result['notes'].append(tr('zzz_no_patch'))
-        baseline = tools.log_baseline(game)
         _stage('stage_launch')
         tools.launch_game(game)
         if _sleep(5):
@@ -215,10 +216,11 @@ def _run_game(run_id: str, game: str) -> dict:
         except Exception as exc:
             result['errors'].append(tr('kill_failed', error=exc))
         time.sleep(2)
-        text = tools.read_new(game, baseline) if baseline is not None else ''
+        # Only a tool this batch started can have written its receipt; before that, the logs hold earlier runs.
+        text = tools.read_new(game, baseline) if result.get('started_tool') else ''
         receipt = tools.zzz_receipt(plan_ids) if game == 'zzz' and plan_ids else None
         result['errors'] += tools.restore_all()
-    return _receipt(result, game, item, text, receipt, timed_out)
+    return _receipt(result, game, item, text, receipt, timed_out, role)
 
 
 def _scan(game: str, game_exe) -> str:
@@ -233,38 +235,47 @@ def _scan(game: str, game_exe) -> str:
     return tr('scan_note_failed', error=found['error'])
 
 
-def _receipt(result: dict, game: str, item: dict | None, text: str, receipt: dict | None, timed_out: bool) -> dict:
+def _receipt(result: dict, game: str, item: dict | None, text: str, receipt: dict | None, timed_out: bool,
+             role=core.SELECTED) -> dict:
+    """Status, completed units and notes of one game's run, from this batch's logs and plan counters only.
+    SUCCESS needs the tool's own completion, a known completed amount and no error of the run itself
+    (such as a config that could not be restored)."""
     stopped = result['status'] == 'STOPPED'
+    battles = None
     if game == 'genshin':
         log_ = tools.parse_bgi(text)
         result['log'] = log_
         if item:
             units = log_['claims20'] + 2 * log_['claims40'] if item['unit'] == 'claim20' else log_['claims40']
             result['completed'] = min(units, item['upper'])
+            battles = log_['claims20'] + log_['claims40']  # a 40-resin claim is one battle with two rewards
         if log_['extra']:
             result['notes'].append(tr('extra_resin', items=tr('sep').join(log_['extra'])))
         ok = log_['terminal']
+        if ok and log_['tool_errors']:  # BetterGI finished its list but logged errors on the way
+            result['notes'].append(tr('tool_errors', errors=tr('sep_strong').join(log_['tool_errors'][-3:])))
         result['errors'] += log_['errors'][-3:] if not ok else []
     else:
         log_ = tools.parse_zzz(text)
         result['log'] = log_
         if item:
             result['completed'] = (receipt or {}).get('completed')
+            battles = (receipt or {}).get('battles', result['completed'])
             if result['completed'] is None and receipt:
                 result['notes'].append(receipt.get('reason', tr('amount_unverified')))
         stop = (receipt or {}).get('energy_stop')
         energy = stop.get('current') if stop else log_['last_energy']
         if type(energy) is int:
-            core.add_sample('zzz', energy, None, 'source_onedragon')  # message key, translated when shown
+            core.add_sample('zzz', energy, None, 'source_onedragon', account=role)  # message key, translated when shown
         ok = log_['one_dragon'] == 'success' and log_['charge'] != 'failed'
         if not ok:
             result['errors'] += log_['errors'][-3:]
     done = result['completed'] or 0
     if item and done > 0:
         if result['phase'] == 'equipment':
-            core.put('equip_used:' + game, int(core.get('equip_used:' + game, 0)) + done)
+            core.put('equip_used:' + game, int(core.get('equip_used:' + game, 0)) + done)  # the cap counts rewards
             if result['goal_id']:
-                goals.record_gear_runs(result['goal_id'], done)
+                goals.record_gear_runs(result['goal_id'], battles or 0)
         else:
             goals.record_done(item['key'], done)
     if stopped:
@@ -275,6 +286,10 @@ def _receipt(result: dict, game: str, item: dict | None, text: str, receipt: dic
         status, why = 'FAILED', result['errors'][0]
     elif not ok:
         status, why = 'PARTIAL', tr('no_terminal')
+    elif result['errors']:  # the tool finished, but this run left something wrong (a config not restored)
+        status, why = 'PARTIAL', result['errors'][0]
+    elif item and result['completed'] is None:  # finished, but how much is not known yet
+        status, why = 'PARTIAL', tr('amount_unverified')
     else:
         status, why = 'SUCCESS', ''
     if item:

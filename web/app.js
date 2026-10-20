@@ -390,6 +390,8 @@ const I18N = {
     disc_mission: 'Area Patrol mission',
     disc_cap: 'Budget until reset (runs)',
     equip_used: 'Used {0} of {1}',
+    equip_role_other: 'This budget was granted for another game role, so it spends nothing for the selected one.',
+    btn_equip_grant: 'Allow for this role',
     equip_fixed_hint: 'Used only while no character’s equipment target steers farming',
     equip_none: 'None: only characters’ targets steer',
     stages_needed: 'Drops a set your goals need',
@@ -415,6 +417,7 @@ const I18N = {
     gear_status_off: 'Not steering farming',
     gear_status_next: 'Next equipment run: {0}',
     gear_status_queued: 'Queued: {0}',
+    gear_status_blocked: 'Not farmed now',
     gear_sets_line: 'Sets: {0}',
     gear_mains_ok: 'Main stats match',
     gear_mains_bad: 'Main stat mismatch',
@@ -577,6 +580,7 @@ const I18N = {
     toast_goal_resumed: 'Cultivation resumed for {0}',
     toast_goal_deleted: '{0} deleted',
     toast_synced: 'Synced with the official calculator',
+    toast_sync_failed: 'Sync incomplete: {0}',
     toast_paused: 'Item paused',
     toast_resumed: 'Item resumed',
     toast_order: 'Order updated',
@@ -584,6 +588,7 @@ const I18N = {
     toast_saved: 'Settings saved',
     toast_restart: 'Settings saved. Restart the backend to apply the port or LAN change.',
     toast_equip_reset: 'Counter reset',
+    toast_equip_granted: 'Budget allowed for the selected role',
     toast_save_first: 'Save your changes first',
     toast_test_sent: 'Test notification sent',
     toast_account: 'Account selected',
@@ -980,6 +985,8 @@ const I18N = {
     disc_mission: '区域巡防关卡',
     disc_cap: '累计预算（场，清零前）',
     equip_used: '已用 {0} / {1}',
+    equip_role_other: '此累计预算是为另一个游戏角色授权的，当前所选角色不会消耗它。',
+    btn_equip_grant: '为当前角色授权',
     equip_fixed_hint: '仅在没有角色的装备目标参与刷取时使用',
     equip_none: '无：仅按角色的装备目标',
     stages_needed: '掉落培养目标所需的套装',
@@ -1005,6 +1012,7 @@ const I18N = {
     gear_status_off: '未参与刷取',
     gear_status_next: '下次装备刷取：{0}',
     gear_status_queued: '排队中：{0}',
+    gear_status_blocked: '暂不刷取',
     gear_sets_line: '套装：{0}',
     gear_mains_ok: '主属性符合',
     gear_mains_bad: '主属性不符',
@@ -1166,6 +1174,7 @@ const I18N = {
     toast_goal_resumed: '已恢复{0}的培养',
     toast_goal_deleted: '已删除{0}',
     toast_synced: '已与官方养成计算器同步',
+    toast_sync_failed: '同步未完成：{0}',
     toast_paused: '该项目已暂停',
     toast_resumed: '该项目已恢复',
     toast_order: '顺序已更新',
@@ -1173,6 +1182,7 @@ const I18N = {
     toast_saved: '设置已保存',
     toast_restart: '设置已保存。端口或局域网设置需重启后台后生效。',
     toast_equip_reset: '计数已清零',
+    toast_equip_granted: '已为当前角色授权累计预算',
     toast_save_first: '请先保存更改',
     toast_test_sent: '测试通知已发送',
     toast_account: '已选择账号',
@@ -1454,6 +1464,22 @@ async function commit(btn, request, message, labelKey, changed) {
     if (ok && changed) flash(changed);
   }, labelKey);
 }
+/** Sync one goal. The answer can be 200 with some official reads failed: the toast names those instead of
+ *  claiming a full sync. */
+async function syncGoal(btn) {
+  const id = btn.dataset.id;
+  await busy(btn, async () => {
+    const goal = await api('/api/goals/sync', 'POST', { id, observe: true });
+    const ok = await refreshState(true);
+    const failed = goal?.id ? [...new Set([goal.observe_error, goal.gear_error, goal.calc_error].filter(Boolean))] : [];
+    if (!ok) toast(tp('saved_not_reloaded'), 'error');
+    else if (failed.length) toast(tp('toast_sync_failed', failed.join(tp('list_sep'))), 'error');
+    else {
+      toast(tp('toast_synced'), 'ok');
+      flash(goalSel(id));
+    }
+  }, 'syncing');
+}
 /** Briefly mark the element a change landed on. */
 function flash(selector) {
   const el = document.querySelector(selector);
@@ -1484,6 +1510,7 @@ async function refreshState(force = false) {
   }
   render(force);
   updateLoginDialog();
+  updateTargetsDialog();
   return true;
 }
 
@@ -2026,7 +2053,7 @@ function goalCard(g, idx, total, nextKey) {
         <div>
           <h2>${esc(g.name)}${agentTags(g)}</h2>
           <p class="meta"><span class="queue">${t('queue_pos', idx + 1, total)}${orderControl('move-goal', `data-id="${id}"`, idx, total)}</span>
-            <span>${icon('refresh')}${g.sync_at ? t('synced', relative(g.sync_at)) : t('never_synced')}</span></p>
+            <span>${icon('refresh')}${g.observe_at ? t('synced', relative(g.observe_at)) : t('never_synced')}</span></p>
         </div>
         <div class="goal-actions">
           ${button('sync-goal', 'refresh', t('btn_sync'), 'sm', `data-id="${id}"`)}
@@ -2094,7 +2121,7 @@ function targetTable(g, fields, editable) {
     const target = editable
       ? `<input type="number" name="${k}" min="${min}" max="${max}" step="1" inputmode="numeric" value="${esc(tgt ?? '')}" aria-label="${t(label)}: ${t('col_target')}">`
       : `<span class="${cur != null && tgt > cur ? 'up' : ''}">${tgt ?? '–'}</span>`;
-    return `<tr><th scope="row">${t(label)}</th><td class="c">${cur ?? '–'}</td><td class="arrow" aria-hidden="true">→</td><td class="c">${target}</td></tr>`;
+    return `<tr><th scope="row">${t(label)}</th><td class="c" data-cur="${k}">${cur ?? '–'}</td><td class="arrow" aria-hidden="true">→</td><td class="c">${target}</td></tr>`;
   }).join('');
   return `<table class="target-table"><thead><tr><th scope="col">${t('col_field')}</th><th scope="col" class="c">${t('col_current')}</th><th class="arrow"></th><th scope="col" class="c">${t('col_target')}</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
@@ -2142,9 +2169,20 @@ function gearStatus(g, ev) {
   if ((ev && ev.done) || (g.gear_owned && g.gear_owned.done)) return '';  // the verdict and the storage box say it
   if (!ev?.target?.farm) return badge('muted', 'minus', t('gear_status_off'), 'off');
   if (row && row.why) return badge('warn', 'clock', esc(row.why), 'waiting');
-  if (eq.goal_id === g.id && !eq.why) return badge('info', 'target', t('gear_status_next', esc(row.stage)), 'next');
+  if (eq.why) return badge('warn', 'clock', t('gear_status_blocked'), 'blocked');  // gearBlock says why
+  if (eq.goal_id === g.id) return badge('info', 'target', t('gear_status_next', esc(row.stage)), 'next');
   if (row && row.stage) return badge('muted', 'list', t('gear_status_queued', esc(row.stage)), 'queued');
   return badge('warn', 'clock', esc(eq.why || ''), 'waiting');
+}
+
+/** Why no equipment is farmed for anyone now, under a character that asked for it, with the way to change it when
+ *  that is a setting (the continuation off, its budget used up or granted for another role). Nothing is turned on here. */
+function gearBlock(g, ev) {
+  const row = gearQueueRow(g);
+  const eq = STATE.plans?.[g.game]?.equipment || {};
+  if ((ev && ev.done) || (g.gear_owned && g.gear_owned.done) || !ev?.target?.farm || (row && row.why) || !eq.why) return '';
+  const setting = !eq.enabled || eq.role_ok === false || !eq.left;
+  return `<div class="gear-block">${help(esc(eq.why), 'alert')}${setting ? linkButton('#/settings/set-farming', 'sliders', t('btn_farming_settings')) : ''}</div>`;
 }
 
 function gearSection(g) {
@@ -2177,6 +2215,7 @@ function gearSection(g) {
         <div class="gear-checks">${chips}</div>
         ${state ? `<div class="gear-state">${state}</div>` : ''}
       </div>
+      ${gearBlock(g, ev)}
       ${ownedBlock(g)}
       <p class="meta ink-2"><span>${src}</span><span>${icon('refresh')}${t('gear_read_' + g.game, relative(ev.at))}</span>${g.gear_runs ? `<span>${t('gear_runs', num(g.gear_runs))}</span>` : ''}${toggleButton(detailId)}</p>
       ${detailPanel(detailId, `
@@ -2390,6 +2429,7 @@ function openTargets(goal) {
 function renderTargetsDialog(goal) {
   openDialog(dialogShell(t('dlg_targets_title', goal.name), `
       ${targetTables(goal, true)}
+      <p class="meta ink-2" data-read>${readLine(goal)}</p>
       ${help(t('targets_help'))}`,
     `${MODAL.error ? `<span class="err" role="alert">${icon('alert')}${esc(MODAL.error)}</span>` : ''}
       <button type="button" class="btn quiet foot-start" data-action="targets-max">${icon('up')}<span class="txt">${t('btn_max')}</span></button>
@@ -2826,7 +2866,10 @@ function schedulePanel(s) {
 
 function equipUsage(game) {
   const e = STATE.plans?.[game]?.equipment || {};
-  return `<span class="usage">${icon('list')}<span>${t('equip_used', e.used ?? 0, e.cap ?? 0)}</span>
+  // A budget spends one game role's stamina: granted for another role (or before roles were recorded), it waits.
+  const role = e.enabled && e.role_ok === false ? `<div class="gear-block">${help(t('equip_role_other'), 'alert')}
+    ${button('equip-grant', 'check', t('btn_equip_grant'), 'sm', `data-game="${game}"`)}</div>` : '';
+  return `${role}<span class="usage">${icon('list')}<span>${t('equip_used', e.used ?? 0, e.cap ?? 0)}</span>
     ${button('equip-reset', 'refresh', t('btn_reset'), 'sm quiet', `data-game="${game}"${e.used ? '' : ' disabled'}`)}</span>`;
 }
 
@@ -3129,7 +3172,7 @@ const ACTIONS = {
     [list[i], list[j]] = [list[j], list[i]];
     await api('/api/goals/order', 'POST', { game: goal.game, ids: list.map(g => g.id) });
   }, tp('toast_order'), undefined, goalSel(btn.dataset.id)),
-  'sync-goal': btn => commit(btn, () => api('/api/goals/sync', 'POST', { id: btn.dataset.id, observe: true }), tp('toast_synced'), 'syncing', goalSel(btn.dataset.id)),
+  'sync-goal': btn => syncGoal(btn),
   'edit-targets': btn => { const goal = goalBy(btn); if (goal) openTargets(goal); },
   'edit-gear': btn => { const goal = goalBy(btn); if (goal && goal.gear_eval) openGearTarget(goal); },
   'targets-discard': () => { MODAL.dirty = false; MODAL.error = ''; renderTargetsDialog(findGoal(MODAL.id)); },
@@ -3176,6 +3219,7 @@ const ACTIONS = {
     commit(btn, () => api('/api/logout', 'POST', {}), tp('toast_logged_out'));
   },
   'equip-reset': btn => commit(btn, () => api('/api/equip/reset', 'POST', { game: btn.dataset.game }), tp('toast_equip_reset')),
+  'equip-grant': btn => commit(btn, () => api('/api/equip/grant', 'POST', { game: btn.dataset.game }), tp('toast_equip_granted')),
   'images-sync': btn => commit(btn, () => api('/api/assets/sync', 'POST', {}), tp('toast_images')),
   'notify-test': btn => {
     if (SETTINGS_DIRTY) { toast(tp('toast_save_first'), 'error'); return; }
@@ -3228,6 +3272,21 @@ async function submitTargets(form) {
     toast(ok ? tp('toast_targets') : tp('saved_not_reloaded'), ok ? 'ok' : 'error');
     if (ok) flash(`${goalSel(goal.id)} .targets`);
   }, 'saving');
+}
+
+/** When the levels were last read from the official tools (a sync that failed to read them does not count). */
+function readLine(g) {
+  return `${icon('refresh')}<span>${g.observe_at ? t('synced', relative(g.observe_at)) : t('never_synced')}</span>`;
+}
+
+/** An open target dialog keeps what the user typed, but its current levels follow every refresh. */
+function updateTargetsDialog() {
+  if (MODAL?.kind !== 'targets') return;
+  const goal = findGoal(MODAL.id);
+  if (!goal) return;
+  document.querySelectorAll('#modal [data-cur]').forEach(td => { td.textContent = goal.current?.[td.dataset.cur] ?? '–'; });
+  const read = document.querySelector('#modal [data-read]');
+  if (read) read.innerHTML = readLine(goal);
 }
 
 /** Re-draw the dialog (to show an error) while keeping the values the user typed. */

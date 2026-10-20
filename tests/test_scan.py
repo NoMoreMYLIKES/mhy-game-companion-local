@@ -16,9 +16,13 @@ class ScanTest(unittest.TestCase):
     def setUpClass(cls):
         cls.temp_dir = tempfile.mkdtemp(prefix='gcl_scan_')
         os.environ['GCL_HOME'] = cls.temp_dir
+        from server import core  # an earlier test module may have imported it already: GCL_HOME alone would not reach it
+        cls.data = mock.patch.object(core, 'DATA', Path(cls.temp_dir))
+        cls.data.start()
 
     @classmethod
     def tearDownClass(cls):
+        cls.data.stop()
         shutil.rmtree(cls.temp_dir, ignore_errors=True)
 
     def test_good_from_yas(self):
