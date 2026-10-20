@@ -1,4 +1,5 @@
 """Drive Disc evaluation: rolls, scores, targets, and the per-character equipment continuation."""
+import asyncio
 import os
 import shutil
 import sys
@@ -301,6 +302,43 @@ class GearTest(unittest.TestCase):
         self.assertEqual(materials.stage_for_set({'id': None, 'name': '雪兔梦游仙境 '}, stages), '伏龙与战车')
         self.assertIsNone(materials.stage_for_set({'id': 1, 'name': 'Unknown'}, stages))
         self.assertEqual(len(materials.gear_sets('zzz', '')), 30)
+
+    def logged_in_home(self):
+        """A temporary runtime folder holding a shared login with one Genshin role."""
+        from server import core
+        home = Path(tempfile.mkdtemp(prefix='gcl_gear_read_'))
+        self.addCleanup(shutil.rmtree, home, ignore_errors=True)
+        patcher = mock.patch.object(core, 'DATA', home)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        core.save_secret('mihoyo', {'cookies': {'ltuid': '1'}, 'generation': 'test',
+                                    'app': {'aid': '1', 'mid': 'test-mid', 'stoken': 'v2_test', 'identity': {}},
+                                    'accounts': {'genshin': {'uid': '100000001', 'server': 'cn_gf01'}}})
+
+    def test_artifact_captcha_backs_off_until_the_user_syncs(self):
+        """A captcha on the artifact read pauses scheduled reads; Sync on the goal tries again at once."""
+        import genshin
+        from server import mihoyo
+        self.logged_in_home()
+        detail = mock.AsyncMock(side_effect=genshin.GenshinException({'retcode': 1034, 'message': ''}))
+        client = SimpleNamespace(get_genshin_detailed_characters=detail)
+        goal = {'game': 'genshin', 'character_id': '10000089'}
+        for force, reads in ((False, 1), (False, 1), (True, 2)):
+            result = {}
+            asyncio.run(mihoyo._genshin_gear(client, goal, result, force))
+            self.assertIn('1034', result['gear_error'])
+            self.assertEqual(detail.await_count, reads)
+        self.assertEqual(mihoyo.health('detail')['failures'], 2)
+
+    def test_sync_without_a_login_asks_for_one(self):
+        from server import core, mihoyo
+        from server.i18n import tr
+        self.logged_in_home()
+        core.save_secret('mihoyo', {'cookies': {'ltuid': '1'}})  # an old website-only login: no accounts
+        with mock.patch.object(mihoyo, 'client', side_effect=AssertionError('no request without a login')), \
+                self.assertRaises(ValueError) as caught:
+            mihoyo.observe({'game': 'genshin', 'character_id': '10000089'})
+        self.assertEqual(str(caught.exception), tr('login_first'))
 
 
 if __name__ == '__main__':

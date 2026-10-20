@@ -106,7 +106,8 @@ def queue_sync(goal_id: str, observe: bool = True, delay: float = 0) -> None:
     timer.start()
 
 
-def sync(goal_id: str, observe: bool = True) -> dict:
+def sync(goal_id: str, observe: bool = True, force: bool = False) -> dict:
+    """Read the goal's character and calculate its materials. force: the user asked for it (mihoyo.observe)."""
     with SYNC_LOCK:
         goal = core.goal(goal_id)
         if not goal:
@@ -114,7 +115,7 @@ def sync(goal_id: str, observe: bool = True) -> dict:
         goal['sync_at'] = core.stamp()
         if observe:
             try:
-                seen = mihoyo.observe(goal)
+                seen = mihoyo.observe(goal, force=force)
                 goal['current'] = {**goal.get('current', {}), **seen['current']}
                 if seen.get('weapon_id'):
                     goal['weapon_id'], goal['weapon_name'] = seen['weapon_id'], seen.get('weapon_name', '')

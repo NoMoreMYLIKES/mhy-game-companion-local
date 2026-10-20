@@ -247,7 +247,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/api/goals/order':
             return goals.set_order(b['game'], b['ids'])
         if path == '/api/goals/sync':
-            return goals.sync(b['id'], observe=b.get('observe', True))
+            return goals.sync(b['id'], observe=b.get('observe', True), force=True)  # the Sync button
         if path == '/api/run':
             if runner.busy():
                 raise ValueError(tr('batch_running'))

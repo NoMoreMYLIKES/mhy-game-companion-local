@@ -251,13 +251,14 @@ def _collect_icons(sources: dict) -> None:
 GEAR_REREAD = timedelta(seconds=60)
 
 
-async def _genshin_gear(c: genshin.Client, goal: dict, result: dict) -> None:
+async def _genshin_gear(c: genshin.Client, goal: dict, result: dict, force: bool = False) -> None:
     """Artifacts of this goal's character only: one extra request (character detail), never for the whole roster.
-    Skipped right after a read, and backed off after failures (captchas); levels are read either way."""
+    Skipped right after a read, and backed off after failures (captchas) unless forced by a sync the user asked
+    for; levels are read either way."""
     last = core.parse((goal.get('gear') or {}).get('at'))
     if last and core.now() - last < GEAR_REREAD:
         return
-    if not allowed('detail'):
+    if not allowed('detail', force):
         result['gear_error'] = health('detail').get('reason') or tr('backing_off')
         return
     try:
@@ -272,8 +273,9 @@ async def _genshin_gear(c: genshin.Client, goal: dict, result: dict) -> None:
         result['gear_error'] = reason
 
 
-def observe(goal: dict) -> dict:
-    """Current levels from the official cultivation tools (never guessed)."""
+def observe(goal: dict, force: bool = False) -> dict:
+    """Current levels from the official cultivation tools (never guessed). force: the user asked for this sync,
+    so a backed-off equipment read is tried again."""
     game, cid = goal['game'], int(goal['character_id'])
 
     async def read():
@@ -293,7 +295,7 @@ def observe(goal: dict) -> dict:
             if weapon.get('id'):
                 current['weapon'] = int(weapon.get('level_current') or 1)
                 result.update(weapon_id=str(weapon['id']), weapon_name=weapon.get('name', ''))
-            await _genshin_gear(c, goal, result)
+            await _genshin_gear(c, goal, result, force)
             return result
         guide = (await c.get_zzz_agent_upgrade_guide(cid))[0]
         _collect_icons({assets.key(game, 'character', cid): zzz_portrait(guide.avatar)})
@@ -315,6 +317,8 @@ def observe(goal: dict) -> dict:
             result['gear_error'] = tr('gear_read_failed')
         return result
 
+    if not accounts().get(game):
+        raise ValueError(tr('login_first'))
     return run(read, 60)
 
 
