@@ -52,6 +52,8 @@ def goal_view(goal: dict, ctx: dict, weekday: int) -> dict:
                         'materials': [{k: m.get(k) for k in ('id', 'name', 'need', 'owned', 'remaining')}
                                       for m in item['materials']]})
     view = {k: v for k, v in goal.items() if k not in ('allowance', 'gear')}
+    character = materials.dataset(goal['game']).get('characters', {}).get(str(goal['character_id']), {})
+    view['rarity'], view['element'] = character.get('rarity'), character.get('element')  # offline dataset values
     view['items'] = items
     view['gear_eval'] = gear.evaluate(goal)
     view['gear_owned'] = ((inventory.arrange(goal['game']) or {}).get('goals') or {}).get(goal['id'])
@@ -66,6 +68,8 @@ def full_state() -> dict:
     return {
         'version': core.VERSION, 'now': core.stamp(), 'game_date': str(core.game_date()), 'weekday': weekday,
         'admin': core.is_admin(), 'automation': tools.automation(), 'logged_in': mihoyo.logged_in(), 'accounts': mihoyo.accounts(),
+        'login_expired': any(mihoyo.health(k).get('expired') for k in ('stamina-genshin', 'stamina-zzz', 'calc', 'detail')),
+        'data_dir': str(core.DATA), 'log_file': str(core.LOG),
         'candidates': mihoyo.account_candidates(), 'qr': auth.state(),
         'runner': runner.state(), 'next_slot': scheduler.next_slot(),
         'plans': plans, 'stamina': {g: planner.estimate(g) for g in ('zzz', 'genshin')},
@@ -75,8 +79,9 @@ def full_state() -> dict:
         'settings': public_settings(), 'check': env_check(), 'notifications': notify.recent(10),
         'assets': assets.cached(), 'assets_status': assets.status(),
         'inventory': {g: inventory_view(g) for g in ('zzz', 'genshin')},
-        'catalog': {'bosses': ctx['bosses'], 'blessing': [d['name'] for d in ctx['domains'] if d['type'] == 'BlessDomain'],
-                    'disc': materials.zzz_disc_missions(s['paths']['onedragon']),
+        'catalog': {'bosses': ctx['bosses'],
+                    'stages': {g: [{'name': st['name'], 'sets': [x['name'] for x in st['sets']]}
+                                   for st in materials.gear_stages(g, s['paths']['onedragon'])] for g in ('zzz', 'genshin')},
                     'disc_sets': materials.gear_sets('zzz', s['paths']['onedragon']),
                     'artifact_sets': materials.gear_sets('genshin')},
     }

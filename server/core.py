@@ -22,6 +22,7 @@ from .i18n import LANGS, tr
 
 APP = Path(__file__).resolve().parent.parent
 DATA = Path(os.path.abspath(os.environ.get('GCL_HOME') or APP / 'data'))  # absolute: child processes get it as-is
+LOG = DATA / 'logs' / 'app.log'
 WEB = APP / 'web'
 DATASETS = Path(__file__).resolve().parent / 'datasets'
 CN = timezone(timedelta(hours=8))
@@ -32,12 +33,12 @@ log = logging.getLogger('gcl')
 
 
 def setup_logging() -> None:
-    (DATA / 'logs').mkdir(parents=True, exist_ok=True)
+    LOG.parent.mkdir(parents=True, exist_ok=True)
     if os.name != 'nt':  # it holds credentials that only file permissions protect here
         DATA.chmod(0o700)
         for secret in DATA.glob('*.dpapi.json'):  # files written before this rule
             secret.chmod(0o600)
-    handler = logging.handlers.RotatingFileHandler(DATA / 'logs' / 'app.log', maxBytes=2_000_000, backupCount=3, encoding='utf-8')
+    handler = logging.handlers.RotatingFileHandler(LOG, maxBytes=2_000_000, backupCount=3, encoding='utf-8')
     handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s'))
     root = logging.getLogger()
     root.setLevel(logging.INFO)

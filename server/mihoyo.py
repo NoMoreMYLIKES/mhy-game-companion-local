@@ -144,8 +144,9 @@ def record(key: str, ok: bool, reason: str = '') -> None:
         failures = int(h.get('failures', 0)) + 1
         delay = min(6 * 3600, 900 * 2 ** min(failures - 1, 5))
         h = {'ok': False, 'at': core.stamp(), 'reason': reason, 'failures': failures,
-             'retry_at': core.stamp(core.now() + timedelta(seconds=delay))}
-        if reason in MESSAGES['err_login_expired'] and failures == 1:  # either language
+             'retry_at': core.stamp(core.now() + timedelta(seconds=delay)),
+             'expired': reason in MESSAGES['err_login_expired']}  # either language
+        if h['expired'] and failures == 1:
             from . import notify
             notify.event('login', tr('login_expired_title'), [reason])
     core.put('health:' + key, h)

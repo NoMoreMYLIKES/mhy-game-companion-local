@@ -301,12 +301,22 @@ def forecast(days: int = 3) -> dict:
         consumed: dict = {}
         est = estimate(game)
         value, last_at, cap = (est['value'], core.now(), est['cap']) if est else (None, None, DEFAULT_CAP[game])
-        coffee_days = set()
+        today = core.game_date()
+        ran_today = any(any(g.get('game') == game for g in r.get('games') or [])
+                        for r in core.runs(since=core.stamp(datetime.combine(today, datetime.min.time(), core.CN) + timedelta(hours=4))))
+        coffee_days = {today} if ran_today else set()  # a batch of this game day already drank today's coffee
+        coffee = 0  # forecast coffee inside the value: added at this slot, or still above the cap
+        capped = None  # since when the value has been at or above the cap
         for slot in slots:
+            full_at = None  # when natural recovery reached the cap before this slot
             if value is not None:
-                value = min(cap, value + int((slot - last_at).total_seconds() // (RECOVERY_MINUTES[game] * 60)))
-                if game == 'zzz' and core.game_date(slot) != core.game_date() and core.game_date(slot) not in coffee_days:
+                gained = int((slot - last_at).total_seconds() // (RECOVERY_MINUTES[game] * 60))
+                if value + gained > cap:
+                    full_at = capped or last_at + timedelta(minutes=max(0, cap - value) * RECOVERY_MINUTES[game])
+                value = max(value, min(cap, value + gained))  # recovery stops at the cap; coffee above it stays
+                if game == 'zzz' and core.game_date(slot) not in coffee_days:
                     coffee_days.add(core.game_date(slot))
+                    coffee += int(s['planning']['zzz_coffee_forecast'])
                     value += int(s['planning']['zzz_coffee_forecast'])
                 last_at = slot
             p = plan(game, slot, stamina=value, consumed=consumed)
@@ -315,7 +325,8 @@ def forecast(days: int = 3) -> dict:
                    'label': item and f"{item['goal']} · {item['label']}", 'unit_label': item and item['unit_label'],
                    'upper': item and item['upper'], 'expected': item and item['expected'], 'phase': p['phase'],
                    'goal': item and item['goal'], 'goal_id': item and item['goal_id'], 'task': item and item['label'],
-                   'names': item and item['names'], 'cost': item and item['cost'], 'spend': None, 'left': value}
+                   'names': item and item['names'], 'cost': item and item['cost'], 'spend': None, 'left': value,
+                   'cap': cap, 'full_at': full_at and core.stamp(full_at), 'coffee': coffee}
             if item:
                 units = item['expected'] if item['expected'] is not None else 0
                 consumed[item['key']] = consumed.get(item['key'], 0) + units
@@ -323,6 +334,8 @@ def forecast(days: int = 3) -> dict:
                     row['spend'] = units * item['cost']
                     value -= row['spend']
                     row['left'] = value
+            coffee = min(coffee, value - cap) if value is not None and value > cap else 0
+            capped = full_at if value is not None and value >= cap else None
             rows.append(row)
     rows.sort(key=lambda r: (r['at'], r['game']))
     return {'slots': [core.stamp(x) for x in slots], 'rows': rows, 'schedule_enabled': s['schedule']['enabled']}

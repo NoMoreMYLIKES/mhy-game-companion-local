@@ -278,8 +278,10 @@ def _receipt(result: dict, game: str, item: dict | None, text: str, receipt: dic
     else:
         status, why = 'SUCCESS', ''
     if item:
-        amount = tr('qty_unverified') if result['completed'] is None else f"{result['completed']}{item['unit_label']}"
-        summary = tr('summary_item', goal=item['goal'], label=item['label'], amount=amount, upper=item['upper'])
+        upper = f"{item['upper']}{item['unit_label']}"
+        amount = tr('qty_unverified', upper=upper) if result['completed'] is None \
+            else f"{result['completed']}/{item['upper']}{item['unit_label']}"
+        summary = tr('summary_item', goal=item['goal'], label=item['label'], amount=amount)
     else:
         summary = tr('summary_idle')
     return _finish(result, status, summary + (tr('sep_strong') + why if why else ''))

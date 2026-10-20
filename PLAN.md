@@ -121,7 +121,10 @@ The dashboard is set in the **Swiss Style (International Typographic Style)**, r
 5. **Summary, control, evidence**:
    - Each automatic choice shows what happens next, why, and where to change it; calculation details open on demand.
    - Recognizable game images (circular portraits, material icons) cached locally from official API responses, with text fallbacks.
-6. **Bilingual Support with English as Base Language**:
+6. **Themes**:
+   - The Appearance menu in the header picks the theme and the color mode (System / Light / Dark). Timetable, described above, is the default; **Proxy** restyles the same pages in the visual language of Zenless Zone Zero (see ARCHITECTURE.md §8).
+   - A theme is CSS only, so it can change the look a lot without touching data, logic or wording: every theme shows the same information and controls.
+7. **Bilingual Support with English as Base Language**:
    - English (`en`) serves as the core schema and default interface language (`<html lang="en">`).
    - Symmetrical, 1:1 mapped Chinese (`zh`) dictionary provides full native localization.
    - Instant header toggle (`EN / 中文`) with persistent `localStorage` preference memory.

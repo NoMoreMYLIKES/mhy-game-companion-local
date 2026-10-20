@@ -140,6 +140,28 @@ class SmokeTest(unittest.TestCase):
         self.assertEqual(p_zzz['game'], 'zzz')
         self.assertIsNone(p_zzz['item'])
 
+    def test_forecast_coffee_and_cap(self):
+        """Today's coffee counts until a ZZZ batch of this game day ran; coffee above the cap is kept, not cut back."""
+        from datetime import datetime
+        from unittest import mock
+        from server import core, planner
+        home = Path(tempfile.mkdtemp(prefix='gcl_forecast_'))
+        self.addCleanup(shutil.rmtree, home, ignore_errors=True)
+        now = datetime(2026, 10, 20, 4, 30, tzinfo=core.CN)  # after the 04:00 reset, before the 05:00 batch
+        with mock.patch.object(core, 'DATA', home), mock.patch.object(core, 'now', return_value=now):
+            core.save_settings({'schedule': {'enabled': True, 'times': ['05:00', '18:00'], 'games': ['zzz']},
+                                'planning': {'zzz_coffee_forecast': 80}})
+            core.add_sample('zzz', 240, 240, 'source_widget', core.stamp(now))
+            rows = [r for r in planner.forecast(2)['rows'] if r['game'] == 'zzz']
+            self.assertEqual((rows[0]['stamina'], rows[0]['coffee']), (320, 80))  # today's coffee, above the cap
+            self.assertEqual(rows[1]['stamina'], 320)                               # kept until it is spent
+            self.assertEqual(rows[1]['full_at'], core.stamp(now))                   # full since the reading
+            core.save_run({'id': 'today', 'started': core.stamp(now), 'ended': core.stamp(now), 'source': 'manual',
+                           'status': 'SUCCESS', 'games': [{'game': 'zzz', 'status': 'SUCCESS'}], 'notes': []})
+            rows = [r for r in planner.forecast(2)['rows'] if r['game'] == 'zzz']
+            self.assertEqual((rows[0]['stamina'], rows[0]['coffee']), (240, 0))    # that batch drank it
+            self.assertEqual(rows[2]['coffee'], 80)                                 # the next game day's coffee
+
     def test_i18n_symmetry_and_base(self):
         import re
         web_app = PROJECT_ROOT / 'web' / 'app.js'

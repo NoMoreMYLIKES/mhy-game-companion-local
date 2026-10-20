@@ -18,14 +18,19 @@ const I18N = {
     nav_settings: 'Settings',
     nav_label: 'Sections',
     lang_label: 'Language',
+    look_label: 'Appearance',
     theme_label: 'Theme',
-    theme_system: 'System',
-    theme_light: 'Light',
-    theme_dark: 'Dark',
+    theme_timetable: 'Timetable',
+    theme_zzz: 'Proxy',
+    mode_label: 'Mode',
+    mode_system: 'System',
+    mode_light: 'Light',
+    mode_dark: 'Dark',
     connecting: 'Connecting to the backend…',
     connect_failed: 'Cannot reach the backend ({0}). Start it with Start.bat, then retry.',
     retry: 'Retry',
-    req_failed: 'Request failed ({0})',
+    req_failed: 'The app’s local service hit an error. Try again; if it keeps failing, see the log file listed in Settings\u00a0›\u00a0Environment. (HTTP {0})',   // the menu path stays on one line
+    btn_dismiss: 'Dismiss',
     working: 'Working…',
     saving: 'Saving…',
     syncing: 'Syncing…',
@@ -47,17 +52,35 @@ const I18N = {
     dur_hm: '{0} h {1} min',
 
     // Status strip
-    strip_game_day: 'Game day {0}',
+    strip_game_day: 'Game day {0} · resets 04:00',
     strip_next_run: 'Next run at {0} ({1})',
     strip_schedule_off: 'Schedule off',
     strip_running: 'Running: {0}',
+    strip_running_game: 'Running: {0} · {1} (step {2} of {3})',
     strip_signed_out: 'Miyoushe not signed in',
+    strip_login_expired: 'Miyoushe login expired',
     strip_not_admin: 'Not running as administrator',
     strip_plan_only: 'Plans only: runs need Windows',
 
     // Games and terms
     game_genshin: 'Genshin Impact',
     game_zzz: 'Zenless Zone Zero',
+    game_short_genshin: 'GI',
+    game_short_zzz: 'ZZZ',
+    el_pyro: 'Pyro',
+    el_hydro: 'Hydro',
+    el_anemo: 'Anemo',
+    el_electro: 'Electro',
+    el_dendro: 'Dendro',
+    el_cryo: 'Cryo',
+    el_geo: 'Geo',
+    el_physical: 'Physical',
+    el_fire: 'Fire',
+    el_ice: 'Ice',
+    el_electric: 'Electric',
+    el_ether: 'Ether',
+    el_wind: 'Wind',
+    rank_letter: '{0}-rank',
     unit_genshin: 'Original Resin',
     unit_zzz: 'Battery Charge',
     unknown: 'Unknown',
@@ -67,21 +90,38 @@ const I18N = {
     btn_run_both: 'Run both games',
     btn_run_now: 'Run now',
     btn_refresh: 'Refresh',
+    btn_reread: 'Re-read {0}',
+    confirm_run: 'Start now?\n\n{0}\n\nUntil the batch ends, the game and its automation tool use this PC’s mouse and keyboard.',
+    confirm_run_item: '{0}: {1} for {2} (≈ {3} {4})',
+    confirm_run_open: '{0}: {1} for {2} (the in-game stamina decides)',
+    confirm_run_idle: '{0}: free dailies only',
+    run_needs_windows: 'Runs need Windows: start them from the Windows copy.',
+    run_why_windows: 'Runs need Windows',
+    run_why_busy: 'A batch is running',
     account_line: '{0}, UID {1}',
     no_account: 'No game account selected',
+    not_signed_in: 'Not signed in',
     stamina_unknown_hint: 'No reading yet. Sign in to Miyoushe or refresh; during a run the tool still uses the real in-game value.',
-    full_now: 'Full: natural recovery is being wasted',
+    stamina_signed_out_hint: 'Sign in to Miyoushe to read it; during a run the tool still uses the real in-game value.',
+    tile_next_spend: 'Next run −{0}',
+    full_now_genshin: 'Full: natural recovery is being wasted',
+    full_now_zzz: 'Full: further recovery goes to Stored Battery, more slowly',
+    tile_full: 'Full',
+    tile_unread: 'Not read',
     st_full_at: 'Full at',
     st_full_in: 'In ≈ {0} if nothing runs',
     st_read: 'Read',
-    notes_issue: 'Stamina refresh: {0}',
+    notes_issue: '{0} could not be read: {1}',
     col_runs: 'Upcoming runs',
+    col_runs_ran: 'Last and upcoming runs',
     col_goals: 'Goals',
     tag_next: 'Next',
+    departed: 'Ran {0}',
     tt_manual: 'Manual',
     dailies_line: 'Also in every batch: {0}',
-    goals_collected: '{0} of {1} collected',
-    goal_all_done: 'All materials collected',
+    goals_progress: '{0}% collected · {1} of {2} items done',
+    goals_items: '{0} of {1} items done',
+    goal_all_done: 'Materials ready: level up in game',
     goal_error: 'Could not be read',
     goals_none: 'No goals for this game yet.',
     goals_more: '+{0} more on the Goals page',
@@ -97,7 +137,9 @@ const I18N = {
     fact_spend: '≈ {0} {1}',
     for_goal: '{0}: {1}',
     btn_details: 'Details',
-    btn_adjust: 'Adjust',
+    btn_adjust_goal: 'Adjust goal',
+    btn_farming_settings: 'Farming settings',
+    btn_open_goals: 'Open goals',
     detail_task: 'Task',
     detail_spend: 'Planned spend',
     detail_stop: 'Stops',
@@ -114,34 +156,42 @@ const I18N = {
     daily_only: 'Free dailies only',
     exc_signed_out: 'Miyoushe is not signed in, so stamina and material gaps cannot be read.',
     exc_sign_in: 'Sign in',
+    exc_login_expired: 'Miyoushe login has expired, so {0} and material gaps cannot be read.',
+    exc_login_expired_calc: 'Miyoushe login has expired, so material gaps cannot be read.',
+    tile_login_expired: 'Not read: the Miyoushe login has expired.',
     exc_not_admin: 'The backend is not running as administrator, so runs cannot control the game window. Start it with Start.bat.',
-    exc_plan_only: 'This host runs on Linux: it plans and reads Miyoushe data. Runs need BetterGI and OneDragon, which are Windows programs, so they start from the Windows copy.',
     exc_tool_genshin: 'BetterGI was not found, so Genshin Impact cannot run.',
     exc_tool_zzz: 'ZZZ OneDragon was not found, so Zenless Zone Zero cannot run.',
     exc_set_paths: 'Set paths',
-    exc_goal_error: '{0}: {1}',
-    exc_open: 'Open',
+    exc_goal_error: '{0} could not be read from Miyoushe, so plans use the last data read. ({1})',
+    exc_open: 'Open goal',
+    btn_sync_again: 'Sync again',
+    left_coffee: '≈ {0} left (incl. +{1} coffee)',
+    full_before: 'Full at {0}, ≈ {1} before this\u00a0run',
 
     // Running batch
     running_title: 'Batch running',
     running_game: '{0}, game {1} of {2}',
     stage_prepare: 'Prepare',
-    stage_config: 'Configure tools',
+    stage_config: 'Set up tools',
     stage_launch: 'Launch game',
     stage_running: 'Automate',
-    stage_collect: 'Collect and restore',
+    stage_collect: 'Read results, restore tools',
     stage_scan: 'Scan inventory',
     scan_title: 'Inventory scan',
-    scan_help: 'Miyoushe shows only equipped pieces. A scan reads every artifact or Drive Disc you own, so equipment farming stops once pieces you own meet a character’s target, and the goal card lists what to equip. The app never equips, locks or dismantles anything.',
+    scan_help: 'Miyoushe shows only equipped pieces. A scan reads every artifact or Drive Disc you own, so equipment farming stops once pieces you own meet a character’s target, and the goal card lists what to equip. The app never equips, locks or dismantles anything; your tools can if you turn that on (see Daily tasks › What your tools can also do).',
     scan_switch: 'Scan the inventory automatically',
     scan_sub: 'After every equipment run, and at least once a day otherwise, before the game closes',
-    scan_yas: 'Genshin scanner (yas_artifact.exe, a maintained yas fork)',
-    scan_zzz: 'ZZZ scanner (ZZZ-Scanner.Next.exe)',
-    scan_last: 'Last scan {0}: {1} pieces',
+    scan_yas: 'Artifact scanner (yas_artifact.exe)',
+    scan_zzz: 'Drive Disc scanner (ZZZ-Scanner.Next.exe)',
+    scan_rules_title: 'Scanner requirements',
+    scan_last_zzz: 'Last scan {0}: {1} discs',
+    scan_last_genshin: 'Last scan {0}: {1} artifacts',
     scan_never: 'Not scanned yet',
     scan_rules: 'Both scanners read the screen: the game must use the Simplified Chinese UI in a 1920×1080 window, and the mouse must not be touched during a scan (2–5 minutes per 1,000 pieces). Install the scanners yourself; the app opens the bag or the Drive Disc storage and runs them.',
     stage_stopping: 'Stopping…',
     btn_stop: 'Stop current run',
+    running_hands_off: 'Hands off the mouse and keyboard until the batch ends.',
 
     // Goals
     goals_sub: 'Characters you are building. The order decides what is farmed first.',
@@ -149,7 +199,7 @@ const I18N = {
     goals_empty_title: 'No goals yet',
     goals_empty_desc: 'Add a character to start planning its materials.',
     queue_pos: 'Queue {0} of {1}',
-    synced: 'Synced {0}',
+    synced: 'Levels synced {0}',
     never_synced: 'Not synced yet',
     btn_sync: 'Sync',
     btn_move_up: 'Move up',
@@ -179,10 +229,17 @@ const I18N = {
     talent_core: 'Core Skill',
     priority_label: 'Material priority',
     cat_level: 'Level',
-    cat_talents: 'Talents / Skills',
-    cat_weapon: 'Weapon / W-Engine',
+    cat_talents_genshin: 'Talents',
+    cat_talents_zzz: 'Skills',
+    cat_weapon_genshin: 'Weapon',
+    cat_weapon_zzz: 'W-Engine',
+    btn_change: 'Change',
+    mat_from: 'From {0}',
+    mat_exp: 'EXP',
+    mat_family: 'Tiered',
+    mat_core: 'Core skill',
     mats_title: 'Materials still needed',
-    mats_none: 'Nothing left to collect.',
+    mats_none: 'All materials collected: level up in game.',
     completed_items: 'Completed items ({0})',
     need_more: 'Need {0} more',
     need_list: 'Need {0}',
@@ -194,13 +251,14 @@ const I18N = {
     status_queued: 'Queued',
     status_paused: 'Paused',
     status_waiting: 'Waiting',
+    status_manual: 'By hand',
     btn_pause: 'Pause',
     btn_resume: 'Resume',
     tier_material: 'Material',
     tier_need: 'Need',
     tier_have: 'Have',
     tier_short: 'Short',
-    stable_list_help: 'Done counts only runs since the last official sync, so nothing is farmed twice.',
+    stable_list_help: 'Progress = Miyoushe’s count at the last sync + what runs farmed since.',
     canceled_title: 'Canceled cultivation ({0})',
     canceled_note: 'Canceled goals keep their targets and progress and are never farmed.',
 
@@ -211,11 +269,14 @@ const I18N = {
     btn_discard: 'Discard changes',
     btn_close: 'Close',
     btn_add: 'Add',
+    btn_pick_first: 'Pick a character',
+    btn_max: 'Set all to max',
     modal_add_title: 'Add a {0} goal',
     search_placeholder: 'Search characters',
     modal_loading: 'Loading characters…',
     modal_source_roster: 'Your characters, from Miyoushe.',
     modal_source_dataset: 'All characters from the offline list. Sign in to Miyoushe to see only yours.',
+    modal_source_offline: 'All characters from the offline list: your own could not be read from Miyoushe.',
     no_match: 'No matching characters.',
     already_added: 'Already a goal',
     not_owned: 'Not owned',
@@ -223,8 +284,10 @@ const I18N = {
     // Schedule
     plan_sub: 'Forecast for the next 3 days, simulated with the same rule as real runs. Past runs are on the Runs page.',
     plan_off_banner: 'The schedule is off, so nothing runs automatically. This is a preview.',
+    reason_same: 'Same reason as above.',
+    idle_fix: 'To spend it anyway, add a goal or set up Equipment continuation in Farming rules.',
+    day_before_reset: 'game day {0} until 04:00',
     btn_open_settings: 'Open settings',
-    forecast: 'Forecast',
     day_head: '{0}, {1}',
     left_after: '≈ {0} left',
     plan_empty_title: 'Nothing scheduled',
@@ -240,7 +303,7 @@ const I18N = {
     run_status_STOPPED: 'Stopped',
     run_status_RUNNING: 'Running',
     run_done: 'Confirmed {0} of up to {1}',
-    run_unverified: 'Amount pending verification',
+    run_unverified: 'Counted at the next sync',
     run_duration: 'Took {0}',
     runs_empty_title: 'No runs yet',
     runs_empty: 'Batches started on Today or by the schedule are listed here with their results.',
@@ -249,8 +312,9 @@ const I18N = {
     btn_more_runs: 'Show older runs',
 
     // Settings
-    settings_sub: 'Changes are saved together. Secrets are encrypted with Windows DPAPI.',
-    settings_sub_linux: 'Changes are saved together. Secrets are stored in files only this user can read.',
+    settings_sub: 'Changes are saved together, with the bar that appears at the bottom.',
+    secret_hint: 'Encrypted with Windows DPAPI.',
+    secret_hint_linux: 'Stored in a file only this user can read.',
     set_account: 'Miyoushe account',
     set_env: 'Environment',
     set_schedule: 'Schedule',
@@ -273,6 +337,7 @@ const I18N = {
     env_admin: 'Administrator rights',
     env_admin_ok: 'Running as administrator',
     env_admin_no: 'Not elevated',
+    env_admin_hint: 'Runs may fail to control the game window. Start the app with Start.bat (in the app folder), or turn on Start with Windows (it runs elevated).',
     env_plan_only: 'BetterGI and OneDragon are Windows programs; these checks apply to the Windows copy.',
     env_bgi: 'BetterGI',
     env_bgi_template: 'BetterGI template',
@@ -281,6 +346,9 @@ const I18N = {
     env_adapter_help: 'Optional OneDragon patch that lets the last batch use the Battery Charge actually left. Without it, whole card batches are issued and the last one may be skipped.',
     env_game_genshin: 'Genshin Impact client',
     env_game_zzz: 'Zenless Zone Zero client',
+    env_data_dir: 'Data folder',
+    env_data_dir_hint: 'Your settings, goals, run history and Miyoushe login are kept here.',
+    env_log: 'Log file',
     found: 'Found',
     missing: 'Not found',
     installed: 'Installed',
@@ -299,8 +367,9 @@ const I18N = {
     catchup_hint: 'How late a missed slot may still run, for example after the PC was off',
     timeout: 'Per-game timeout (minutes)',
     if_running: 'If the game is already running',
-    opt_restart: 'Restart it',
-    opt_skip: 'Skip this run',
+    opt_restart: 'Close the game and run',
+    opt_skip: 'Skip this slot',
+    if_running_hint: 'Closing the game loses its unsaved progress.',
     genshin_claims: 'Genshin Domain rewards',
     opt_mode_double: 'Use 40 Original Resin for 2× rewards first',
     opt_mode_double_sub: 'Recommended. Leftover resin is used 20 at a time.',
@@ -309,25 +378,29 @@ const I18N = {
     boss_yield: 'Genshin boss drops per run',
     boss_yield_hint: 'Average at your World Level; converts the gap into boss runs',
     coffee_forecast: 'ZZZ coffee in the forecast (Battery Charge per day)',
-    coffee_hint: 'Only affects the Schedule forecast',
+    coffee_hint: 'Used in forecasts (Today and Schedule); runs read the real Battery Charge',
     equip_title: 'Equipment continuation',
     equip_help: 'Artifacts and Drive Discs have no end, so they are farmed only when no goal material is left, up to the cumulative cap you set.',
     artifact_switch: 'Genshin: farm Artifacts',
     artifact_sub: 'Domain of Blessing, 20 Original Resin per claim',
     artifact_domain: 'Domain of Blessing',
-    artifact_cap: 'Cumulative cap (claims)',
+    artifact_cap: 'Budget until reset (claims)',
     disc_switch: 'ZZZ: farm Drive Discs',
     disc_sub: 'Area Patrol, 60 Battery Charge per run',
     disc_mission: 'Area Patrol mission',
-    disc_cap: 'Cumulative cap (runs)',
+    disc_cap: 'Budget until reset (runs)',
     equip_used: 'Used {0} of {1}',
     equip_fixed_hint: 'Used only while no character’s equipment target steers farming',
-    gear_wasted: 'Wasted upgrades: {0}',
+    equip_none: 'None: only characters’ targets steer',
+    stages_needed: 'Drops a set your goals need',
+    stages_other: 'Other',
+    gear_wasted: 'Upgrades on uncounted substats: {0}',
     gear_status_owned: 'Owned pieces meet the target',
-    gear_owned_title: 'With pieces you own: {0}',
+    gear_owned_title: 'With pieces you own: score {0}',
     gear_owned_done: 'Equip these to meet the target',
     gear_owned_short: 'Still short with the best pieces you own; farming continues',
-    inv_line: 'Inventory scanned {0}: {1} pieces, {2} spare',
+    inv_line_zzz: 'Drive Disc storage scanned {0}: {1} discs, {2} spare',
+    inv_line_genshin: 'Artifact bag scanned {0}: {1} artifacts, {2} spare',
     inv_spare_help: 'Spare: unequipped, unlocked pieces that score below 30 for every character that farms equipment. Dismantle them in the game if you like; the app never does.',
     gear_all_hit: 'Every upgrade counts',
     gear_totals: 'Counted rolls: {0}',
@@ -335,9 +408,14 @@ const I18N = {
     btn_gear_target: 'Equipment target',
     gear_none_yet: 'Drive Discs not read yet. Sync this character to read them.',
     gear_status_met: 'Target met',
+    gear_verdict_met: 'Target met',
+    gear_verdict_below: 'Target not met · {0} of {1} conditions met',
+    gear_glance_met: '{0}: target met',
+    gear_glance_equip: '{0}: equip {1} from storage to meet the target',
     gear_status_off: 'Not steering farming',
     gear_status_next: 'Next equipment run: {0}',
     gear_status_queued: 'Queued: {0}',
+    gear_sets_line: 'Sets: {0}',
     gear_mains_ok: 'Main stats match',
     gear_mains_bad: 'Main stat mismatch',
     gear_slots_filled: '{0} of {1} slots filled',
@@ -346,7 +424,8 @@ const I18N = {
     gear_src_recommended: 'Weights from Miyoushe’s recommendation',
     gear_src_official: 'Weights from the build “{0}”',
     gear_src_none: 'No weights: set them in the equipment target',
-    gear_read: 'Read {0}',
+    gear_read_zzz: 'Equipped discs read {0}',
+    gear_read_genshin: 'Equipped artifacts read {0}',
     gear_runs: '{0} runs farmed for this character',
     gear_weights_line: 'Counted substats: {0}',
     gear_no_weights: 'No substat counts yet: the build lists none and no weights are set.',
@@ -354,7 +433,8 @@ const I18N = {
     gear_slot: 'Slot {0}',
     gear_slot_empty: 'Empty',
     gear_disc_score: 'Disc score',
-    gear_level: 'Rank {0} · Lv. {1}',
+    gear_rank: 'Rank {0}',
+    gear_lv: 'Lv. {0}',
     dlg_gear_title: 'Equipment target · {0}',
     gear_follow_build: 'Follow the build',
     gear_follow_weights: 'Use the build’s substats',
@@ -402,7 +482,8 @@ const I18N = {
     art_domain: 'Domain of Blessing',
     art_domain_auto: 'Automatic: the domain that drops the next set',
     art_domain_hint: 'Choose one only if the automatic domain is wrong or unknown.',
-    art_level: '{0}★ · +{1}',
+    art_rank: '{0}★',
+    art_lv: '+{0}',
     art_slot_1: 'Flower of Life',
     art_slot_2: 'Plume of Death',
     art_slot_3: 'Sands of Eon',
@@ -432,6 +513,18 @@ const I18N = {
     mute_morning_sub: 'Scheduled slots before 12:00; the previous state is restored afterwards.',
     zzz_rewards: 'ZZZ: claim Engagement and New Eridu City Fund rewards',
     genshin_daily: 'Genshin: claim Daily Commission Rewards (Katheryne)',
+    genshin_daily_sub: 'Without doing commissions, every 30 Original Resin spent turns stored Encounter Points into one commission reward, up to 4 a day (120 resin for all 4).',
+    genshin_teapot_sub: 'Collects realm currency and companionship EXP from the Serenitea Pot.',
+    tools_more_title: 'What your tools can also do',
+    tools_zzz_intro: 'Each batch runs your OneDragon run list (一条龙), so whatever you turn on there runs too, for example:',
+    tools_zzz_list: ['Notorious Hunt: 3 free reward claims a week; pick the boss your goals need in OneDragon',
+                     'Lost Void weekly bounty, Ridu Weekly, redeem codes, the scratch card and the video store',
+                     'Coffee: the forecast counts it ({0})',
+                     'Long runs (Lost Void, Withered Domain, Shiyu Defense) count toward the per-game timeout ({1}); limit them in OneDragon'],
+    tools_genshin_intro: 'Batches run only the domain or boss this app picks, plus the claims above. BetterGI can also run these; start them from BetterGI, and the resin they spend is not there for the next batch:',
+    tools_genshin_list: ['Ley Line Outcrops: Mora and EXP books', 'Craft Condensed Resin: stores resin, up to 5', 'Stygian Onslaught: artifacts',
+                         'Map-tracking routes from its script repository: local specialties and ores'],
+    tools_more_risk: 'Two tool options dismantle equipment, and they also run inside this app’s batches when turned on in the tool: OneDragon’s Drive Disc dismantle (in its run list; A-rank and lower by default) and BetterGI’s quick artifact salvage after domains. This app never turns either on; keep them off to keep your pieces.',
     genshin_mail: 'Genshin: claim Mail',
     genshin_teapot: 'Genshin: claim Serenitea Pot rewards',
     lbl_path_bettergi: 'BetterGI folder',
@@ -515,14 +608,19 @@ const I18N = {
     nav_settings: '设置',
     nav_label: '页面导航',
     lang_label: '语言',
+    look_label: '外观',
     theme_label: '主题',
-    theme_system: '跟随系统',
-    theme_light: '浅色',
-    theme_dark: '深色',
+    theme_timetable: '时刻表',
+    theme_zzz: '绳匠',
+    mode_label: '明暗',
+    mode_system: '跟随系统',
+    mode_light: '浅色',
+    mode_dark: '深色',
     connecting: '正在连接后台…',
     connect_failed: '无法连接后台（{0}）。请通过 Start.bat 启动后重试。',
     retry: '重试',
-    req_failed: '请求失败（{0}）',
+    req_failed: '本地服务出错。请重试；如持续失败，请查看 设\u2060置\u00a0›\u00a0运\u2060行\u2060环\u2060境 中列出的日志文件。（HTTP {0}）',
+    btn_dismiss: '关闭',
     working: '处理中…',
     saving: '保存中…',
     syncing: '同步中…',
@@ -536,25 +634,43 @@ const I18N = {
     today: '今天',
     tomorrow: '明天',
     just_now: '刚刚',
-    rel_in: '{0}后',
-    rel_ago: '{0}前',
-    dur_lt_min: '不到 1 分钟',
-    dur_m: '{0} 分钟',
-    dur_h: '{0} 小时',
-    dur_hm: '{0} 小时 {1} 分钟',
+    rel_in: '{0}\u2060后',   // a word joiner keeps 后 / 前 on the line of their duration
+    rel_ago: '{0}\u2060前',
+    dur_lt_min: '不到\u00a01\u00a0分\u2060钟',
+    dur_m: '{0}\u00a0分\u2060钟',   // no-break spaces and word joiners keep a duration on one line
+    dur_h: '{0}\u00a0小\u2060时',
+    dur_hm: '{0}\u00a0小\u2060时\u00a0{1}\u00a0分\u2060钟',
 
     // Status strip
-    strip_game_day: '游戏日 {0}',
+    strip_game_day: '游戏日 {0} · 04:00 刷新',
     strip_next_run: '下次执行 {0}（{1}）',
     strip_schedule_off: '定时未开启',
     strip_running: '执行中：{0}',
+    strip_running_game: '执行中：{0} · {1}（第 {2}/{3} 步）',
     strip_signed_out: '米游社未登录',
+    strip_login_expired: '米游社登录已过期',
     strip_not_admin: '未以管理员身份运行',
     strip_plan_only: '仅规划：执行需要 Windows',
 
     // Games and terms
     game_genshin: '原神',
     game_zzz: '绝区零',
+    game_short_genshin: '原神',
+    game_short_zzz: '绝区零',
+    el_pyro: '火',
+    el_hydro: '水',
+    el_anemo: '风',
+    el_electro: '雷',
+    el_dendro: '草',
+    el_cryo: '冰',
+    el_geo: '岩',
+    el_physical: '物理',
+    el_fire: '火',
+    el_ice: '冰',
+    el_electric: '电',
+    el_ether: '以太',
+    el_wind: '风',
+    rank_letter: '{0}级',
     unit_genshin: '原粹树脂',
     unit_zzz: '电量',
     unknown: '未知',
@@ -564,21 +680,38 @@ const I18N = {
     btn_run_both: '两款游戏依次执行',
     btn_run_now: '立即执行',
     btn_refresh: '刷新',
+    btn_reread: '重新读取{0}',
+    confirm_run: '现在开始执行？\n\n{0}\n\n批次结束前，游戏和自动化工具会占用这台电脑的鼠标和键盘。',
+    confirm_run_item: '{0}：为{2}刷{1}（约 {3} {4}）',
+    confirm_run_open: '{0}：为{2}刷{1}（以游戏内体力为准）',
+    confirm_run_idle: '{0}：仅免费日常',
+    run_needs_windows: '执行需要 Windows，请在 Windows 端执行。',
+    run_why_windows: '执行需要 Windows',
+    run_why_busy: '正在执行批次',
     account_line: '{0}，UID {1}',
     no_account: '未选择游戏账号',
+    not_signed_in: '未登录',
     stamina_unknown_hint: '暂无读数。请登录米游社或刷新；执行时工具仍以游戏内实际数值为准。',
-    full_now: '已满：自然恢复正在溢出',
+    stamina_signed_out_hint: '登录米游社后即可读取；执行时工具仍以游戏内实际数值为准。',
+    tile_next_spend: '下一批 −{0}',
+    full_now_genshin: '已满：自然恢复正在溢出',
+    full_now_zzz: '已满：之后的回复转入储蓄电量，速度较慢',
+    tile_full: '已满',
+    tile_unread: '未读取',
     st_full_at: '回满',
-    st_full_in: '若不执行，约 {0}后',
+    st_full_in: '若不执行，约 {0}\u2060后',
     st_read: '读取',
-    notes_issue: '体力刷新：{0}',
+    notes_issue: '无法读取{0}：{1}',
     col_runs: '接下来的执行',
+    col_runs_ran: '最近与接下来的执行',
     col_goals: '培养目标',
     tag_next: '下一批',
+    departed: '已执行 {0}',
     tt_manual: '手动',
     dailies_line: '每批还会执行：{0}',
-    goals_collected: '已收齐 {0}/{1} 项',
-    goal_all_done: '材料已全部收齐',
+    goals_progress: '已收集 {0}% · 完成 {1}/{2} 项',
+    goals_items: '完成 {0}/{1} 项',
+    goal_all_done: '材料已齐，请进游戏升级',
     goal_error: '读取失败',
     goals_none: '此游戏还没有培养目标。',
     goals_more: '另有 {0} 个，见“培养”页',
@@ -594,7 +727,9 @@ const I18N = {
     fact_spend: '约 {0} {1}',
     for_goal: '{0}：{1}',
     btn_details: '详情',
-    btn_adjust: '调整',
+    btn_adjust_goal: '调整目标',
+    btn_farming_settings: '刷取设置',
+    btn_open_goals: '查看培养',
     detail_task: '任务',
     detail_spend: '计划消耗',
     detail_stop: '停止条件',
@@ -611,13 +746,18 @@ const I18N = {
     daily_only: '仅免费日常',
     exc_signed_out: '米游社未登录，无法读取体力与材料缺口。',
     exc_sign_in: '去登录',
+    exc_login_expired: '米游社登录已过期，无法读取{0}与材料缺口。',
+    exc_login_expired_calc: '米游社登录已过期，无法读取材料缺口。',
+    tile_login_expired: '未读取：米游社登录已过期。',
     exc_not_admin: '后台未以管理员身份运行，执行时无法控制游戏窗口。请通过 Start.bat 启动。',
-    exc_plan_only: '此主机运行在 Linux 上，负责规划与读取米游社数据。执行需要 BetterGI 与一条龙这两个 Windows 程序，请在 Windows 端执行。',
     exc_tool_genshin: '未找到 BetterGI，原神无法执行。',
     exc_tool_zzz: '未找到绝区零一条龙，绝区零无法执行。',
     exc_set_paths: '设置路径',
-    exc_goal_error: '{0}：{1}',
-    exc_open: '查看',
+    exc_goal_error: '无法从米游社读取{0}，规划沿用上次读取的数据。（{1}）',
+    exc_open: '查看目标',
+    btn_sync_again: '重新同步',
+    left_coffee: '剩余约 {0}（含咖啡 +{1}）',
+    full_before: '{0} 已满，比本次执行早约 {1}',
 
     // Running batch
     running_title: '批次执行中',
@@ -626,19 +766,22 @@ const I18N = {
     stage_config: '写入工具配置',
     stage_launch: '启动游戏',
     stage_running: '自动化运行',
-    stage_collect: '收集结果并还原',
+    stage_collect: '读取结果并还原工具',
     stage_scan: '扫描背包',
     scan_title: '背包扫描',
-    scan_help: '米游社只显示已装备的装备。扫描会读取你拥有的全部圣遗物或驱动盘：一旦已拥有的装备能达成角色目标，装备刷取即停止，培养卡片会列出需要换上的装备。本程序从不装备、上锁或分解任何装备。',
+    scan_help: '米游社只显示已装备的装备。扫描会读取你拥有的全部圣遗物或驱动盘：一旦已拥有的装备能达成角色目标，装备刷取即停止，培养卡片会列出需要换上的装备。本程序从不装备、上锁或分解任何装备；但工具开启相应选项后会分解装备，见 日常任务 › 工具还能做什么。',
     scan_switch: '自动扫描背包',
     scan_sub: '每次装备刷取后、以及至少每天一次，在关闭游戏前进行',
-    scan_yas: '原神扫描程序（yas_artifact.exe，维护中的 yas 分支）',
-    scan_zzz: '绝区零扫描程序（ZZZ-Scanner.Next.exe）',
-    scan_last: '上次扫描{0}：{1} 件',
+    scan_yas: '圣遗物扫描程序（yas_artifact.exe）',
+    scan_zzz: '驱动盘扫描程序（ZZZ-Scanner.Next.exe）',
+    scan_rules_title: '扫描要求',
+    scan_last_zzz: '上次扫描 {0}：{1} 个驱动盘',
+    scan_last_genshin: '上次扫描 {0}：{1} 件圣遗物',
     scan_never: '尚未扫描',
     scan_rules: '两个扫描程序都读取屏幕：游戏需使用简体中文界面、1920×1080 窗口，扫描期间不要操作鼠标（每 1,000 件约 2–5 分钟）。扫描程序需自行安装；本程序会打开背包或驱动盘仓库并运行它们。',
     stage_stopping: '正在停止…',
     btn_stop: '停止当前执行',
+    running_hands_off: '批次结束前请勿操作鼠标和键盘。',
 
     // Goals
     goals_sub: '正在培养的角色。顺序决定先刷哪一项。',
@@ -646,7 +789,7 @@ const I18N = {
     goals_empty_title: '还没有培养目标',
     goals_empty_desc: '添加角色后即可开始规划材料。',
     queue_pos: '队列第 {0}/{1} 位',
-    synced: '{0}同步',
+    synced: '培养数据 {0}同步',
     never_synced: '尚未同步',
     btn_sync: '同步',
     btn_move_up: '上移',
@@ -676,12 +819,19 @@ const I18N = {
     talent_core: '核心技',
     priority_label: '材料优先级',
     cat_level: '等级',
-    cat_talents: '天赋/技能',
-    cat_weapon: '武器/音擎',
+    cat_talents_genshin: '天赋',
+    cat_talents_zzz: '技能',
+    cat_weapon_genshin: '武器',
+    cat_weapon_zzz: '音擎',
+    btn_change: '修改',
+    mat_from: '来源：{0}',
+    mat_exp: '经验',
+    mat_family: '多阶',
+    mat_core: '核心技',
     mats_title: '仍需的材料',
-    mats_none: '没有需要收集的材料。',
+    mats_none: '材料已齐，请进游戏升级。',
     completed_items: '已收齐的项目（{0}）',
-    need_more: '还需 {0} 个',
+    need_more: '还需 {0}',
     need_list: '还需 {0}',
     qty_unknown: '数量未知',
     plan_units: '已完成 {0} / {1}',
@@ -691,13 +841,14 @@ const I18N = {
     status_queued: '排队中',
     status_paused: '已暂停',
     status_waiting: '等待',
+    status_manual: '需手动',
     btn_pause: '暂停',
     btn_resume: '恢复',
     tier_material: '材料',
     tier_need: '需要',
     tier_have: '持有',
     tier_short: '缺少',
-    stable_list_help: '“已完成”只统计上次官方同步后的执行，不会重复刷取。',
+    stable_list_help: '进度 = 上次同步时米游社的数量 + 之后执行刷到的数量。',
     canceled_title: '已取消的培养（{0}）',
     canceled_note: '已取消的目标保留目标与进度，不会被刷取。',
 
@@ -708,11 +859,14 @@ const I18N = {
     btn_discard: '放弃更改',
     btn_close: '关闭',
     btn_add: '添加',
+    btn_pick_first: '请先选择角色',
+    btn_max: '全部设为最高',
     modal_add_title: '添加{0}培养目标',
     search_placeholder: '搜索角色',
     modal_loading: '正在读取角色…',
     modal_source_roster: '来自米游社的已拥有角色。',
     modal_source_dataset: '离线列表中的全部角色。登录米游社后仅显示已拥有的角色。',
+    modal_source_offline: '离线列表中的全部角色：未能从米游社读取你拥有的角色。',
     no_match: '没有匹配的角色。',
     already_added: '已是培养目标',
     not_owned: '未拥有',
@@ -720,8 +874,10 @@ const I18N = {
     // Schedule
     plan_sub: '未来三天的预测，按与实际执行相同的规则模拟。已执行的批次见“记录”页。',
     plan_off_banner: '定时未开启，不会自动执行；以下仅为预览。',
+    reason_same: '原因同上。',
+    idle_fix: '如仍想消耗，可添加培养目标，或在刷取规则中设置装备接续。',
+    day_before_reset: '04:00 前仍为游戏日 {0}',
     btn_open_settings: '前往设置',
-    forecast: '预测',
     day_head: '{0} {1}',
     left_after: '剩余约 {0}',
     plan_empty_title: '暂无排程',
@@ -737,7 +893,7 @@ const I18N = {
     run_status_STOPPED: '已停止',
     run_status_RUNNING: '执行中',
     run_done: '确认完成 {0}，上限 {1}',
-    run_unverified: '数量待核验',
+    run_unverified: '下次同步时确认',
     run_duration: '耗时 {0}',
     runs_empty_title: '尚无执行记录',
     runs_empty: '在“今日”页启动或按定时执行的批次及其结果会列在这里。',
@@ -746,8 +902,9 @@ const I18N = {
     btn_more_runs: '显示更早的记录',
 
     // Settings
-    settings_sub: '所有更改统一保存。敏感信息使用 Windows DPAPI 加密。',
-    settings_sub_linux: '所有更改统一保存。敏感信息保存在仅当前用户可读的文件中。',
+    settings_sub: '更改通过底部出现的保存栏统一保存。',
+    secret_hint: '使用 Windows DPAPI 加密保存。',
+    secret_hint_linux: '保存在仅当前用户可读的文件中。',
     set_account: '米游社账号',
     set_env: '运行环境',
     set_schedule: '定时',
@@ -769,15 +926,19 @@ const I18N = {
     confirm_logout: '确定退出米游社登录？',
     env_admin: '管理员权限',
     env_admin_ok: '已以管理员身份运行',
-    env_admin_no: '未提权',
+    env_admin_no: '未以管理员身份运行',
+    env_admin_hint: '执行时可能无法操作游戏窗口。请通过程序目录中的 Start.bat 启动，或开启「开机登录自启」（以最高权限运行）。',
     env_plan_only: 'BetterGI 与一条龙是 Windows 程序，以下检查仅适用于 Windows 端。',
     env_bgi: 'BetterGI',
     env_bgi_template: 'BetterGI 模板',
     env_od: '绝区零一条龙',
     env_adapter: '实读电量适配',
-    env_adapter_help: '可选的一条龙补丁，让最后一批按实际剩余电量执行。未安装时按整份卡数下发，最后一份可能被跳过。',
+    env_adapter_help: '可选的一条龙补丁，让最后一批按实际剩余电量执行。未安装时按计划的整批卡数下发，最后一批可能因电量不足被跳过。',
     env_game_genshin: '原神客户端',
     env_game_zzz: '绝区零客户端',
+    env_data_dir: '程序数据目录',
+    env_data_dir_hint: '设置、培养目标、执行记录与米游社登录信息都保存在这里。',
+    env_log: '日志文件',
     found: '已找到',
     missing: '未找到',
     installed: '已安装',
@@ -796,8 +957,9 @@ const I18N = {
     catchup_hint: '错过的时段（例如电脑未开机）最晚多久仍可补跑',
     timeout: '单游戏超时（分钟）',
     if_running: '游戏已在运行时',
-    opt_restart: '重启游戏',
+    opt_restart: '关闭游戏后执行',
     opt_skip: '跳过本次',
+    if_running_hint: '关闭游戏会丢失游戏中未保存的进度。',
     genshin_claims: '原神秘境领奖',
     opt_mode_double: '优先使用 40 原粹树脂领取双倍产出',
     opt_mode_double_sub: '推荐。剩余树脂按每次 20 使用。',
@@ -806,25 +968,29 @@ const I18N = {
     boss_yield: '原神首领每次平均掉落',
     boss_yield_hint: '按你的世界等级估计，用于把缺口换算为挑战次数',
     coffee_forecast: '绝区零咖啡（预测中每日增加的电量）',
-    coffee_hint: '仅影响“日程”预测',
+    coffee_hint: '用于预测（今日与日程）；执行时以实际电量为准',
     equip_title: '装备接续',
-    equip_help: '圣遗物与驱动盘没有终点，因此只在没有定量材料可刷时刷取，并且不超过你设定的累计上限。',
+    equip_help: '圣遗物与驱动盘没有终点，因此只在目标材料都刷完后刷取，并且不超过你设定的累计上限。',
     artifact_switch: '原神：刷圣遗物',
     artifact_sub: '祝圣秘境，每次 20 原粹树脂',
     artifact_domain: '祝圣秘境',
-    artifact_cap: '累计上限（次）',
+    artifact_cap: '累计预算（次，清零前）',
     disc_switch: '绝区零：刷驱动盘',
     disc_sub: '区域巡防，每场 60 电量',
     disc_mission: '区域巡防关卡',
-    disc_cap: '累计上限（场）',
+    disc_cap: '累计预算（场，清零前）',
     equip_used: '已用 {0} / {1}',
     equip_fixed_hint: '仅在没有角色的装备目标参与刷取时使用',
-    gear_wasted: '未命中 {0} 次',
+    equip_none: '无：仅按角色的装备目标',
+    stages_needed: '掉落培养目标所需的套装',
+    stages_other: '其他',
+    gear_wasted: '落在不计分副属性的强化：{0} 次',
     gear_status_owned: '已有装备可达成目标',
-    gear_owned_title: '使用已有装备：{0}',
+    gear_owned_title: '使用已有装备：评分 {0}',
     gear_owned_done: '换上这些即可达成目标',
     gear_owned_short: '换上已有的最佳装备后仍未达标，继续刷取',
-    inv_line: '背包扫描于{0}：共 {1} 件，闲置 {2} 件',
+    inv_line_zzz: '驱动盘仓库扫描于 {0}：共 {1} 个，闲置 {2} 个',
+    inv_line_genshin: '圣遗物背包扫描于 {0}：共 {1} 件，闲置 {2} 件',
     inv_spare_help: '闲置：未装备、未上锁，且对每个刷取装备的角色评分都低于 30 的装备。可在游戏中自行分解；本程序从不分解。',
     gear_all_hit: '满命中',
     gear_totals: '计入的强化次数：{0}',
@@ -832,9 +998,14 @@ const I18N = {
     btn_gear_target: '装备目标',
     gear_none_yet: '尚未读取驱动盘。同步该角色即可读取。',
     gear_status_met: '已达成目标',
+    gear_verdict_met: '已达成目标',
+    gear_verdict_below: '未达成目标 · 满足 {0}/{1} 项',
+    gear_glance_met: '{0}：已达成目标',
+    gear_glance_equip: '{0}：换上仓库中 {1} 件即可达标',
     gear_status_off: '未参与刷取',
     gear_status_next: '下次装备刷取：{0}',
     gear_status_queued: '排队中：{0}',
+    gear_sets_line: '套装：{0}',
     gear_mains_ok: '主属性符合',
     gear_mains_bad: '主属性不符',
     gear_slots_filled: '已装备 {0} / {1}',
@@ -843,7 +1014,8 @@ const I18N = {
     gear_src_recommended: '权重来自米游社推荐属性',
     gear_src_official: '权重来自方案「{0}」',
     gear_src_none: '没有权重：请在装备目标中设置',
-    gear_read: '读取于{0}',
+    gear_read_zzz: '已装备驱动盘读取于 {0}',
+    gear_read_genshin: '已装备圣遗物读取于 {0}',
     gear_runs: '已为该角色刷取 {0} 次',
     gear_weights_line: '计入的副属性：{0}',
     gear_no_weights: '尚无计入的副属性：方案未列出，也没有设置权重。',
@@ -851,7 +1023,8 @@ const I18N = {
     gear_slot: '{0} 号位',
     gear_slot_empty: '空',
     gear_disc_score: '单盘评分',
-    gear_level: '{0} 级 · Lv.{1}',
+    gear_rank: '{0} 级',
+    gear_lv: 'Lv.{0}',
     dlg_gear_title: '装备目标 · {0}',
     gear_follow_build: '跟随方案',
     gear_follow_weights: '使用方案的副属性',
@@ -899,7 +1072,8 @@ const I18N = {
     art_domain: '祝圣秘境',
     art_domain_auto: '自动：掉落下一个套装的秘境',
     art_domain_hint: '仅在自动选择有误或未知时指定。',
-    art_level: '{0}★ · +{1}',
+    art_rank: '{0}★',
+    art_lv: '+{0}',
     art_slot_1: '生之花',
     art_slot_2: '死之羽',
     art_slot_3: '时之沙',
@@ -929,6 +1103,17 @@ const I18N = {
     mute_morning_sub: '12:00 前的定时批次；结束后恢复原有状态。',
     zzz_rewards: '绝区零：领取活跃度与丽都城募奖励',
     genshin_daily: '原神：领取每日委托奖励（凯瑟琳）',
+    genshin_daily_sub: '不做委托时，每消耗 30 原粹树脂，可用长效历练点换 1 次委托奖励，每天最多 4 次（4 次共需 120 树脂）。',
+    genshin_teapot_sub: '领取尘歌壶的洞天宝钱与好感经验。',
+    tools_more_title: '工具还能做什么',
+    tools_zzz_intro: '每批都会运行你在一条龙「一条龙」页勾选的全部项目，例如：',
+    tools_zzz_list: ['恶名狩猎：每周 3 次免费奖励；请在一条龙中选择培养目标所需的首领',
+                     '迷失之地每周悬赏、丽都周纪、兑换码、刮刮卡与录像店营业',
+                     '咖啡店：预测中已计入（{0}）',
+                     '耗时较长的项目（迷失之地、枯萎之都、式舆防卫战）计入单游戏超时（{1}）；可在一条龙中限制次数'],
+    tools_genshin_intro: '批次只执行本程序选定的秘境或首领，以及上方的领取项目。BetterGI 还可以执行以下项目；请在 BetterGI 中执行，它们消耗的树脂下一批就用不上了：',
+    tools_genshin_list: ['地脉花：摩拉与经验书', '合成浓缩树脂：存树脂，最多 5 个', '幽境危战：圣遗物', '脚本仓库的地图追踪路线：地方特产与矿物'],
+    tools_more_risk: '有两个工具选项会分解装备，若在工具中开启，本程序的批次也会执行：一条龙列表中的「驱动盘拆解」（默认分解 A 级及以下）与 BetterGI 秘境后的「快速分解圣遗物」。本程序从不开启它们；如需保留装备，请保持关闭。',
     genshin_mail: '原神：领取邮件',
     genshin_teapot: '原神：领取尘歌壶奖励',
     lbl_path_bettergi: 'BetterGI 目录',
@@ -952,7 +1137,7 @@ const I18N = {
     ev_batch: '每批执行后发送摘要',
     ev_quiet: '批次成功时不发送摘要',
     ev_failure: '执行失败',
-    ev_login: '米游社登录失效',
+    ev_login: '米游社登录已过期',
     ev_goal_done: '培养材料收齐',
     notify_channels: '渠道',
     ch_toast: 'Windows 通知',
@@ -1010,7 +1195,8 @@ const store = {
 // This page's language: its own choice, else the one last chosen with the switch on any page (settings.ui.lang,
 // adopted from the first state; English until then). A new tab, address or device never resets the choice.
 let CURRENT_LANG = (() => { try { return localStorage.getItem('gcl_lang') || null; } catch (_) { return null; } })();
-let THEME = store.get('gcl_theme', 'system');
+let THEME = store.get('gcl_theme', 'timetable');   // the look, one of THEMES
+let MODE = store.get('gcl_mode', 'system');        // color mode: system, light or dark
 let STATE = null;
 let ASSETS = new Set();
 let LAST_ERROR = null;
@@ -1027,6 +1213,11 @@ const OPEN = new Set();          // expanded detail rows (materials, schedule en
 const PENDING = new Map();       // busy buttons that survive re-renders: selector -> label key
 
 const GAMES = ['zzz', 'genshin'];
+// Looks the user can pick. A theme is CSS only: style.css draws the default (timetable), themes/<id>.css restyles the
+// same markup under :root[data-theme="<id>"] and may use its hooks (data-view on <body>, data-game on game sections).
+// No logic depends on the theme.
+const THEMES = ['timetable', 'zzz'];
+const MODES = [['system', 'monitor'], ['light', 'sun'], ['dark', 'moon']];
 const TABS = [['today', 'home', 'nav_today'], ['goals', 'target', 'nav_goals'], ['plan', 'calendar', 'nav_plan'],
               ['runs', 'history', 'nav_runs'], ['settings', 'sliders', 'nav_settings']];
 const RECOVERY_MINUTES = { genshin: 8, zzz: 6 };
@@ -1101,6 +1292,7 @@ const ICONS = {
   send: '<path d="M4 12l16-8-6 16-2-7z"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+  hand: '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12M11 11V4.5a1.5 1.5 0 0 1 3 0V12M14 11.5V6a1.5 1.5 0 0 1 3 0v7c0 4-2.5 7-6 7-2.5 0-4-1-5.5-3L3.4 13.6a1.5 1.5 0 0 1 2.3-1.9L8 14"/>',
   ban: '<circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/>'
 };
 function icon(name, cls = '') {
@@ -1114,17 +1306,23 @@ function button(action, ic, label, cls = '', attrs = '') {
 function iconButton(action, ic, label, attrs = '') {
   return `<button type="button" class="btn icon sm quiet" data-action="${action}" aria-label="${label}" title="${label}" ${attrs}>${icon(ic)}</button>`;
 }
-function badge(kind, ic, label) { return `<span class="badge ${kind}">${icon(ic)}<span>${label}</span></span>`; }
+function badge(kind, ic, label, state = '') {
+  return `<span class="badge ${kind}"${state ? ` data-state="${state}"` : ''}>${icon(ic)}<span>${label}</span></span>`;
+}
 function help(html, ic = 'info') { return `<p class="help">${icon(ic)}<span>${html}</span></p>`; }
 function alertBox(kind, ic, html, action = '') {
   return `<div class="alert ${kind}" role="${kind === 'bad' ? 'alert' : 'status'}">${icon(ic)}<div class="body"><span>${html}</span>${action}</div></div>`;
 }
 function linkButton(href, ic, label) { return `<a class="btn sm" href="${href}">${icon(ic)}<span>${label}</span></a>`; }
-function runBadge(status) { const [kind, ic] = RUN_STATUS[status] || ['muted', 'minus']; return badge(kind, ic, t('run_status_' + status)); }
+function runBadge(status) {
+  const [kind, ic] = RUN_STATUS[status] || ['muted', 'minus'];
+  return badge(kind, ic, t('run_status_' + status), String(status).toLowerCase());
+}
 function portrait(game, id, name, size = '') {
   const k = `${game}/character/${id}`;
   if (id && ASSETS.has(k)) return `<span class="portrait ${size}"><img src="/assets/${esc(k)}" alt="" loading="lazy"></span>`;
-  return `<span class="portrait fallback ${size}" aria-hidden="true">${esc(String(name || '?').slice(0, 1))}</span>`;
+  const initial = String(name || '').match(/[\p{L}\p{N}]/u)?.[0] || '?';  // 「11号」 → 1, not 「
+  return `<span class="portrait fallback ${size}" aria-hidden="true">${esc(initial)}</span>`;
 }
 function materialIcon(game, id, cls = 'mat-icon') {
   const k = `${game}/material/${id}`;
@@ -1186,15 +1384,23 @@ async function api(path, method = 'GET', body = null) {
   return data;
 }
 
-function toast(message, kind = 'ok') {
+/** A toast: what it is about (the action, when known) and when, then the message. Confirmations leave by themselves
+ *  after 5 s (not while hovered or focused); errors stay until dismissed. */
+function toast(message, kind = 'ok', subject = '') {
   const box = document.getElementById('toasts');
   const el = document.createElement('div');
   el.className = `toast ${kind}`;
   el.setAttribute('role', kind === 'error' ? 'alert' : 'status');
-  el.innerHTML = `${icon(kind === 'error' ? 'alert' : 'check')}<span></span>`;
-  el.querySelector('span').textContent = message;
+  const time = `<time>${clockOf(nowMs())}</time>`;  // with an action, the time joins it on a head row; else it ends the one row
+  el.innerHTML = `${icon(kind === 'error' ? 'alert' : 'check')}<div class="toast-body">${subject ? `<p class="toast-head"><b></b>${time}</p>` : ''}<span></span></div>
+    ${subject ? '' : time}<button type="button" class="toast-close" aria-label="${t('btn_dismiss')}" title="${t('btn_dismiss')}">${icon('x')}</button>`;
+  if (subject) el.querySelector('.toast-head b').textContent = subject;
+  el.querySelector('.toast-body > span').textContent = message;
+  el.querySelector('.toast-close').addEventListener('click', () => el.remove());
   box.appendChild(el);
-  setTimeout(() => el.remove(), kind === 'error' ? 9000 : 4500);
+  if (kind === 'error') return;
+  const leave = () => { if (el.matches(':hover, :focus-within')) setTimeout(leave, 1000); else el.remove(); };
+  setTimeout(leave, 5000);
 }
 
 function busySelector(el) {
@@ -1229,7 +1435,7 @@ async function busy(btn, fn, labelKey = 'working') {
   try {
     await fn();
   } catch (err) {
-    toast(err.message, 'error');
+    toast(err.message, 'error', btn ? btn.dataset.label || btn.getAttribute('aria-label') || '' : '');  // names the action that failed
   } finally {
     if (sel) PENDING.delete(sel);
     (sel ? document.querySelectorAll(sel) : []).forEach(unmarkBusy);
@@ -1300,28 +1506,40 @@ function renderShell() {
     `<a href="#/${id}" id="tab-${id}" data-tab="${id}"${id === ROUTE.tab ? ' aria-current="page"' : ''}>${icon(ic)}<span>${t(key)}</span></a>`).join('');
   document.querySelectorAll('#lang-switch [data-lang]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === CURRENT_LANG)));
   document.getElementById('lang-switch').setAttribute('aria-label', tp('lang_label'));
-  renderThemeMenu();
+  renderLookMenu();
 }
 
-function renderThemeMenu() {
-  const options = [['system', 'monitor'], ['light', 'sun'], ['dark', 'moon']];
-  const current = options.find(o => o[0] === THEME) || options[0];
-  const menu = document.getElementById('theme-menu');
+/** The Appearance menu: the theme (a swatch drawn by CSS) and the color mode. */
+function renderLookMenu() {
+  const menu = document.getElementById('look-menu');
   const open = menu.open;
+  const mode = MODES.find(m => m[0] === MODE) || MODES[0];
+  const item = (action, id, checked, mark, label) =>
+    `<button type="button" role="menuitemradio" aria-checked="${checked}" data-action="${action}" data-key="${id}">${mark}<span>${label}</span>${icon('check', 'check')}</button>`;
   menu.innerHTML = `
-    <summary class="btn sm" aria-label="${t('theme_label')}: ${t('theme_' + current[0])}">${icon(current[1])}<span class="label">${t('theme_' + current[0])}</span>${icon('chevron', 'chev')}</summary>
-    <div class="menu-list" role="menu" aria-label="${t('theme_label')}">
-      ${options.map(([id, ic]) => `<button type="button" role="menuitemradio" aria-checked="${id === THEME}" data-action="theme" data-theme="${id}">${icon(ic)}<span>${t('theme_' + id)}</span>${icon('check', 'check')}</button>`).join('')}
+    <summary class="btn sm" aria-label="${t('look_label')}: ${t('theme_' + THEME)}, ${t('mode_' + MODE)}">${icon(mode[1])}<span class="label">${t('theme_' + THEME)}</span>${icon('chevron', 'chev')}</summary>
+    <div class="menu-list" role="menu" aria-label="${t('look_label')}">
+      <div role="group" aria-labelledby="look-themes"><p class="menu-head" id="look-themes">${t('theme_label')}</p>
+        ${THEMES.map(id => item('theme', id, id === THEME, `<span class="swatch" data-swatch="${id}" aria-hidden="true"></span>`, t('theme_' + id))).join('')}</div>
+      <div role="group" aria-labelledby="look-modes"><p class="menu-head" id="look-modes">${t('mode_label')}</p>
+        ${MODES.map(([id, ic]) => item('mode', id, id === MODE, icon(ic), t('mode_' + id))).join('')}</div>
     </div>`;
   menu.open = open;
 }
 
 function applyTheme(theme) {
-  THEME = ['light', 'dark'].includes(theme) ? theme : 'system';
-  if (THEME === 'system') delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = THEME;
+  THEME = THEMES.includes(theme) ? theme : THEMES[0];
+  document.documentElement.dataset.theme = THEME;
   store.set('gcl_theme', THEME);
-  renderThemeMenu();
+  renderLookMenu();
+}
+
+function applyMode(mode) {
+  MODE = MODES.some(([id]) => id === mode) ? mode : 'system';
+  if (MODE === 'system') delete document.documentElement.dataset.mode;
+  else document.documentElement.dataset.mode = MODE;
+  store.set('gcl_mode', MODE);
+  renderLookMenu();
 }
 
 function setLanguage(lang) {
@@ -1346,14 +1564,49 @@ function renderStrip() {
   }
   const r = STATE.runner || {};
   const chips = [chip('calendar', tp('strip_game_day', gameDayLabel()))];
-  if (r.running) chips.push(chip('pulse', tp('strip_running', r.stage || ''), 'info'));
-  else if (STATE.automation === false) chips.push(chip('monitor', tp('strip_plan_only')));
-  else if (STATE.settings?.schedule?.enabled && STATE.next_slot) chips.push(chip('clock', tp('strip_next_run', whenLabel(STATE.next_slot), relative(STATE.next_slot))));
+  if (r.running) {
+    const { stages, current } = runSteps(r);
+    chips.push(chip('pulse', r.game && current >= 0
+      ? tp('strip_running_game', tp('game_' + r.game), tp(stages[current]), current + 1, stages.length)
+      : tp('strip_running', r.stage || ''), 'info'));
+  } else if (STATE.automation === false) chips.push(chip('monitor', tp('strip_plan_only')));
+  else if (STATE.settings?.schedule?.enabled && STATE.next_slot) chips.push(chip('clock', tp('strip_next_run', whenLabel(STATE.next_slot), relative(STATE.next_slot)), 'next'));
   else chips.push(chip('pause', tp('strip_schedule_off')));
+  GAMES.forEach(g => {
+    const st = STATE.stamina?.[g];
+    if (st) chips.push(chip(g === 'zzz' ? 'battery' : 'resin', `${tp('game_short_' + g)} ${st.value}/${st.cap}`, 'stamina'));
+  });
   if (!STATE.logged_in) chips.push(chip('user', tp('strip_signed_out'), 'warn'));
+  else if (STATE.login_expired) chips.push(chip('user', tp('strip_login_expired'), 'warn'));
   if (!STATE.admin && STATE.automation !== false) chips.push(chip('shield', tp('strip_not_admin'), 'warn'));
   if (LAST_ERROR) chips.push(chip('alert', tp('connect_failed', LAST_ERROR), 'bad'));
   el.innerHTML = chips.join('');
+  el.style.setProperty('--p', slotProgress().toFixed(3));
+  const stamina = GAMES.map(g => [g, STATE.stamina?.[g]]).filter(([, st]) => st)
+    .map(([g, st]) => `${tp('game_short_' + g)} ${st.value}/${st.cap}`);
+  document.title = [...stamina, `${tp('brand_title')} ${tp('brand_edition')}`].join(' · ');
+}
+
+/** How far the wait from the previous scheduled time to the next run has come (0–1); 0 without a schedule. */
+function slotProgress() {
+  const next = toMs(STATE.next_slot), now = nowMs();
+  const times = STATE.settings?.schedule?.enabled ? STATE.settings.schedule.times || [] : [];
+  if (next == null || !times.length) return 0;
+  const p = cnParts(now);
+  const midnight = Date.UTC(p.y, p.m - 1, p.d) - 8 * 3600e3;  // today 00:00 China time
+  let prev = next - 864e5;
+  [0, -864e5].forEach(day => times.forEach(x => {
+    const [h, m] = x.split(':').map(Number);
+    const at = midnight + day + (h * 60 + m) * 60e3;
+    if (at <= now && at > prev) prev = at;
+  }));
+  return Math.min(1, Math.max(0, (now - prev) / (next - prev)));
+}
+
+/** The steps of a running batch (the scan step only when this game scans) and the index of the current one. */
+function runSteps(r) {
+  const stages = STAGES.filter(k => k !== 'stage_scan' || r.scan);
+  return { stages, current: stages.indexOf(r.stage_key || 'stage_prepare') };
 }
 
 // ----------------------------------------------------------- render orchestration
@@ -1387,9 +1640,9 @@ function pageHead(title, sub, actions = '') {
   return `<div class="page-head"><div><h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ''}</div>${actions ? `<div class="actions">${actions}</div>` : ''}</div>`;
 }
 
-function toggleButton(id) {
+function toggleButton(id, labelKey = 'btn_details') {
   const open = OPEN.has(id);
-  return `<button type="button" class="btn sm quiet" data-action="toggle" data-key="${esc(id)}" aria-expanded="${open}">${icon('chevron', 'chev')}<span class="txt">${t('btn_details')}</span></button>`;
+  return `<button type="button" class="btn sm quiet" data-action="toggle" data-key="${esc(id)}" aria-expanded="${open}">${icon('chevron', 'chev')}<span class="txt">${t(labelKey)}</span></button>`;
 }
 
 /** An empty view as a sheet: what is missing on its title strip, then how to fill it. */
@@ -1412,20 +1665,31 @@ function renderToday() {
   const el = document.getElementById('view-today');
   const r = STATE.runner || {};
   el.innerHTML = `
-    ${pageHead(t('nav_today'), '', button('run', 'play', t('btn_run_both'), '', `data-games="zzz,genshin"${r.running || STATE.automation === false ? ' disabled' : ''}`))}
+    ${pageHead(t('nav_today'), '', runButton('zzz,genshin', t('btn_run_both'), ''))}
     ${exceptions()}
     ${r.running ? runningPanel(r) : ''}
     ${GAMES.map(gameBand).join('')}
     ${latestRunPanel()}`;
 }
 
+/** A Run button; while it cannot run (Linux host, a batch running) it is disabled and says why beside it. */
+function runButton(games, label, cls) {
+  const why = STATE.automation === false ? 'run_why_windows' : STATE.runner?.running ? 'run_why_busy' : '';
+  return `${why ? `<span class="run-why">${t(why)}</span>` : ''}${button('run', 'play', label, cls, `data-games="${games}"${why ? ' disabled' : ''}`)}`;
+}
+
 function exceptions() {
   const list = [];
   const c = STATE.check || {};
   if (!STATE.logged_in) list.push(alertBox('warn', 'user', t('exc_signed_out'), linkButton('#/settings/set-account', 'user', t('exc_sign_in'))));
-  const plansOnly = STATE.automation === false;
-  if (plansOnly) list.push(alertBox('info', 'monitor', t('exc_plan_only')));
-  else if (!STATE.admin) list.push(alertBox('warn', 'shield', t('exc_not_admin')));
+  else if (STATE.login_expired) {
+    // name what the login actually blocks: the stamina read through Miyoushe, and the material gaps
+    const units = GAMES.filter(g => STATE.health?.['stamina-' + g]?.expired).map(g => tp('unit_' + g));
+    const text = units.length ? t('exc_login_expired', units.join(tp('list_sep'))) : t('exc_login_expired_calc');
+    list.push(alertBox('warn', 'user', text, button('login-dialog', 'qr', t('btn_login_manage'), 'sm')));
+  }
+  const plansOnly = STATE.automation === false;  // said by the status strip and the disabled Run buttons
+  if (!plansOnly && !STATE.admin) list.push(alertBox('warn', 'shield', t('exc_not_admin')));
   const scheduled = STATE.settings?.schedule?.games || [];
   GAMES.forEach(g => {
     const hasGoals = (STATE.goals?.[g] || []).some(x => x.enabled);
@@ -1435,17 +1699,16 @@ function exceptions() {
   });
   GAMES.forEach(g => (STATE.goals?.[g] || []).filter(x => x.enabled && (x.calc_error || x.observe_error)).forEach(x => {
     list.push(alertBox('bad', 'alert', t('exc_goal_error', x.name, x.calc_error || x.observe_error),
-      linkButton(`#/goals/${encodeURIComponent(x.id)}`, 'target', t('exc_open'))));
+      `<span class="actions">${button('sync-goal', 'refresh', t('btn_sync_again'), 'sm', `data-id="${esc(x.id)}"`)}
+        ${linkButton(`#/goals/${encodeURIComponent(x.id)}`, 'target', t('exc_open'))}</span>`));
   }));
   return list.length ? `<div class="alerts">${list.join('')}</div>` : '';
 }
 
 function runningPanel(r) {
-  const key = r.stage_key || 'stage_prepare';
-  const stages = STAGES.filter(k => k !== 'stage_scan' || r.scan);  // the scan step only when this game scans
-  const current = stages.indexOf(key);
+  const { stages, current } = runSteps(r);
   const games = r.games || [];
-  const stopping = key === 'stage_stopping';
+  const stopping = r.stage_key === 'stage_stopping';
   const steps = stages.map((k, i) => {
     const state = current < 0 ? '' : i < current ? 'done' : i === current ? 'current' : '';
     return `<li class="step ${state}">${state === 'done' ? icon('check') : `<span class="n">${i + 1}</span>`}<span>${t(k)}</span></li>`;
@@ -1454,8 +1717,9 @@ function runningPanel(r) {
   return `
     <section class="panel running" aria-live="polite">
       <div class="head">${icon('pulse')}<b>${stopping ? t('stage_stopping') : t('running_title')}</b><span class="ink-2">${game}</span></div>
-      <ol class="steps">${steps}</ol>
+      <ol class="steps" style="--n:${stages.length}">${steps}</ol>
       ${button('stop', 'stop', t('btn_stop'), 'sm danger', stopping ? 'disabled' : '')}
+      <p class="hands-off">${icon('info')}<span>${t('running_hands_off')}</span></p>
     </section>`;
 }
 
@@ -1465,7 +1729,7 @@ function nextFacts(game) {
   if (!item) return null;
   if (STATE.settings?.schedule?.enabled && STATE.next_slot) {
     const r = (STATE.forecast?.rows || []).find(x => x.game === game && x.at === STATE.next_slot);
-    if (r && r.task) return { at: r.at, expected: r.expected, spend: r.spend, left: r.left };
+    if (r && r.task) return { at: r.at, expected: r.expected, spend: r.spend, left: r.left, coffee: r.coffee };
   }
   const st = STATE.stamina?.[game];
   const spend = item.expected != null ? item.expected * item.cost : null;
@@ -1474,14 +1738,13 @@ function nextFacts(game) {
 
 function gameBand(game) {
   const acc = STATE.accounts?.[game];
-  const running = STATE.runner?.running;
   return `
-    <section class="band" aria-labelledby="band-${game}">
+    <section class="band" data-game="${game}" aria-labelledby="band-${game}">
       <header class="band-head">
-        <div class="band-title"><h2 id="band-${game}">${t('game_' + game)}</h2><span class="ink-2">${acc ? t('account_line', acc.name || '–', acc.uid) : t('no_account')}</span></div>
+        <div class="band-title"><h2 id="band-${game}">${t('game_' + game)}</h2><span class="ink-2">${acc ? t('account_line', acc.name || '–', acc.uid) : t(STATE.logged_in ? 'no_account' : 'not_signed_in')}</span></div>
         <div class="actions">
-          ${button('refresh-notes', 'refresh', t('btn_refresh'), 'sm', `data-game="${game}"${STATE.logged_in && acc ? '' : ' disabled'}`)}
-          ${button('run', 'play', t('btn_run_now'), 'sm primary', `data-games="${game}"${running || STATE.automation === false ? ' disabled' : ''}`)}
+          ${button('refresh-notes', 'refresh', t('btn_reread', tp('unit_' + game)), 'sm', `data-game="${game}"${STATE.logged_in && acc ? '' : ' disabled'}`)}
+          ${runButton(game, t('btn_run_now'), 'sm primary')}
         </div>
       </header>
       <div class="band-grid">
@@ -1492,29 +1755,34 @@ function gameBand(game) {
     </section>`;
 }
 
+/** The stamina figure on its tile, with the tile's state (ok, full, unknown) and, for themes that draw a gauge,
+ *  --value, --max and --spend (what the next batch spends of it). */
 function staminaCol(game) {
   const st = STATE.stamina?.[game];
   const acc = STATE.accounts?.[game];
   const health = STATE.health?.['stamina-' + game];
-  const issue = health && health.ok === false ? alertBox('warn', 'alert', t('notes_issue', health.reason || ''),
-    acc ? button('login-dialog', 'qr', t('btn_login_manage'), 'sm') : '') : '';
+  const failed = health && health.ok === false;
+  const issue = !failed ? '' : health.expired ? help(t('tile_login_expired'), 'alert')
+    : alertBox('warn', 'alert', t('notes_issue', tp('unit_' + game), health.reason || ''), acc ? button('login-dialog', 'qr', t('btn_login_manage'), 'sm') : '');
   const head = `<div class="col-head"><h3>${t('unit_' + game)}</h3></div>`;
   if (!st) {
-    return `${head}<div class="tile"><p class="figure"><span class="value">?</span></p>
-      <span class="meter stamina-meter" aria-hidden="true"></span></div>${help(t('stamina_unknown_hint'))}${issue}`;
+    return `${head}<div class="tile" data-state="unknown"><p class="figure"><span class="value">?</span><span class="tile-state">${t('tile_unread')}</span></p>
+      <span class="meter stamina-meter" aria-hidden="true"></span></div>${failed ? issue : help(t(STATE.logged_in ? 'stamina_unknown_hint' : 'stamina_signed_out_hint'))}`;
   }
   const minutes = (st.cap - st.value) * RECOVERY_MINUTES[game];
   const full = st.value >= st.cap;
+  const spend = Math.min(st.value, nextFacts(game)?.spend ?? 0);
   return `
     ${head}
-    <div class="tile">
-      <p class="figure"><span class="value">${num(st.value)}</span><span class="cap">/${num(st.cap)}</span></p>
+    <div class="tile" data-state="${full ? 'full' : 'ok'}" style="--value:${st.value};--max:${st.cap};--spend:${spend}">
+      <p class="figure"><span class="value">${num(st.value)}</span><span class="cap">/${num(st.cap)}</span>${full ? `<span class="tile-state">${t('tile_full')}</span>` : ''}</p>
       <span class="meter stamina-meter" aria-hidden="true"><span class="fill" style="width:${Math.min(100, (100 * st.value) / st.cap).toFixed(1)}%"></span></span>
+      ${spend ? `<p class="tile-note">${t('tile_next_spend', num(spend))}</p>` : ''}
     </div>
-    ${full ? `<p class="st-full">${icon('alert')}<span>${t('full_now')}</span></p>` : ''}
+    ${full ? `<p class="st-full">${icon('alert')}<span>${t('full_now_' + game)}</span></p>` : ''}
     <dl class="st-facts">
       ${full ? '' : `<div><dt>${t('st_full_at')}</dt><dd><b>${esc(whenOf(nowMs() + minutes * 60000))}</b><span>${t('st_full_in', duration(minutes))}</span></dd></div>`}
-      <div><dt>${t('st_read')}</dt><dd><b>${esc(relative(st.seen))}</b><span>${esc(st.source)}</span></dd></div>
+      <div class="st-read"><dt>${t('st_read')}</dt><dd><b>${esc(relative(st.seen))}</b><span>${esc(st.source)}</span></dd></div>
     </dl>
     ${issue}`;
 }
@@ -1525,30 +1793,60 @@ function runsCol(game) {
   const sched = STATE.settings?.schedule || {};
   const rows = sched.enabled && (sched.games || []).includes(game)
     ? (STATE.forecast?.rows || []).filter(r => r.game === game && toMs(r.at) > nowMs()).slice(0, 3) : [];
-  const list = rows.length ? rows.map((r, i) => ttRow(r, i === 0)).join('') : plan.item ? manualRow(game, plan) : '';
+  const ran = departedRow(game);
+  const list = ran + (rows.length ? rows.map((r, i) => ttRow(r, i === 0)).join('') : plan.item ? manualRow(game, plan) : '');
   return `
-    <div class="col-head"><h3>${t('col_runs')}</h3><a href="#/plan">${t('nav_plan')}</a></div>
+    <div class="col-head"><h3>${t(ran ? 'col_runs_ran' : 'col_runs')}</h3><a href="#/plan">${t('nav_plan')}</a></div>
     ${plan.item ? '' : idleNote(game, plan)}
     ${list ? `<ol class="tt">${list}</ol>` : ''}
     <p class="tt-daily">${icon('gift')}<span>${t('dailies_line', (plan.daily || []).join(tp('list_sep')) || tp('none'))}</span></p>`;
 }
 
+/** This game's part of the latest batch, kept on the board for the rest of its game day (it resets at 04:00). */
+function departedRow(game) {
+  const run = (STATE.runs || []).find(x => (x.games || []).some(g => g.game === game));
+  const start = run && toMs(run.started);
+  const gameDay = ms => dayKeyOf(ms - 4 * 3600e3);
+  if (!start || run.status === 'RUNNING' || gameDay(start) !== gameDay(nowMs())) return '';
+  const g = run.games.find(x => x.game === game);
+  const what = g.item ? `${esc(g.item.label)} <span class="ink-2">${esc(g.item.goal)}</span>` : esc(g.summary || '');
+  return `
+    <li class="tt-row departed">
+      ${ttTime(run.started)}
+      <div class="tt-what"><p class="tt-task">${runBadge(g.status)}<a class="ink-2" href="#/runs">${t('departed', runSpan(run))}</a></p><p>${what}</p></div>
+    </li>`;
+}
+
+/** A run's time with its weekday, so rows read the same before and after midnight. */
 function ttTime(at) {
   const ms = toMs(at);
-  const day = dayKeyOf(ms) === dayKeyOf(nowMs()) ? '' : `<small>${esc(lookup('weekdays')[cnParts(ms).wd])}</small>`;
-  return `<span class="tt-time">${clockOf(ms)}${day}</span>`;
+  return `<span class="tt-time">${clockOf(ms)}<small>${esc(lookup('weekdays')[cnParts(ms).wd])}</small></span>`;
+}
+
+/** What stays after a run; the forecast's coffee is named when it is part of the figure. */
+function leftText(r) {
+  if (r.left == null) return '';
+  return r.coffee ? t('left_coffee', num(r.left), num(r.coffee)) : t('left_after', num(r.left));
 }
 
 function ttSpend(spend, left) {
-  return `<span class="tt-spend">${spend == null ? '<b>?</b>' : `<b>−${num(spend)}</b>`}${left != null ? `<span>${t('left_after', num(left))}</span>` : ''}</span>`;
+  return `<span class="tt-spend">${spend == null ? '<b>?</b>' : `<b>−${num(spend)}</b>`}${left ? `<span>${left}</span>` : ''}</span>`;
+}
+
+/** Natural recovery hit the cap before this run (the forecast knows when). */
+function fullBefore(r) {
+  if (!r.full_at) return '';
+  const lead = duration((toMs(r.at) - toMs(r.full_at)) / 60000);
+  const fix = r.task ? '#/settings/set-schedule' : '#/settings/set-farming';  // a run time helps only when there is something to farm
+  return `<p class="tt-full">${icon('clock')}<a href="${fix}">${t('full_before', clock(r.full_at), lead)}</a></p>`;
 }
 
 function ttRow(r, first) {
   const next = first && r.task;
   const id = `today-${r.game}-${r.at}`;
   if (!r.task) {
-    return `<li class="tt-row">${ttTime(r.at)}<div class="tt-what"><p class="ink-2">${t('daily_only')}</p></div>
-      <span class="tt-spend">${r.left != null ? `<span>${t('left_after', num(r.left))}</span>` : ''}</span></li>`;
+    return `<li class="tt-row idle">${ttTime(r.at)}<div class="tt-what"><p class="ink-2">${t('daily_only')}</p>${fullBefore(r)}</div>
+      <span class="tt-spend"><span>${leftText(r)}</span></span></li>`;
   }
   return `
     <li class="tt-row${next ? ' next' : ''}">
@@ -1556,9 +1854,10 @@ function ttRow(r, first) {
       <div class="tt-what">
         <p class="tt-task"><b>${esc(r.task)}</b>${next ? `<span class="tag">${t('tag_next')}</span>` : ''}</p>
         <p class="ink-2">${r.names ? t('for_goal', r.goal, r.names) : esc(r.goal)}${r.phase === 'equipment' ? ` (${t('phase_equipment')})` : ''}</p>
+        ${fullBefore(r)}
         ${next ? `<div class="tt-acts">${toggleButton(id)}${adjustLink(r.goal_id)}</div>` : ''}
       </div>
-      ${ttSpend(r.spend, r.left)}
+      ${ttSpend(r.spend, leftText(r))}
       ${next ? detailPanel(id, detailList(forecastDetails(r)), 'tt-detail') : ''}
     </li>`;
 }
@@ -1575,7 +1874,7 @@ function manualRow(game, plan) {
         <p class="ink-2">${item.names ? t('for_goal', item.goal, item.names) : esc(item.goal)}${plan.phase === 'equipment' ? ` (${t('phase_equipment')})` : ''}</p>
         <div class="tt-acts">${toggleButton(id)}${adjustLink(item.goal_id)}</div>
       </div>
-      ${ttSpend(nf && nf.spend, nf && nf.left)}
+      ${ttSpend(nf && nf.spend, nf ? leftText(nf) : '')}
       ${detailPanel(id, itemDetails(game, item, nf), 'tt-detail')}
     </li>`;
 }
@@ -1585,14 +1884,15 @@ function idleNote(game, plan) {
     <div class="tt-idle">
       <p><b>${t('nothing_title')}</b> <span class="ink-2">(${t('keeping', tp('unit_' + game))})</span></p>
       ${plan.reason ? `<p class="ink-2">${esc(plan.reason)}</p>` : ''}
-      <div class="tt-acts">${linkButton(`#/goals/${game}`, 'edit', t('btn_adjust'))}</div>
+      <div class="tt-acts">${linkButton(`#/goals/${game}`, 'target', t('btn_open_goals'))}</div>
     </div>`;
 }
 
 /** Equipment for a character is adjusted on its goal card, like its materials; the fixed fallback in Settings. */
 function adjustLink(goalId) {
   const goal = goalId ? findGoal(goalId) : null;
-  return linkButton(goal ? `#/goals/${encodeURIComponent(goal.id)}` : '#/settings/set-farming', 'edit', t('btn_adjust'));
+  return goal ? linkButton(`#/goals/${encodeURIComponent(goal.id)}`, 'edit', t('btn_adjust_goal'))
+    : linkButton('#/settings/set-farming', 'sliders', t('btn_farming_settings'));
 }
 
 function forecastDetails(r) {
@@ -1629,14 +1929,22 @@ function itemFraction(it) {
 
 function goalRow(g, plan) {
   const items = g.items || [];
-  const label = t('goals_collected', items.filter(it => it.done).length, items.length);
-  const parts = items.map(it => {
-    const f = itemFraction(it);
-    return f == null ? '<span class="part unknown"></span>' : `<span class="part"><span style="width:${(100 * f).toFixed(1)}%"></span></span>`;
+  const fractions = items.map(itemFraction);
+  const known = fractions.filter(f => f != null);
+  const done = items.filter(it => it.done).length;
+  const label = known.length
+    ? t('goals_progress', Math.floor(100 * known.reduce((a, b) => a + b, 0) / known.length), done, items.length)
+    : t('goals_items', done, items.length);
+  const parts = items.map((it, i) => {
+    const f = fractions[i], title = esc(`${it.label}: ${needText(it, true)}`);
+    return f == null ? `<span class="part unknown" title="${title}"></span>`
+      : `<span class="part${f >= 1 ? ' done' : ''}" title="${title}"><span style="width:${(100 * f).toFixed(1)}%"></span></span>`;
   }).join('');
-  const ev = g.gear_eval;
-  const gear = ev && ev.target?.farm
-    ? `<p class="gl-gear">${t(GEAR[g.game].title)} <span class="num">${ev.score ?? '–'} / ${ev.target.score}</span>${ev.done || g.gear_owned?.done ? icon('check') : ''}</p>` : '';
+  const ev = g.gear_eval, own = g.gear_owned, gearTitle = tp(GEAR[g.game].title);
+  const gearText = !ev?.target?.farm ? '' : ev.done ? t('gear_glance_met', gearTitle)
+    : own?.done ? t('gear_glance_equip', gearTitle, own.changes.length)
+    : `${esc(gearTitle)} <span class="num">${ev.score ?? '–'} / ${ev.target.score}</span>`;
+  const gear = gearText ? `<p class="gl-gear">${ev.done ? icon('check') : own?.done ? icon('box') : ''}<span>${gearText}</span></p>` : '';
   return `
     <li class="gl-row">
       ${portrait(g.game, g.character_id, g.name, 'md')}
@@ -1673,9 +1981,11 @@ function itemDetails(game, item, nf) {
 
 function latestRunPanel() {
   const run = (STATE.runs || [])[0];
+  const quiet = run && !(run.notes || []).length && (run.games || []).every(g => !(g.errors || []).length && !(g.notes || []).length);
+  if (quiet && GAMES.some(game => departedRow(game))) return '';  // today's batch stands on the game sheets and has nothing more to say
   return `
-    <section class="band">
-      <header class="band-head"><div class="band-title"><h2>${t('latest_run')}</h2></div><a href="#/runs">${t('view_all')}</a></header>
+    <section class="band latest">
+      <header class="band-head"><div class="band-title"><h2>${t('latest_run')}</h2>${run ? `<span class="ink-2 num">${esc(runSpan(run, true))}</span>` : ''}</div><a href="#/runs">${t('view_all')}</a></header>
       <div class="band-body">${run ? runBody(run) : `<p class="ink-2">${t('no_runs_yet')}</p>`}</div>
     </section>`;
 }
@@ -1710,21 +2020,18 @@ function goalCard(g, idx, total, nextKey) {
   const next = items.find(it => it.key === nextKey);
   const plan = STATE.plans?.[g.game];
   return `
-    <article class="goal" id="goal-${id}" data-goal="${id}">
+    <article class="goal" id="goal-${id}" data-goal="${id}" data-game="${g.game}">
       <header class="goal-id">
         ${portrait(g.game, g.character_id, g.name)}
         <div>
-          <h2>${esc(g.name)}</h2>
-          <p class="meta"><span>${t('queue_pos', idx + 1, total)}</span><span>${icon('refresh')}${g.sync_at ? t('synced', relative(g.sync_at)) : t('never_synced')}</span></p>
+          <h2>${esc(g.name)}${agentTags(g)}</h2>
+          <p class="meta"><span class="queue">${t('queue_pos', idx + 1, total)}${orderControl('move-goal', `data-id="${id}"`, idx, total)}</span>
+            <span>${icon('refresh')}${g.sync_at ? t('synced', relative(g.sync_at)) : t('never_synced')}</span></p>
         </div>
         <div class="goal-actions">
-          <span class="order">
-            ${iconButton('move-goal', 'up', t('btn_move_up'), `data-id="${id}" data-dir="-1"${idx === 0 ? ' disabled' : ''}`)}
-            ${iconButton('move-goal', 'down', t('btn_move_down'), `data-id="${id}" data-dir="1"${idx === total - 1 ? ' disabled' : ''}`)}
-          </span>
           ${button('sync-goal', 'refresh', t('btn_sync'), 'sm', `data-id="${id}"`)}
           ${button('edit-targets', 'edit', t('btn_target_settings'), 'sm primary', `data-id="${id}"`)}
-          ${button('cancel-goal', 'ban', t('btn_cancel_cultivation'), 'sm danger', `data-id="${id}"`)}
+          ${button('cancel-goal', 'ban', t('btn_cancel_cultivation'), 'sm quiet danger', `data-id="${id}"`)}
         </div>
       </header>
       ${errors.map(e => alertBox('bad', 'alert', esc(e))).join('')}
@@ -1739,6 +2046,20 @@ function goalCard(g, idx, total, nextKey) {
           <div class="fold-body"><ul class="mats">${done.map(it => materialRow(g, it, nextKey)).join('')}</ul></div></details>` : ''}
       </section>
     </article>`;
+}
+
+/** A character's rank and element in words (the offline dataset's values). */
+function agentTags(c, game = c.game) {
+  const rarity = /^\d+$/.test(String(c.rarity ?? '')) ? `${c.rarity}★` : c.rarity ? tp('rank_letter', c.rarity) : '';
+  const element = elementName(game, c.element);
+  return `${rarity ? `<span class="rank" data-rank="${esc(String(c.rarity).toLowerCase())}">${esc(rarity)}</span>` : ''}${element ? `<span class="element">${esc(element)}</span>` : ''}`;
+}
+
+/** Move up / Move down as one joined control; the ends are disabled. */
+function orderControl(action, attrs, idx, total) {
+  return `<span class="order" role="group">
+    ${iconButton(action, 'up', t('btn_move_up'), `${attrs} data-dir="-1"${idx === 0 ? ' disabled' : ''}`)}
+    ${iconButton(action, 'down', t('btn_move_down'), `${attrs} data-dir="1"${idx === total - 1 ? ' disabled' : ''}`)}</span>`;
 }
 
 function nextLine(g, item, planItem) {
@@ -1796,16 +2117,18 @@ const GEAR = {
                   6: [11102, 12102, 13102, 30502, 31402, 12202] },
          kind: 'disc', unit: 'battery', title: 'gear_title', none: 'gear_none_yet', help: 'gear_help', farm: 'gear_farm_switch',
          mainsTitle: 'gear_mains_title', stage: 'gear_stage', stageAuto: 'gear_stage_auto', stageHint: 'gear_stage_hint',
-         stages: () => STATE.catalog?.disc || [], sets: () => STATE.catalog?.disc_sets || [] },
+         stages: () => STATE.catalog?.stages?.zzz || [], sets: () => STATE.catalog?.disc_sets || [] },
   genshin: { subs: [20, 22, 6, 5, 3, 2, 9, 8, 23, 28],
              mains: { 3: [3, 6, 9, 23, 28], 4: [3, 6, 9, 28, 30, 40, 41, 42, 43, 44, 45, 46], 5: [3, 6, 9, 28, 20, 22, 26] },
              kind: 'artifact', unit: 'resin', title: 'art_title', none: 'art_none_yet', help: 'art_help', farm: 'art_farm_switch',
              mainsTitle: 'art_mains_title', stage: 'art_domain', stageAuto: 'art_domain_auto', stageHint: 'art_domain_hint',
-             stages: () => STATE.catalog?.blessing || [], sets: () => STATE.catalog?.artifact_sets || [] }
+             stages: () => STATE.catalog?.stages?.genshin || [], sets: () => STATE.catalog?.artifact_sets || [] }
 };
 /** Official property name in the UI language; the API's own (Chinese) name for ids this table lacks. */
 function propName(id, fallback = '') { const k = 'prop_' + id; return lookup(k) !== k ? t(k) : esc(fallback || id); }
-function slotName(game, slot) { return game === 'genshin' ? t('art_slot_' + slot) : t('gear_slot', slot); }
+function slotName(game, slot) {
+  return game === 'genshin' ? t('art_slot_' + slot) : `<span class="slot" data-slot="${esc(slot)}">${t('gear_slot', slot)}</span>`;
+}
 function setIcon(game, setId, cls = 'mat-icon') {
   const k = `${game}/${GEAR[game].kind}/${setId}`;
   return setId && ASSETS.has(k) ? `<img class="${cls}" src="/assets/${esc(k)}" alt="" loading="lazy">` : '';
@@ -1816,13 +2139,12 @@ function gearQueueRow(g) { return (STATE.plans?.[g.game]?.equipment?.queue || []
 function gearStatus(g, ev) {
   const row = gearQueueRow(g);
   const eq = STATE.plans?.[g.game]?.equipment || {};
-  if (ev && ev.done) return badge('good', 'check', t('gear_status_met'));
-  if (g.gear_owned && g.gear_owned.done) return badge('good', 'check', t('gear_status_owned'));
-  if (!ev?.target?.farm) return badge('muted', 'minus', t('gear_status_off'));
-  if (row && row.why) return badge('warn', 'clock', esc(row.why));
-  if (eq.goal_id === g.id && !eq.why) return badge('info', 'target', t('gear_status_next', esc(row.stage)));
-  if (row && row.stage) return badge('muted', 'list', t('gear_status_queued', esc(row.stage)));
-  return badge('warn', 'clock', esc(eq.why || ''));
+  if ((ev && ev.done) || (g.gear_owned && g.gear_owned.done)) return '';  // the verdict and the storage box say it
+  if (!ev?.target?.farm) return badge('muted', 'minus', t('gear_status_off'), 'off');
+  if (row && row.why) return badge('warn', 'clock', esc(row.why), 'waiting');
+  if (eq.goal_id === g.id && !eq.why) return badge('info', 'target', t('gear_status_next', esc(row.stage)), 'next');
+  if (row && row.stage) return badge('muted', 'list', t('gear_status_queued', esc(row.stage)), 'queued');
+  return badge('warn', 'clock', esc(eq.why || ''), 'waiting');
 }
 
 function gearSection(g) {
@@ -1832,10 +2154,15 @@ function gearSection(g) {
   const head = `<div class="mats-head"><h3>${t(cfg.title)}</h3>${button('edit-gear', 'edit', t('btn_gear_target'), 'sm', `data-id="${id}"${ev ? '' : ' disabled'}`)}</div>`;
   if (!ev) return `<section class="gear">${head}<p class="ink-2">${g.gear_error ? esc(g.gear_error) : t(cfg.none)}</p></section>`;
   const tg = ev.target;
+  const checks = Object.values(ev.checks);
+  const verdict = ev.done ? badge('good', 'check', t('gear_verdict_met'), 'met')
+    : badge('muted', 'x', t('gear_verdict_below', checks.filter(Boolean).length, checks.length), 'below');
+  const state = gearStatus(g, ev);
+  const filled = ev.slots.filter(s => s.disc).length;
   const chips = [
-    ...ev.sets.map(s => chip(s.ok ? 'check' : 'x', `${s.name} ${s.have}/${s.count}`, s.ok ? 'good' : 'warn')),
+    ev.sets.length ? chip(ev.checks.sets ? 'check' : 'x', tp('gear_sets_line', ev.sets.map(s => `${s.name} ${s.have}/${s.count}`).join(' · ')), ev.checks.sets ? 'good' : 'warn') : '',
     ev.checks.main ? chip('check', tp('gear_mains_ok'), 'good') : chip('x', tp('gear_mains_bad'), 'warn'),
-    ev.checks.filled ? '' : chip('x', tp('gear_slots_filled', ev.slots.filter(s => s.disc).length, ev.slots.length), 'warn'),
+    chip(ev.checks.filled ? 'check' : 'x', tp('gear_slots_filled', filled, ev.slots.length), ev.checks.filled ? 'good' : 'warn'),
   ].join('');
   const src = ev.source === 'custom' ? t('gear_src_custom') : ev.source !== 'official' ? t('gear_src_none')
     : ev.plan?.name ? t('gear_src_official', esc(ev.plan.name)) : t(ev.plan?.mine ? 'gear_src_mine' : 'gear_src_recommended');
@@ -1846,12 +2173,12 @@ function gearSection(g) {
     <section class="gear">
       ${head}
       <div class="gear-sum">
-        <div class="gear-score"><span class="value">${ev.score ?? '–'}</span><span class="ink-2">/ ${tg.score}</span>${ev.score == null ? '' : miniMeter(ev.score, tg.score || 100)}</div>
+        <div class="gear-score">${verdict}<span class="score-check ${ev.checks.score ? 'ok' : 'no'}">${icon(ev.checks.score ? 'check' : 'x')}<span class="value">${ev.score ?? '–'}</span><span class="ink-2">/ ${tg.score}</span></span>${ev.score == null ? '' : miniMeter(ev.score, tg.score || 100)}</div>
         <div class="gear-checks">${chips}</div>
-        <div class="gear-state">${gearStatus(g, ev)}</div>
+        ${state ? `<div class="gear-state">${state}</div>` : ''}
       </div>
       ${ownedBlock(g)}
-      <p class="meta ink-2"><span>${src}</span><span>${icon('refresh')}${t('gear_read', relative(ev.at))}</span>${g.gear_runs ? `<span>${t('gear_runs', num(g.gear_runs))}</span>` : ''}${toggleButton(detailId)}</p>
+      <p class="meta ink-2"><span>${src}</span><span>${icon('refresh')}${t('gear_read_' + g.game, relative(ev.at))}</span>${g.gear_runs ? `<span>${t('gear_runs', num(g.gear_runs))}</span>` : ''}${toggleButton(detailId)}</p>
       ${detailPanel(detailId, `
         <ul class="discs">${ev.slots.map(s => discCard(g.game, s)).join('')}</ul>
         ${help(weighted ? t('gear_weights_line', weighted) : t('gear_no_weights'))}
@@ -1866,8 +2193,8 @@ function ownedBlock(g) {
   const own = g.gear_owned;
   if (!own || (!own.changes.length && g.gear_eval?.done)) return '';
   const rows = own.changes.map(c => `
-    <li>${setIcon(g.game, c.set_id)}<span><b>${slotName(g.game, c.slot)}</b> · ${esc(c.set)} · ${propName(c.main?.id, c.main?.name)}</span>
-      <span class="num">${c.was == null ? '–' : num(Math.round(c.was * 10) / 10)} → <b>${num(c.score)}</b></span></li>`).join('');
+    <li>${setIcon(g.game, c.set_id)}<span><b>${slotName(g.game, c.slot)}<span class="colon">:</span></b> <span class="num">${c.was == null ? t('gear_slot_empty') : num(Math.round(c.was * 10) / 10)} → <b>${num(c.score)}</b></span></span>
+      <span class="ink-2">${esc(c.set)} · ${propName(c.main?.id, c.main?.name)}</span></li>`).join('');
   return `
     <div class="owned">
       <p>${icon(own.done ? 'check' : 'info')}<b>${t('gear_owned_title', num(own.score))}</b><span class="ink-2">${t(own.done ? 'gear_owned_done' : 'gear_owned_short')}</span></p>
@@ -1883,23 +2210,23 @@ function inventoryLine(game) {
   const id = `inv-${game}`;
   return `
     <div class="inv-line">
-      <p>${icon('box')}<span>${t('inv_line', relative(inv.at), num(inv.count), num(inv.spare))}</span>${inv.spare ? toggleButton(id) : ''}</p>
+      <p>${icon('box')}<span>${t('inv_line_' + game, relative(inv.at), num(inv.count), num(inv.spare))}</span>${inv.spare ? toggleButton(id) : ''}</p>
       ${inv.spare ? detailPanel(id, `<ul class="spare">${sets}</ul>${help(t('inv_spare_help'))}`, 'mt') : ''}
     </div>`;
 }
 
 function discCard(game, s) {
   const d = s.disc;
-  if (!d) return `<li class="disc empty"><b>${slotName(game, s.slot)}</b><span class="ink-2">${t('gear_slot_empty')}</span></li>`;
+  if (!d) return `<li class="disc empty" data-slot="${s.slot}"><b>${slotName(game, s.slot)}</b><span class="ink-2">${t('gear_slot_empty')}</span></li>`;
   const main = d.main ? `${propName(d.main.id, d.main.name)} <span class="num">${esc(d.main.value)}</span>` : '–';
   const subs = s.subs.map(x => `
     <li class="${x.weight > 0 ? 'eff' : ''}"><span>${propName(x.id, x.name)}</span><span class="num">${esc(x.value)}</span><span class="rolls num">${rollsText(x.rolls)}</span></li>`).join('');
   return `
-    <li class="disc">
+    <li class="disc" data-slot="${s.slot}" data-rank="${esc(String(d.rarity).toLowerCase())}">
       <div class="disc-head">${setIcon(game, d.set_id)}<div><b>${slotName(game, s.slot)}</b><span>${esc(d.set)}</span></div>
         <span class="disc-score num" title="${t('gear_disc_score')}">${s.score ?? '–'}</span></div>
-      <p class="disc-meta ink-2"><span>${t(game === 'genshin' ? 'art_level' : 'gear_level', esc(d.rarity), d.level)}</span>${s.wasted == null || !d.level ? ''
-        : s.wasted ? `<span class="wasted">${t('gear_wasted', s.wasted)}</span>` : `<span class="all-hit">${icon('check')}${t('gear_all_hit')}</span>`}</p>
+      <p class="disc-meta ink-2"><span class="disc-grade"><span class="disc-rank">${t(game === 'genshin' ? 'art_rank' : 'gear_rank', esc(d.rarity))}</span><span>${t(game === 'genshin' ? 'art_lv' : 'gear_lv', d.level)}</span></span>${s.wasted == null || !d.level ? ''
+        : s.wasted ? `<span class="wasted">${icon('alert')}${t('gear_wasted', s.wasted)}</span>` : `<span class="all-hit">${icon('check')}${t('gear_all_hit')}</span>`}</p>
       <p class="disc-main${s.main_ok === false ? ' bad' : ''}">${s.main_ok === false ? icon('alert') : ''}${main}</p>
       <ul class="disc-subs">${subs}</ul>
     </li>`;
@@ -1908,26 +2235,29 @@ function discCard(game, s) {
 function priorityRow(g) {
   const order = g.category_order || ['level', 'talents', 'weapon'];
   const id = esc(g.id);
+  const name = c => t(c === 'level' ? 'cat_level' : `cat_${c}_${g.game}`);
+  const editId = `prio-${g.id}`;
   return `
     <div class="priority">
-      <span class="label">${icon('list')}<span>${t('priority_label')}</span></span>
-      <ol>${order.map((c, i) => `
-        <li><span class="n">${i + 1}</span><span>${t('cat_' + c)}</span>
-          ${i > 0 ? iconButton('shift-cat', 'left', t('btn_move_up'), `data-id="${id}" data-index="${i}" data-dir="-1"`) : ''}
-          ${i < order.length - 1 ? iconButton('shift-cat', 'right', t('btn_move_down'), `data-id="${id}" data-index="${i}" data-dir="1"`) : ''}
-        </li>`).join('')}</ol>
+      <p class="priority-sum"><span class="label">${icon('list')}<span>${t('priority_label')}</span></span>
+        <span class="priority-order">${order.map((c, i) => `<span><span class="n">${i + 1}</span> ${name(c)}</span>`).join('')}</span>
+        ${toggleButton(editId, 'btn_change')}</p>
+      ${detailPanel(editId, `<ol class="priority-edit">${order.map((c, i) => `
+        <li><span class="n">${i + 1}</span><span>${name(c)}</span>${orderControl('shift-cat', `data-id="${id}" data-index="${i}"`, i, order.length)}</li>`).join('')}</ol>`)}
     </div>`;
 }
 
-function needText(it) {
+/** What an item still needs: HTML, or plain text for a title attribute. */
+function needText(it, plain = false) {
+  const say = plain ? tp : t;
   const mats = it.materials || [];
-  if (it.done) return t('status_collected');
-  if (mats.some(m => m.remaining == null)) return t('qty_unknown');
+  if (it.done) return say('status_collected');
+  if (mats.some(m => m.remaining == null)) return say('qty_unknown');
   const short = mats.filter(m => m.remaining > 0);
-  if (mats.length === 1) return t('need_more', num(short.length ? short[0].remaining : 0));
+  if (mats.length === 1) return say('need_more', num(short.length ? short[0].remaining : 0));
   const parts = short.slice(0, 2).map(m => `${num(m.remaining)} × ${m.name}`);
   if (short.length > 2) parts.push(`+${short.length - 2}`);
-  return t('need_list', parts.join(tp('list_sep')));
+  return say('need_list', parts.join(tp('list_sep')));
 }
 
 function miniMeter(value, max) {
@@ -1938,26 +2268,31 @@ function miniMeter(value, max) {
 function materialRow(g, it, nextKey) {
   const isNext = it.key === nextKey;
   let status;
-  if (it.done) status = badge('good', 'check', t('status_collected'));
-  else if (it.paused) status = badge('muted', 'pause', t('status_paused'));
-  else if (isNext) status = badge('info', 'target', t('status_next'));
-  else if (it.why) status = badge('warn', 'clock', t('status_waiting'));
-  else status = badge('muted', 'minus', t('status_queued'));
+  if (it.done) status = badge('good', 'check', t('status_collected'), 'collected');
+  else if (it.paused) status = badge('muted', 'pause', t('status_paused'), 'paused');
+  else if (isNext) status = badge('info', 'target', t('status_next'), 'next');
+  else if (it.kind === 'manual') status = badge('muted', 'hand', t('status_manual'), 'manual');
+  else if (it.why) status = badge('warn', 'clock', t('status_waiting'), 'waiting');
+  else status = badge('muted', 'list', t('status_queued'), 'queued');
   const mats = it.materials || [];
   const top = mats[mats.length - 1];
+  const name = top ? top.name : it.label;
+  const sub = [it.tint ? `<span class="mat-cat">${t('mat_' + it.tint)}</span>` : '',
+    name !== it.label ? `<span>${t('mat_from', it.label)}</span>` : '',
+    it.weekdays?.length && it.weekdays.length < 7 ? `<span>${t('open_days', it.days)}</span>` : ''].join('');
   const executed = it.executed || 0;
-  const plan = it.units == null || it.done ? '<div></div>'
+  const plan = it.units == null || it.done ? '<div class="mat-plan"></div>'
     : `<div class="mat-plan"><span>${t('plan_units', executed, `${it.units}${it.unit_label || ''}`)}</span>${miniMeter(executed, it.units)}</div>`;
   const detailId = `mat-${g.id}-${it.key}`;
-  const action = it.done ? '' : button('pause-item', it.paused ? 'play' : 'pause', t(it.paused ? 'btn_resume' : 'btn_pause'), 'sm quiet',
+  const action = it.done || it.kind === 'manual' ? '' : button('pause-item', it.paused ? 'play' : 'pause', t(it.paused ? 'btn_resume' : 'btn_pause'), 'sm quiet',
     `data-id="${esc(g.id)}" data-key="${esc(it.key)}" data-pause="${it.paused ? '0' : '1'}"`);
   const tiers = mats.map(m => `
     <tr><td><span class="tier-name">${materialIcon(g.game, m.id, '')}${esc(m.name)}</span></td>
       <td class="n">${num(m.need) ?? '–'}</td><td class="n">${num(m.owned) ?? '–'}</td><td class="n">${m.remaining == null ? t('unknown') : num(m.remaining)}</td></tr>`).join('');
   return `
-    <li class="mat${it.tint ? ' tint-' + esc(it.tint) : ''}" data-row="${esc(it.key)}">
+    <li class="mat${it.tint ? ' tint-' + esc(it.tint) : ''}" data-category="${esc(it.tint || 'other')}" data-row="${esc(it.key)}">
       <div class="mat-row">
-        <div class="mat-id">${top ? materialIcon(g.game, top.id) : ''}<div><b>${esc(it.label)}</b><span>${t('open_days', it.days)}</span></div></div>
+        <div class="mat-id"><span class="mat-ic" aria-hidden="true">${top ? materialIcon(g.game, top.id) : ''}</span><div><b>${esc(name)}</b><span class="mat-sub">${sub}</span></div></div>
         <div class="mat-need">${needText(it)}</div>
         ${plan}
         <div class="mat-state">${status}${!it.done && it.why ? `<p>${esc(it.why)}</p>` : ''}</div>
@@ -2040,7 +2375,7 @@ function updateLoginDialog() {
   const statusIcon = { error: 'alert', expired: 'clock', scanned: 'check', confirmed: 'check' }[qr.status] || 'qr';
   const start = ['expired', 'error'].includes(qr.status) ? 'btn_qr_new' : STATE.logged_in ? 'btn_login_again' : 'btn_qr';
   body.innerHTML = `${help(t('acc_desc'), 'shield')}
-    ${STATE.logged_in ? `<p class="mt">${badge('good', 'check', t('login_shared'))}</p>` : ''}
+    ${STATE.logged_in ? help(t('login_shared'), 'check') : ''}
     <div class="qr-box">${img}<div role="status" aria-label="${t('login_status')}">${qr.reason ? help(esc(qr.reason), statusIcon) : ''}</div></div>
     <div class="actions mt">${pending ? button('login-cancel', 'x', t('btn_login_cancel'), 'sm') : button('login-start', 'qr', t(start), 'primary')}
       ${STATE.logged_in ? button('logout', 'logout', t('btn_logout'), 'sm') : ''}</div>`;
@@ -2057,6 +2392,7 @@ function renderTargetsDialog(goal) {
       ${targetTables(goal, true)}
       ${help(t('targets_help'))}`,
     `${MODAL.error ? `<span class="err" role="alert">${icon('alert')}${esc(MODAL.error)}</span>` : ''}
+      <button type="button" class="btn quiet foot-start" data-action="targets-max">${icon('up')}<span class="txt">${t('btn_max')}</span></button>
       <button type="button" class="btn" data-action="targets-discard"${MODAL.dirty ? '' : ' hidden'}>${icon('x')}<span class="txt">${t('btn_discard')}</span></button>
       <button type="submit" class="btn primary" data-action="save-targets" data-id="${esc(goal.id)}">${icon('check')}<span class="txt">${t('btn_save_changes')}</span></button>`,
     'targets'), true);
@@ -2082,10 +2418,16 @@ function renderGearDialog(goal) {
   const ev = goal.gear_eval;
   const own = goal.gear_target || {};
   const tg = ev.target;
+  const cfg = GEAR[goal.game];
+  const built = {
+    sets: (ev.build.sets || []).map(s => `${esc(s.name)} ${t('gear_pieces', s.count)}`).join(' + ') || t('gear_set_none'),
+    main: Object.keys(cfg.mains).map(slot => `${slotName(goal.game, slot)}<span class="colon">:</span> ${(ev.build.main[slot] || []).map(i => propName(i, ev.plan?.names?.[i])).join(' / ') || '–'}`).join(' · '),
+    weights: cfg.subs.filter(i => (ev.official?.[i] || 0) > 0).map(i => `${propName(i)} ${ev.official[i]}`).join(tp('list_sep')) || t('gear_no_weights')
+  };
   const follow = (key, sec) => `
     <label class="follow"><input type="checkbox" name="follow_${sec}" data-follow="${sec}" data-change="gear-follow"${own[key] == null ? ' checked' : ''}>
-      <span>${t(sec === 'weights' ? 'gear_follow_weights' : 'gear_follow_build')}</span></label>`;
-  const cfg = GEAR[goal.game];
+      <span>${t(sec === 'weights' ? 'gear_follow_weights' : 'gear_follow_build')}</span></label>
+    <p class="follow-sum" data-sum="${sec}"${own[key] == null ? '' : ' hidden'}>${built[sec]}</p>`;
   const options = gearSetOptions(goal.game, ev);
   const setRow = (i, s) => `
     <div class="set-row">
@@ -2099,22 +2441,22 @@ function renderGearDialog(goal) {
       ${[...new Set([...cfg.mains[slot], ...(ev.build.main[slot] || [])])].map(i => `<label class="check"><input type="checkbox" name="main_${slot}" value="${i}"${(tg.main[slot] || []).includes(i) ? ' checked' : ''}><span>${propName(i, ev.plan?.names?.[i])}</span></label>`).join('')}
     </fieldset>`;
   const stages = cfg.stages();
-  openDialog(dialogShell(t('dlg_gear_title', esc(goal.name)), `
+  openDialog(dialogShell(t('dlg_gear_title', esc(goal.name)), `<div data-game="${goal.game}">
       ${switchRow('farm', tg.farm, t(cfg.farm), t('gear_farm_sub'), cfg.unit, 'first')}
       <div class="fields wide">
         ${field(t('gear_score_target'), `<input type="number" name="score" min="0" max="100" step="1" value="${tg.score}">`, t('gear_score_hint'))}
         ${field(t(cfg.stage), `<select name="stage"><option value="">${t(cfg.stageAuto)}</option>
-          ${stages.map(s => `<option value="${esc(s)}"${tg.stage === s ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select>`, t(cfg.stageHint))}
+          ${stageOptions(stages, tg.stage)}</select>`, t(cfg.stageHint))}
       </div>
       <div class="sub-block"><h3>${t('gear_sets_title')}</h3>${follow('sets', 'sets')}
-        <fieldset data-sec="sets"${own.sets == null ? ' disabled' : ''}>${[0, 1, 2].map(i => setRow(i, tg.sets[i])).join('')}</fieldset></div>
+        <fieldset data-sec="sets"${own.sets == null ? ' disabled hidden' : ''}>${[0, 1, 2].map(i => setRow(i, tg.sets[i])).join('')}</fieldset></div>
       <div class="sub-block"><h3>${t(cfg.mainsTitle)}</h3>${follow('main', 'main')}
-        <fieldset data-sec="main" class="mains"${own.main == null ? ' disabled' : ''}>${Object.keys(cfg.mains).map(mainGroup).join('')}</fieldset></div>
+        <fieldset data-sec="main" class="mains"${own.main == null ? ' disabled hidden' : ''}>${Object.keys(cfg.mains).map(mainGroup).join('')}</fieldset></div>
       <div class="sub-block"><h3>${t('gear_weights_title')}</h3>${follow('weights', 'weights')}
-        <fieldset data-sec="weights" class="fields weights"${own.weights == null ? ' disabled' : ''}>
+        <fieldset data-sec="weights" class="fields weights"${own.weights == null ? ' disabled hidden' : ''}>
           ${cfg.subs.map(i => field(propName(i), `<input type="number" name="w_${i}" min="0" max="1" step="0.01" value="${ev.weights[i] ?? 0}">`)).join('')}
         </fieldset>
-        ${help(t('gear_weights_help'))}</div>`,
+        ${help(t('gear_weights_help'))}</div></div>`,
     `${MODAL.error ? `<span class="err" role="alert">${icon('alert')}${esc(MODAL.error)}</span>` : ''}
       <button type="submit" class="btn primary" data-action="save-gear" data-id="${esc(goal.id)}">${icon('check')}<span class="txt">${t('btn_save_changes')}</span></button>`,
     'gear'), true);
@@ -2124,9 +2466,11 @@ function renderGearDialog(goal) {
 function toggleFollow(box) {
   const goal = findGoal(MODAL.id);
   const ev = goal && goal.gear_eval;
-  const sec = box.closest('form').querySelector(`fieldset[data-sec="${box.dataset.follow}"]`);
+  const form = box.closest('form');
+  const sec = form.querySelector(`fieldset[data-sec="${box.dataset.follow}"]`);
   if (!ev || !sec) return;
-  sec.disabled = box.checked;
+  sec.disabled = sec.hidden = box.checked;
+  form.querySelector(`[data-sum="${box.dataset.follow}"]`).hidden = !box.checked;
   if (!box.checked) return;
   if (box.dataset.follow === 'weights' && ev.official) GEAR[goal.game].subs.forEach(i => { sec.querySelector(`[name="w_${i}"]`).value = ev.official[i] ?? 0; });
   if (box.dataset.follow === 'main') sec.querySelectorAll('input').forEach(c => { c.checked = (ev.build.main[c.name.slice(5)] || []).includes(Number(c.value)); });
@@ -2188,12 +2532,21 @@ async function openAddGoal() {
 function renderAddDialog() {
   const m = MODAL;
   openDialog(dialogShell(t('modal_add_title', tp('game_' + m.game)), m.rows === null ? `<p class="ink-2">${t('modal_loading')}</p>` : `
-      ${help(t(m.source === 'roster' ? 'modal_source_roster' : 'modal_source_dataset'))}
+      ${help(t(m.source === 'roster' ? 'modal_source_roster' : STATE.logged_in ? 'modal_source_offline' : 'modal_source_dataset'))}
       <label class="search">${icon('search')}<input type="search" id="char-search" placeholder="${t('search_placeholder')}" aria-label="${t('search_placeholder')}" value="${esc(m.query)}" autocomplete="off"></label>
       <ul class="char-list" id="char-list" role="listbox" aria-label="${t('search_placeholder')}">${charOptions()}</ul>`,
-    `<button type="submit" class="btn primary" id="modal-add" data-action="add-goal-submit"${m.selected ? '' : ' disabled'}>${icon('plus')}<span class="txt">${t('btn_add')}</span></button>`,
+    `<button type="submit" class="btn primary" id="modal-add" data-action="add-goal-submit"${m.selected ? '' : ' disabled'}>${icon('plus')}<span class="txt">${t(m.selected ? 'btn_add' : 'btn_pick_first')}</span></button>`,
     'add-goal'));
 }
+
+// Element names as the datasets (Chinese) and the Genshin roster (English) write them.
+const ELEMENTS = {
+  genshin: { 火: 'el_pyro', 水: 'el_hydro', 风: 'el_anemo', 雷: 'el_electro', 草: 'el_dendro', 冰: 'el_cryo', 岩: 'el_geo',
+             Pyro: 'el_pyro', Hydro: 'el_hydro', Anemo: 'el_anemo', Electro: 'el_electro', Dendro: 'el_dendro', Cryo: 'el_cryo', Geo: 'el_geo' },
+  zzz: { 物理: 'el_physical', 火: 'el_fire', 冰: 'el_ice', 电: 'el_electric', 以太: 'el_ether', 风: 'el_wind' }
+};
+/** A character's element in the UI language; unknown values are left out. */
+function elementName(game, value) { const k = ELEMENTS[game]?.[value]; return k ? tp(k) : ''; }
 
 function charOptions() {
   const m = MODAL;
@@ -2204,12 +2557,11 @@ function charOptions() {
   return rows.map(c => {
     const id = String(c.id);
     const added = taken.has(id);
-    const rarity = /^\d+$/.test(String(c.rarity ?? '')) ? `${c.rarity}★` : c.rarity;
-    const facts = [c.element, rarity, c.level ? `Lv. ${c.level}` : ''].filter(Boolean).map(esc).join(esc(tp('list_sep')));
+    const facts = `${agentTags(c, m.game)}${c.level ? `<span>Lv. ${esc(c.level)}</span>` : ''}`;
     const flag = added ? t('already_added') : c.owned === false ? t('not_owned') : '';
     return `<li><button type="button" class="char" role="option" data-action="pick-char" data-id="${esc(id)}" data-name="${esc(c.name)}"
         aria-selected="${m.selected?.id === id}"${added ? ' disabled' : ''}>
-        ${portrait(m.game, id, c.name, 'md')}<span><b>${esc(c.name)}</b><span>${facts}</span></span><span class="ink-2">${flag}</span></button></li>`;
+        ${portrait(m.game, id, c.name, 'md')}<span><b>${esc(c.name)}</b><span class="char-facts">${facts}</span></span><span class="ink-2">${flag}</span>${icon('check', 'pick')}</button></li>`;
   }).join('');
 }
 
@@ -2228,26 +2580,37 @@ function renderPlan() {
     ${pageHead(t('nav_plan'), t('plan_sub'))}
     ${STATE.forecast?.schedule_enabled ? '' : `<div class="alerts">${alertBox('info', 'info', t('plan_off_banner'),
       linkButton('#/settings/set-schedule', 'sliders', t('btn_open_settings')))}</div>`}
-    ${days.length ? days.map(day => `
+    ${days.length ? days.map(day => {
+      const told = new Set();  // games whose idle reason this day already shows
+      return `
       <section class="panel day">
-        <div class="day-head"><h2>${dayLabel(day.at) === dateOf(day.at) ? esc(dateOf(day.at)) : t('day_head', dayLabel(day.at), dateOf(day.at))}</h2>${badge('muted', 'clock', t('forecast'))}</div>
-        <ul class="entries">${day.rows.map(entry).join('')}</ul>
-      </section>`).join('') : emptySheet('calendar', t('plan_empty_title'), t('plan_empty'),
+        <div class="day-head"><h2>${dayLabel(day.at) === dateOf(day.at) ? esc(dateOf(day.at)) : t('day_head', dayLabel(day.at), dateOf(day.at))}</h2>${dayNote(day.at)}</div>
+        <ul class="entries">${day.rows.map(r => { const html = entry(r, told); if (!r.task) told.add(r.game); return html; }).join('')}</ul>
+      </section>`;
+    }).join('') : emptySheet('calendar', t('plan_empty_title'), t('plan_empty'),
         linkButton('#/settings/set-schedule', 'sliders', t('btn_open_settings')))}`;
 }
 
-function entry(r) {
+/** Between midnight and the 04:00 reset the calendar day and the game day differ; say so on today's sheet. */
+function dayNote(ms) {
+  if (dayKeyOf(ms) !== dayKeyOf(nowMs()) || cnParts(nowMs()).h >= 4) return '';
+  return `<span class="ink-2">${t('day_before_reset', gameDayLabel())}</span>`;
+}
+
+function entry(r, told) {
   const goal = r.goal_id ? findGoal(r.goal_id) : null;
+  const next = r.at === STATE.next_slot && STATE.settings?.schedule?.enabled;
+  const reason = told.has(r.game) ? t('reason_same') : esc(r.reason || '');
   const detailId = `plan-${r.at}-${r.game}`;
   const unitName = tp('unit_' + r.game);
   const task = r.task
-    ? `<div class="task">${goal ? portrait(r.game, goal.character_id, goal.name, 'sm') : ''}<div><b>${esc(r.task)}</b><span>${r.names ? t('for_goal', r.goal, r.names) : esc(r.goal)}</span>${r.phase === 'equipment' ? `<span>${t('phase_equipment')}</span>` : ''}</div></div>`
-    : `<div class="task"><div><b>${t('daily_only')}</b></div></div>`;
+    ? `<div class="task">${goal ? portrait(r.game, goal.character_id, goal.name, 'sm') : ''}<div><b>${esc(r.task)}</b>${next ? `<span class="tag">${t('tag_next')}</span>` : ''}<span>${r.names ? t('for_goal', r.goal, r.names) : esc(r.goal)}</span>${r.phase === 'equipment' ? `<span>${t('phase_equipment')}</span>` : ''}${fullBefore(r)}</div></div>`
+    : `<div class="task"><div><b>${t('daily_only')}</b>${next ? `<span class="tag">${t('tag_next')}</span>` : ''}<span>${reason}</span>${told.has(r.game) ? '' : `<span><a href="#/settings/set-farming">${t('idle_fix')}</a></span>`}${fullBefore(r)}</div></div>`;
   const spend = r.spend != null
-    ? `<div class="spend"><b>${t('fact_spend', r.spend, unitName)}</b>${r.left != null ? `<span>${t('left_after', r.left)}</span>` : ''}</div>`
-    : `<div class="spend"><span>${r.stamina == null ? t('spend_unknown') : t('left_after', r.left ?? r.stamina)}</span></div>`;
+    ? `<div class="spend"><b>${t('fact_spend', num(r.spend), unitName)}</b>${r.left != null ? `<span>${leftText(r)}</span>` : ''}</div>`
+    : `<div class="spend"><span>${r.stamina == null ? t('spend_unknown') : leftText(r)}</span></div>`;
   return `
-    <li class="entry">
+    <li class="entry${r.task ? '' : ' idle'}${next ? ' next' : ''}" data-game="${r.game}">
       <div class="entry-row">
         <span class="time">${clock(r.at)}</span>
         <span class="game">${t('game_' + r.game)}</span>
@@ -2262,6 +2625,14 @@ function entry(r) {
 // ----------------------------------------------------------- 4. Runs
 function triggerLabel(run) { return run.source === 'schedule' ? t('trigger_schedule', run.slot) : t('trigger_manual'); }
 
+/** "05:00–05:23", or "Today 05:00–05:23" with the day. */
+function runSpan(run, withDay = false) {
+  const start = toMs(run.started), end = toMs(run.ended);
+  if (start == null) return '';
+  const span = end == null ? clockOf(start) : `${clockOf(start)}–${clockOf(end)}`;
+  return withDay ? `${dayLabel(start)} ${span}` : span;
+}
+
 function runGame(g) {
   const item = g.item;
   const unit = item?.unit_label || '';
@@ -2269,7 +2640,7 @@ function runGame(g) {
     ? (g.completed != null ? t('run_done', `${g.completed}${unit}`, `${item.upper}${unit}`) : t('run_unverified'))
     : '';
   return `
-    <div class="run-game">
+    <div class="run-game" data-game="${g.game}">
       <div class="top-line"><b>${t('game_' + g.game)}</b>${runBadge(g.status)}${amount ? `<span>${amount}</span>` : ''}</div>
       <p>${item ? `${esc(item.label)} <span class="ink-2">${esc(item.goal)}</span>` : esc(g.summary || '')}</p>
       ${(g.errors || []).map(e => `<p class="err">${icon('alert')}<span>${esc(e)}</span></p>`).join('')}
@@ -2295,7 +2666,7 @@ function renderRuns() {
     ${list.length ? `<section class="panel">
       ${list.map(r => {
         const start = toMs(r.started);
-        return `<article class="run"><div class="when"><b>${esc(clock(r.started))}</b><span>${esc(start ? dateOf(start) : '')}</span></div><div>${runBody(r)}</div></article>`;
+        return `<article class="run" data-state="${esc(String(r.status).toLowerCase())}"><div class="when"><b>${esc(runSpan(r))}</b><span>${esc(start ? dateOf(start) : '')}</span></div><div>${runBody(r)}</div></article>`;
       }).join('')}
       ${!MORE_RUNS && list.length >= 20 ? `<div class="mt">${button('more-runs', 'history', t('btn_more_runs'), 'sm')}</div>` : ''}
     </section>` : emptySheet('history', t('runs_empty_title'), t('runs_empty'), linkButton('#/today', 'home', t('btn_open_today')))}`;
@@ -2315,7 +2686,7 @@ function renderSettings(force) {
   }
   const s = STATE.settings;
   el.innerHTML = `
-    ${pageHead(t('nav_settings'), t(STATE.automation === false ? 'settings_sub_linux' : 'settings_sub'))}
+    ${pageHead(t('nav_settings'), t('settings_sub'))}
     <div class="settings">
       <nav class="settings-nav" aria-label="${t('nav_settings')}">${SETTINGS_SECTIONS.map(([id, ic]) =>
         `<button type="button" data-action="scroll-to" data-key="${id}">${icon(ic)}<span>${t(id.replace('-', '_'))}</span></button>`).join('')}</nav>
@@ -2332,6 +2703,18 @@ function renderSettings(force) {
   SETTINGS_DIRTY = false;
   SETTINGS_ERROR = '';
   updateSavebar();
+  markSettingsSection();
+}
+
+/** Mark the settings section at the top of the view in the side navigation. */
+function markSettingsSection() {
+  if (ROUTE.tab !== 'settings') return;
+  const sections = SETTINGS_SECTIONS.map(([id]) => document.getElementById(id)).filter(Boolean);
+  const top = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+  const current = sections.filter(sec => sec.getBoundingClientRect().top <= top + 8).pop() || sections[0];
+  document.querySelectorAll('.settings-nav [data-key]').forEach(b => {
+    if (b.dataset.key === current?.id) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+  });
 }
 
 function updateLive(el) {
@@ -2372,9 +2755,18 @@ function accountPanel() {
     <div class="actions mt">${button('login-dialog', 'qr', t('btn_qr'), 'primary')}</div>`;
 }
 
-function envRow(label, ok, okText, badText, detail = '', kind = 'bad') {
+function envRow(label, ok, okText, badText, detail = '', kind = 'bad', hint = '') {
   const state = ok ? badge('good', 'check', okText) : badge(kind, kind === 'muted' ? 'minus' : 'alert', badText);
-  return `<div class="kv-row"><span class="k">${label}</span><span class="v">${state}${detail ? `<code>${esc(detail)}</code>` : ''}</span></div>`;
+  return `<div class="kv-row"><span class="k">${label}</span><span class="v">${state}${detail ? pathCode(detail) : ''}${hint ? `<span class="ink-2">${hint}</span>` : ''}</span></div>`;
+}
+
+/** A file path that wraps at folder boundaries on narrow screens; <wbr> adds nothing when the path is copied. */
+function pathCode(path) {
+  return `<code>${esc(path).replace(/[\\/]/g, '$&<wbr>')}</code>`;
+}
+
+function pathRow(label, path, hint = '') {
+  return `<div class="kv-row"><span class="k">${label}</span><span class="v">${pathCode(path || '')}${hint ? `<span class="ink-2">${hint}</span>` : ''}</span></div>`;
 }
 
 function envPanel() {
@@ -2382,15 +2774,16 @@ function envPanel() {
   const bundled = !STATE.settings?.execution?.bgi_template;
   return `${panelHead('set-env', 'shield')}
     <div class="kv">
-      ${STATE.automation === false ? help(t('env_plan_only'), 'monitor') : envRow(t('env_admin'), c.admin, t('env_admin_ok'), t('env_admin_no'), '', 'warn')}
+      ${STATE.automation === false ? help(t('env_plan_only'), 'monitor') : envRow(t('env_admin'), c.admin, t('env_admin_ok'), t('env_admin_no'), '', 'warn', c.admin ? '' : t('env_admin_hint'))}
       ${envRow(t('env_bgi'), c.genshin?.tool_ok, t('found'), t('missing'), c.genshin?.tool_exe)}
       ${envRow(t('env_bgi_template'), c.genshin?.template_ok, bundled ? t('bundled') : t('found'), t('missing'), bundled ? '' : STATE.settings?.execution?.bgi_template)}
       ${envRow(t('env_od'), c.zzz?.tool_ok, t('found'), t('missing'), c.zzz?.tool_exe)}
-      ${envRow(t('env_adapter'), c.zzz?.patch_ok, t('installed'), t('not_installed'), '', 'muted')}
+      ${envRow(t('env_adapter'), c.zzz?.patch_ok, t('installed'), t('not_installed'), '', 'muted', t('env_adapter_help'))}
       ${envRow(t('env_game_genshin'), c.genshin?.game_ok, t('found'), t('missing'), c.genshin?.game_exe, 'warn')}
       ${envRow(t('env_game_zzz'), c.zzz?.game_ok, t('found'), t('missing'), c.zzz?.game_exe, 'warn')}
-    </div>
-    <div class="mt">${help(t('env_adapter_help'))}</div>`;
+      ${pathRow(t('env_data_dir'), STATE.data_dir, t('env_data_dir_hint'))}
+      ${pathRow(t('env_log'), STATE.log_file)}
+    </div>`;
 }
 
 function switchRow(name, checked, label, sub = '', ic = '', cls = '', disabled = false) {
@@ -2415,6 +2808,7 @@ function schedulePanel(s) {
       ${panelHead('set-schedule', 'clock')}
       ${switchRow('schedule.enabled', s.schedule.enabled, t('sched_enable'), t(plansOnly ? 'sched_plan_only' : 'sched_enable_sub'), 'calendar', 'main first', plansOnly)}
       ${switchRow('schedule.autostart', s.schedule.autostart, t('autostart'), t(plansOnly ? 'autostart_linux' : 'autostart_sub'), 'monitor', '', plansOnly)}
+      ${switchRow('features.mute_morning', s.features.mute_morning, t('mute_morning'), t('mute_morning_sub'), 'bell', '', plansOnly)}
       <div class="sub-block">
         <div class="fields">
           ${field(t('sched_times'), input('schedule.times', (s.schedule.times || []).join(', '), 'type="text" data-type="list" spellcheck="false"'), t('sched_times_hint'))}
@@ -2422,7 +2816,7 @@ function schedulePanel(s) {
           ${field(t('timeout'), input('execution.timeout_minutes', s.execution.timeout_minutes, 'type="number" min="10" max="480" step="5"'))}
           ${field(t('if_running'), `<select name="execution.if_game_running">
               <option value="restart"${s.execution.if_game_running === 'restart' ? ' selected' : ''}>${t('opt_restart')}</option>
-              <option value="skip"${s.execution.if_game_running === 'skip' ? ' selected' : ''}>${t('opt_skip')}</option></select>`)}
+              <option value="skip"${s.execution.if_game_running === 'skip' ? ' selected' : ''}>${t('opt_skip')}</option></select>`, t('if_running_hint'))}
         </div>
         <fieldset><legend>${t('sched_games')}</legend><div class="check-row">${GAMES.map(g =>
           `<label><input type="checkbox" name="schedule.games" data-type="set" value="${g}"${games.includes(g) ? ' checked' : ''}>${t('game_' + g)}</label>`).join('')}</div></fieldset>
@@ -2438,10 +2832,26 @@ function equipUsage(game) {
 
 function scanStatus(game) {
   const inv = STATE.inventory?.[game];
-  return inv ? t('scan_last', relative(inv.at), num(inv.count)) : t('scan_never');
+  return inv ? t('scan_last_' + game, relative(inv.at), num(inv.count)) : t('scan_never');
 }
 
-function datalist(id, values) { return `<datalist id="${id}">${(values || []).map(v => `<option value="${esc(v)}">`).join('')}</datalist>`; }
+/** Options for a stage or domain, each with the sets it drops; the ones that drop a set some goal targets come first,
+ *  and a saved name the list lacks stays selectable. */
+function stageOptions(stages, value) {
+  const list = [...(stages || [])];
+  if (value && !list.some(s => s.name === value)) list.push({ name: value, sets: [] });
+  const wanted = new Set(GAMES.flatMap(g => STATE.goals?.[g] || []).flatMap(g => g.gear_eval?.target?.sets || []).map(s => s.name));
+  const option = s => `<option value="${esc(s.name)}"${s.name === value ? ' selected' : ''}>${esc(s.sets.length ? `${s.name} — ${s.sets.join(' / ')}` : s.name)}</option>`;
+  const needed = list.filter(s => s.sets.some(x => wanted.has(x)));
+  if (!needed.length) return list.map(option).join('');
+  return `<optgroup label="${t('stages_needed')}">${needed.map(option).join('')}</optgroup>
+    <optgroup label="${t('stages_other')}">${list.filter(s => !needed.includes(s)).map(option).join('')}</optgroup>`;
+}
+
+/** The fixed equipment stage or domain: empty means only characters' targets steer. */
+function pickStage(name, value, stages) {
+  return `<select name="${name}"><option value="">${t('equip_none')}</option>${stageOptions(stages, value)}</select>`;
+}
 
 function farmingPanel(s) {
   const p = s.planning;
@@ -2463,13 +2873,13 @@ function farmingPanel(s) {
         ${help(t('equip_help'))}
         ${switchRow('planning.artifact.enabled', p.artifact.enabled, t('artifact_switch'), t('artifact_sub'), 'resin')}
         <div class="fields">
-          ${field(t('artifact_domain'), input('planning.artifact.domain', p.artifact.domain, 'type="text" list="dl-blessing"') + datalist('dl-blessing', STATE.catalog?.blessing), t('equip_fixed_hint'))}
+          ${field(t('artifact_domain'), pickStage('planning.artifact.domain', p.artifact.domain, STATE.catalog?.stages?.genshin), t('equip_fixed_hint'))}
           ${field(t('artifact_cap'), input('planning.artifact.cap', p.artifact.cap, 'type="number" min="0" step="1"'))}
         </div>
         <div data-live="equip-genshin">${equipUsage('genshin')}</div>
         ${switchRow('planning.disc.enabled', p.disc.enabled, t('disc_switch'), t('disc_sub'), 'battery')}
         <div class="fields">
-          ${field(t('disc_mission'), input('planning.disc.mission', p.disc.mission, 'type="text" list="dl-disc"') + datalist('dl-disc', STATE.catalog?.disc), t('equip_fixed_hint'))}
+          ${field(t('disc_mission'), pickStage('planning.disc.mission', p.disc.mission, STATE.catalog?.stages?.zzz), t('equip_fixed_hint'))}
           ${field(t('disc_cap'), input('planning.disc.cap', p.disc.cap, 'type="number" min="0" step="1"'))}
         </div>
         <div data-live="equip-zzz">${equipUsage('zzz')}</div>
@@ -2478,11 +2888,12 @@ function farmingPanel(s) {
         <h3>${icon('search')}<span>${t('scan_title')}</span></h3>
         ${help(t('scan_help'))}
         ${switchRow('features.scan_inventory', s.features.scan_inventory, t('scan_switch'), t('scan_sub'), 'box')}
-        <div class="fields wide">
+        <div class="fields paths">
           ${field(t('scan_yas'), input('paths.yas', s.paths.yas, 'type="text" spellcheck="false"'), scanStatus('genshin'))}
           ${field(t('scan_zzz'), input('paths.zzz_scanner', s.paths.zzz_scanner, 'type="text" spellcheck="false"'), scanStatus('zzz'))}
         </div>
-        ${help(t('scan_rules'), 'alert')}
+        <details class="fold" data-keep="scan-rules"><summary>${icon('chevron', 'chev')}<span>${t('scan_rules_title')}</span></summary>
+          <div class="fold-body">${help(t('scan_rules'), 'alert')}</div></details>
       </div>
     </section>`;
 }
@@ -2492,18 +2903,31 @@ function dailiesPanel(s) {
   return `
     <section class="panel" id="set-dailies">
       ${panelHead('set-dailies', 'gift')}
-      ${switchRow('features.mute_morning', f.mute_morning, t('mute_morning'), t('mute_morning_sub'), 'bell', 'first')}
-      ${switchRow('features.genshin_mail', f.genshin_mail, t('genshin_mail'), '', 'mail')}
-      ${switchRow('features.genshin_daily_reward', f.genshin_daily_reward, t('genshin_daily'), '', 'clipboard')}
-      ${switchRow('features.genshin_teapot', f.genshin_teapot, t('genshin_teapot'), '', 'cup')}
+      ${switchRow('features.genshin_mail', f.genshin_mail, t('genshin_mail'), '', 'mail', 'first')}
+      ${switchRow('features.genshin_daily_reward', f.genshin_daily_reward, t('genshin_daily'), t('genshin_daily_sub'), 'clipboard')}
+      ${switchRow('features.genshin_teapot', f.genshin_teapot, t('genshin_teapot'), t('genshin_teapot_sub'), 'cup')}
       ${switchRow('features.zzz_rewards', f.zzz_rewards, t('zzz_rewards'), '', 'gift')}
+      <details class="fold mt" data-keep="tools-more"><summary>${icon('chevron', 'chev')}<span>${t('tools_more_title')}</span></summary>
+        <div class="fold-body tools-more">
+          <p><b>${t('game_zzz')}</b> ${t('tools_zzz_intro')}</p>
+          ${textList('tools_zzz_list', `<a href="#/settings/set-farming">${t('set_farming')}</a>`, `<a href="#/settings/set-schedule">${t('set_schedule')}</a>`)}
+          <p><b>${t('game_genshin')}</b> ${t('tools_genshin_intro')}</p>
+          ${textList('tools_genshin_list')}
+          ${alertBox('warn', 'alert', t('tools_more_risk'))}
+        </div></details>
     </section>`;
+}
+
+/** A translated list of short lines; {0}, {1}… take the given links. */
+function textList(key, ...links) {
+  return `<ul class="text-list">${lookup(key).map(line => `<li>${format(esc(line), links, false)}</li>`).join('')}</ul>`;
 }
 
 function secretField(label, key) {
   const saved = STATE.settings?.secrets_set?.[key];
   const clear = saved ? button('clear-secret', 'x', t('btn_clear'), 'sm', `data-key="${key}"`) : '';
-  return field(label, `<span class="with-action"><input name="secret.${key}" type="password" placeholder="${saved ? t('secret_saved') : ''}" autocomplete="new-password">${clear}</span>`);
+  return field(label, `<span class="with-action"><input name="secret.${key}" type="password" placeholder="${saved ? t('secret_saved') : ''}" autocomplete="new-password">${clear}</span>`,
+    t(STATE.automation === false ? 'secret_hint_linux' : 'secret_hint'));
 }
 
 function notifyRecent() {
@@ -2525,7 +2949,7 @@ function notifyPanel(s) {
       ${panelHead('set-notify', 'bell')}
       <p style="margin-bottom:8px"><b>${t('notify_events')}</b></p>
       ${switchRow('notify.events.batch', n.events.batch, t('ev_batch'), '', 'list', 'first')}
-      ${switchRow('notify.quiet_success', n.quiet_success, t('ev_quiet'), '', 'check')}
+      ${switchRow('notify.quiet_success', n.quiet_success, t('ev_quiet'), '', 'check', 'nested')}
       ${switchRow('notify.events.failure', n.events.failure, t('ev_failure'), '', 'alert')}
       ${switchRow('notify.events.login', n.events.login, t('ev_login'), '', 'user')}
       ${switchRow('notify.events.goal_done', n.events.goal_done, t('ev_goal_done'), '', 'target')}
@@ -2558,7 +2982,7 @@ function pathsPanel(s) {
     <section class="panel" id="set-paths">
       ${panelHead('set-paths', 'folder')}
       ${help(t('paths_help'))}
-      <div class="fields wide mt">
+      <div class="fields paths mt">
         ${field(t('lbl_path_bettergi'), input('paths.bettergi', s.paths.bettergi, 'type="text" spellcheck="false"'))}
         ${field(t('lbl_bgi_template'), input('execution.bgi_template', s.execution.bgi_template, `type="text" spellcheck="false" placeholder="${t('ph_bundled_template')}"`), t('template_help'))}
         ${field(t('lbl_path_onedragon'), input('paths.onedragon', s.paths.onedragon, 'type="text" spellcheck="false"'))}
@@ -2642,10 +3066,21 @@ function updateSavebar() {
 // ----------------------------------------------------------- actions
 function goalBy(btn) { return findGoal(btn.dataset.id); }
 
+/** One line of the Run confirmation: what a game would farm now and roughly what it spends. */
+function runPreview(game) {
+  const item = STATE.plans?.[game]?.item;
+  const name = tp('game_' + game);
+  if (!item) return tp('confirm_run_idle', name);
+  const spend = item.expected != null ? item.expected * item.cost : null;
+  return spend == null ? tp('confirm_run_open', name, item.label, item.goal)
+    : tp('confirm_run_item', name, item.label, item.goal, num(spend), tp('unit_' + game));
+}
+
 const ACTIONS = {
   retry: () => refreshState(),
   refresh: btn => busy(btn, () => refreshState(true)),
-  theme: btn => { applyTheme(btn.dataset.theme); document.getElementById('theme-menu').open = false; },
+  theme: btn => { applyTheme(btn.dataset.key); document.getElementById('look-menu').open = false; },
+  mode: btn => { applyMode(btn.dataset.key); document.getElementById('look-menu').open = false; },
   toggle: btn => {
     const id = btn.dataset.key;
     if (OPEN.has(id)) OPEN.delete(id); else OPEN.add(id);
@@ -2659,7 +3094,11 @@ const ACTIONS = {
     }
     btn.setAttribute('aria-expanded', String(OPEN.has(id)));
   },
-  run: btn => commit(btn, () => api('/api/run', 'POST', { games: btn.dataset.games.split(',') }), tp('toast_batch_started'), 'starting'),
+  run: btn => {
+    const games = btn.dataset.games.split(',');
+    if (!confirm(tp('confirm_run', games.map(runPreview).join('\n')))) return;
+    commit(btn, () => api('/api/run', 'POST', { games }), tp('toast_batch_started'), 'starting');
+  },
   stop: btn => commit(btn, () => api('/api/stop', 'POST', {}), tp('toast_stop_sent')),
   'refresh-notes': btn => commit(btn, async () => {
     const res = await api('/api/notes/refresh', 'POST', { game: btn.dataset.game });
@@ -2674,7 +3113,13 @@ const ACTIONS = {
   'pick-char': btn => {
     MODAL.selected = { id: btn.dataset.id, name: btn.dataset.name };
     document.querySelectorAll('#char-list .char').forEach(b => b.setAttribute('aria-selected', String(b === btn)));
-    document.getElementById('modal-add').disabled = false;
+    const add = document.getElementById('modal-add');
+    add.disabled = false;
+    add.querySelector('.txt').textContent = tp('btn_add');
+  },
+  'targets-max': btn => {
+    btn.closest('form').querySelectorAll('input[type="number"][max]').forEach(el => { el.value = el.max; });
+    btn.closest('form').dispatchEvent(new Event('input', { bubbles: true }));
   },
   'move-goal': btn => commit(btn, async () => {
     const goal = goalBy(btn);
@@ -2812,6 +3257,7 @@ function parseRoute() {
 function showRoute() {
   const prev = ROUTE.tab;
   ROUTE = parseRoute();
+  document.body.dataset.view = ROUTE.tab;
   document.querySelectorAll('#tabs a').forEach(a => {
     if (a.dataset.tab === ROUTE.tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
@@ -2845,7 +3291,7 @@ document.addEventListener('click', e => {
     e.preventDefault();
     ACTIONS[btn.dataset.action](btn, e);
   }
-  const menu = document.getElementById('theme-menu');
+  const menu = document.getElementById('look-menu');
   if (menu.open && !menu.contains(e.target)) menu.open = false;
 });
 
@@ -2885,11 +3331,15 @@ document.addEventListener('submit', e => {
 });
 
 document.addEventListener('keydown', e => {
-  const menu = document.getElementById('theme-menu');
+  const menu = document.getElementById('look-menu');
   if (e.key === 'Escape' && menu.open) { menu.open = false; menu.querySelector('summary').focus(); }
 });
 
 window.addEventListener('hashchange', showRoute);
+let SCROLL_FRAME = 0;
+window.addEventListener('scroll', () => {
+  if (!SCROLL_FRAME) SCROLL_FRAME = requestAnimationFrame(() => { SCROLL_FRAME = 0; markSettingsSection(); });
+}, { passive: true });
 window.addEventListener('beforeunload', e => {
   if (SETTINGS_DIRTY || (MODAL && MODAL.dirty)) { e.preventDefault(); e.returnValue = ''; }
 });
@@ -2898,8 +3348,10 @@ document.getElementById('modal').addEventListener('close', () => { MODAL = null;
 // ----------------------------------------------------------- start
 (function start() {
   applyTheme(THEME);
+  applyMode(MODE);
   document.documentElement.lang = CURRENT_LANG === 'zh' ? 'zh-CN' : 'en';
   ROUTE = parseRoute();
+  document.body.dataset.view = ROUTE.tab;
   renderShell();
   document.querySelectorAll('main > section').forEach(s => { s.hidden = s.id !== `view-${ROUTE.tab}`; });
   refreshState().then(() => { if (ROUTE.arg) showRoute(); });

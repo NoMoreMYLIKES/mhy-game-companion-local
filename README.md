@@ -31,7 +31,7 @@ The planner follows four rules:
 - **Free dailies**: Genshin Mail, Serenitea Pot and Daily Commission Rewards; OneDragon dailies, Engagement and New Eridu City Fund rewards.
 - **Notifications**: one summary per batch through Windows toast, Telegram, a webhook or a JSON relay.
 - **One shared login**: scan once with Miyoushe to connect both games. The app derives the credentials for character and cultivation data and renews them when they lapse, and reads resin and battery through the official widgets. Manage or renew this login under Settings → Account; signing out clears it for both games.
-- **Bilingual, light and dark**: English and Simplified Chinese (`EN / 中文` in the header); System, Light or Dark theme.
+- **Bilingual, themes, light and dark**: English and Simplified Chinese (`EN / 中文` in the header). The Appearance menu picks a theme (Timetable, or Proxy in the style of Zenless Zone Zero) and System, Light or Dark.
 - **Game images**: character portraits, material icons and Drive Disc / Artifact set icons are saved locally the first time the official API returns them; the dashboard never downloads images itself.
 - **Privacy**: listens on `127.0.0.1` only by default, and LAN access requires a password. Credentials are encrypted with Windows DPAPI (on Linux: files only your user can read).
 
@@ -108,7 +108,7 @@ This is a personal automation and planning project. It is not affiliated with Ho
 - **免费日常**：原神领取邮件、尘歌壶奖励、每日委托奖励；绝区零一条龙日常、活跃度与丽都城募奖励。
 - **通知**：每批一条摘要，可通过 Windows 气泡通知、Telegram、Webhook 或 JSON 中转服务发送。
 - **一次扫码，全项目共用**：米游社扫码一次即可连接原神和绝区零，自动取得角色与培养数据所需凭据并在失效时自动续期，树脂和电量使用官方小组件读取。在“设置 → 账号与连接”统一管理或更新登录，退出后两个游戏同时退出。
-- **双语与深浅色**：英文与简体中文（页面顶部 `EN / 中文` 切换）；主题可选跟随系统、浅色或深色。
+- **双语、主题与深浅色**：英文与简体中文（页面顶部 `EN / 中文` 切换）。“外观”菜单可选择主题（时刻表，或绝区零风格的“绳匠”）以及跟随系统、浅色或深色。
 - **游戏图片**：角色头像、材料图标与驱动盘、圣遗物套装图标在官方接口首次返回时保存到本地，控制台页面本身不会下载图片。
 - **隐私**：默认只监听 `127.0.0.1`，局域网访问必须设置密码；凭据使用 Windows DPAPI 加密保存（Linux 上为仅当前用户可读的文件）。
 
