@@ -1,0 +1,13 @@
+{
+  "fixture_only": true,
+  "modal_current_after_http_refresh": {"model": 60, "card": 60, "modal": 56, "draft_target": 59},
+  "equipment_status": {"global_enabled": false, "cap": 0, "backend_block": "驱动盘接续未开启（设置 → 刷取规则）", "shown": "排队中：Synthetic Stage"},
+  "sync_failure_feedback": {"http": 200, "observe_error": true, "calc_error": true, "shown": "已与官方养成计算器同步"},
+  "delayed_http_cancel": {"after_cancel": {"enabled": false, "active_cards": 0}, "after_sync_reply": {"enabled": true, "active_cards": 1}},
+  "failed_settings_partial_commit": {"http": 400, "schedule_enabled": true, "autostart": false},
+  "invalid_settings_secret_commit": {"http": 400, "synthetic_password_stored": true},
+  "natural_busy_control": [
+    {"viewport": 1440, "request_count": 1, "busy": true, "disabled": true, "button_width": 91.6193, "text_and_spinner_inside": true},
+    {"viewport": 390, "request_count": 1, "busy": true, "disabled": true, "button_width": 91.6193, "text_and_spinner_inside": true}
+  ]
+}
