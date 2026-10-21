@@ -55,6 +55,7 @@ def goal_view(goal: dict, ctx: dict, weekday: int, shared: list[dict] | None = N
     view = {k: v for k, v in goal.items() if k not in ('allowance', 'gear')}
     character = materials.dataset(goal['game']).get('characters', {}).get(str(goal['character_id']), {})
     view['rarity'], view['element'] = character.get('rarity'), character.get('element')  # offline dataset values
+    view['weapon_wait'] = tr(goal['weapon_wait']) if goal.get('weapon_wait') else None  # stored as a message key
     view['items'] = items
     view['gear_eval'] = gear.evaluate(goal)
     view['gear_owned'] = ((inventory.arrange(goal['game']) or {}).get('goals') or {}).get(goal['id'])

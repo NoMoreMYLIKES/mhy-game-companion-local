@@ -238,8 +238,11 @@ MESSAGES: dict[str, tuple[str, str]] = {
     'login_first': ('Log in and select an account for this game first.', '请先登录并选择该游戏账号。'),
     'char_not_owned': ('The official API did not return this character (maybe not owned yet).',
                        '官方未返回此角色（可能尚未拥有）。'),
-    'weapon_needed': ('A weapon target needs the weapon read or entered first.', '武器培养需要先读取或填写武器。'),
-    'wengine_needed': ('A W-Engine target needs a W-Engine equipped and synced first.', '音擎培养需要先装备音擎并同步。'),
+    # why a calculation left the weapon out (goal.weapon_wait); the level and talents are calculated without it
+    'weapon_unread': ('Weapon not read: sync to add its materials. Level and talents go ahead without it.',
+                      '未读取到武器：同步后补上武器材料，等级与天赋照常培养。'),
+    'wengine_unread': ('No W-Engine read: equip one and sync to add its materials. Level and skills go ahead without it.',
+                       '未读取到音擎：装备音擎并同步后补上音擎材料，等级与技能照常培养。'),
     'calc_format': ('The official calculator response format has changed.', '官方养成计算返回格式已变化。'),
     'calc_current_unknown': ('Current levels not read yet ({fields}); sync this character before calculating.',
                              '尚未读取当前等级（{fields}），请先同步该角色再计算。'),

@@ -1990,7 +1990,7 @@ function goalStatus(g, plan) {
     return `<span class="tag">${t('tag_next')}</span><span>${esc(plan.item.label)}${plan.phase === 'equipment' ? ` (${t('phase_equipment')})` : ''}</span>`;
   }
   const open = (g.items || []).find(it => !it.done);
-  if (!open) return `<span class="good">${icon('check')}${t('goal_all_done')}</span>`;
+  if (!open) return `<span class="good">${icon('check')}${t('goal_all_done')}</span>${g.weapon_wait ? `<span class="ink-2">${esc(g.weapon_wait)}</span>` : ''}`;
   return `<span class="ink-2">${t('for_goal', open.label, open.paused ? tp('status_paused') : open.why || tp('status_queued'))}</span>`;
 }
 
@@ -2069,6 +2069,7 @@ function goalCard(g, idx, total, nextKey) {
       <section>
         <div class="mats-head"><h3>${t('mats_title')}</h3></div>
         ${pending.length ? `<ul class="mats">${pending.map(it => materialRow(g, it, nextKey)).join('')}</ul>` : `<p class="ink-2">${t('mats_none')}</p>`}
+        ${g.weapon_wait ? `<div class="mt">${help(esc(g.weapon_wait), 'clock')}</div>` : ''}
         ${done.length ? `<details class="fold mt" data-keep="done-${id}"><summary>${icon('chevron', 'chev')}<span>${t('completed_items', done.length)}</span></summary>
           <div class="fold-body"><ul class="mats">${done.map(it => materialRow(g, it, nextKey)).join('')}</ul></div></details>` : ''}
       </section>

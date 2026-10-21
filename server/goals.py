@@ -185,11 +185,13 @@ def sync(goal_id: str, observe: bool = True, force: bool = False) -> dict | None
             if rows is None:
                 fresh['calc_error'] = errors['calc_error']
             elif basis(fresh) == basis(asked):
-                was_done = bool(fresh.get('materials')) and all(m.get('remaining') == 0 for m in fresh['materials'])
+                was_done = (bool(fresh.get('materials')) and all(m.get('remaining') == 0 for m in fresh['materials'])
+                            and not fresh.get('weapon_wait'))
                 fresh['materials'], fresh['calc_at'], fresh['calc_error'] = rows, core.stamp(), None
                 fresh['calc_stale'], fresh['account'] = False, role
+                fresh['weapon_wait'] = mihoyo.weapon_wait(asked)  # the weapon this calculation left out, if any
                 refresh_allowance(fresh)
-                done = all(m.get('remaining') == 0 for m in rows)
+                done = all(m.get('remaining') == 0 for m in rows) and not fresh['weapon_wait']
                 if done and not was_done and fresh.get('enabled'):
                     from . import notify
                     notify.event('goal_done', tr('goal_done_title', name=fresh['name']), [tr('goal_done_body')])

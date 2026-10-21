@@ -1,6 +1,7 @@
-"""Business rules found broken by the logic audit of 2026-10-20 (audit/2026-10-20/REPORT.zh-CN.md, B01–B26).
+"""Business rules found broken by the logic audit of 2026-10-20 (audit/2026-10-20/REPORT.zh-CN.md, B01–B26),
+and the ones found broken since.
 
-Each test names the audit item it guards. Official calls, processes and notifications are stubbed; every
+Each audit test names the item it guards. Official calls, processes and notifications are stubbed; every
 test runs in its own runtime folder.
 """
 import copy
@@ -460,6 +461,100 @@ class LogicTest(unittest.TestCase):
         send.assert_not_called()
         row = notify.recent()[0]
         self.assertEqual((row['sent'], row['error']), (False, __import__('server.i18n', fromlist=['tr']).tr('channel_off')))
+
+    # ------------------------------------------------ a weapon that was not read waits alone
+    def test_unread_wengine_leaves_only_its_own_part_out(self):
+        from server import mihoyo
+        g = self.goal(current={'level': 50, 'special': 10}, target={'level': 60, 'special': 12, 'weapon': 60})
+        rows = self.calculate(g, {'avatar_consume': [{'id': 1, 'name': 'Test', 'num': 5}], 'skill_consume': [],
+                                  'user_owns_materials': {}})
+        self.assertEqual(rows[0]['need'], 5)  # the level is calculated
+        self.assertNotIn('weapon_info', self.body)
+        self.assertEqual(mihoyo.weapon_wait(g), 'wengine_unread')
+        g = self.goal(current={'level': 50, 'special': 10, 'weapon': 40}, weapon_id='14149',
+                      target={'level': 60, 'special': 12, 'weapon': 60})
+        self.calculate(g, self.raw())
+        self.assertEqual((self.body['weapon_info']['weapon_init_level'], self.body['weapon_info']['weapon_level']), (40, 60))
+        self.assertIsNone(mihoyo.weapon_wait(g))
+        with self.assertRaises(ValueError):  # the W-Engine was asked for: an answer without its part is a format change
+            self.calculate(g, {'avatar_consume': [], 'skill_consume': [], 'user_owns_materials': {}})
+        self.assertIsNone(mihoyo.weapon_wait(self.goal(current={'level': 50}, target={'weapon': 0})))  # asks nothing
+
+    def test_unread_weapon_leaves_genshin_level_and_talents_calculated(self):
+        from genshin.client.components.calculator.calculator import Calculator
+        from server import mihoyo
+        sent = {}
+
+        class Sent(Exception):
+            pass
+
+        async def request_calculator(endpoint, data=None, **kwargs):
+            sent.update(data['items'][0])
+            raise Sent  # only the request is checked
+        fake = types.SimpleNamespace(request_calculator=request_calculator)
+        fake.calculator = lambda: Calculator(fake)
+        g = self.goal(game='genshin', character_id='10000089', current={'level': 80, 'skill': 8},
+                      target={'level': 90, 'skill': 9, 'weapon': 90}, talent_groups={'skill': 8932})
+        with mock.patch.object(mihoyo, 'accounts', return_value={'genshin': {'uid': '100000001'}}), \
+                mock.patch.object(mihoyo, 'client', return_value=fake), self.assertRaises(Sent):
+            mihoyo.calculate(g)
+        self.assertNotIn('weapon', sent)
+        self.assertEqual(sent['skill_list'], [{'id': 8932, 'level_current': 8, 'level_target': 9}])
+        self.assertEqual(mihoyo.weapon_wait(g), 'weapon_unread')
+
+    def test_genshin_weapon_without_its_level_is_not_read(self):
+        from server import mihoyo
+        row = {'id': 10000089, 'level_current': 80, 'skill_list': [], 'weapon': {'id': 11510, 'name': 'Sword'}}
+
+        async def request_calculator(endpoint, data=None, **kwargs):
+            return {'list': [row]}
+        fake = types.SimpleNamespace(request_calculator=request_calculator)
+        goal = {'game': 'genshin', 'character_id': '10000089'}
+        with mock.patch.object(mihoyo, 'accounts', return_value={'genshin': {'uid': '100000001'}}), \
+                mock.patch.object(mihoyo, 'client', return_value=fake), \
+                mock.patch.object(mihoyo, '_ensure_fp', mock.AsyncMock()), \
+                mock.patch.object(mihoyo, '_genshin_gear', mock.AsyncMock()):
+            seen = mihoyo.observe(goal)
+            self.assertEqual((seen['weapon_id'], seen['current'].get('weapon')), (None, None))  # never level 1
+            row['weapon']['level_current'] = 70
+            seen = mihoyo.observe(goal)
+        self.assertEqual((seen['weapon_id'], seen['current']['weapon']), ('11510', 70))
+
+    def test_unread_wengine_never_holds_back_level_and_skills(self):
+        """A new goal for an agent without a W-Engine is calculated and farmed for its level and skills; the W-Engine
+        waits for a reading, and the goal is not done while it waits."""
+        from server import core, goals, mihoyo, notify, planner, web
+        from server.i18n import tr
+        chip = self.chip()[2]
+        g = self.goal(current={}, target={'level': 60, 'special': 12, 'weapon': 60}, calc_at=None)
+        reading = {'current': {'level': 60, 'special': 10}, 'weapon_id': None, 'weapon_name': ''}
+        answer = {'avatar_consume': [], 'skill_consume': [{'id': int(chip[0]), 'name': chip[1]['name'], 'num': 10}],
+                  'user_owns_materials': {chip[0]: 0}}
+
+        async def request(*a, **k):
+            self.body = k['body']
+            return answer
+        fake = types.SimpleNamespace(_request_upgrade_guide=request)
+        event = mock.Mock()
+        with mock.patch.object(mihoyo, 'observe', side_effect=lambda *a, **k: copy.deepcopy(reading)), \
+                mock.patch.object(mihoyo, 'accounts', return_value={'zzz': {'uid': '10000002'}}), \
+                mock.patch.object(mihoyo, 'client', return_value=fake), mock.patch.object(notify, 'event', event):
+            synced = goals.sync(g['id'])
+            self.assertIsNone(synced['calc_error'])
+            self.assertEqual(synced['weapon_wait'], 'wengine_unread')
+            self.assertNotIn('weapon_info', self.body)
+            self.assertEqual(planner.plan('zzz')['item']['goal_id'], g['id'])  # its skill is farmed
+            self.assertEqual(web.goal_view(core.goal(g['id']), planner.tool_context(), 0)['weapon_wait'], tr('wengine_unread'))
+            answer['user_owns_materials'] = {chip[0]: 10}  # the skill materials are collected, the W-Engine still waits
+            goals.sync(g['id'])
+            event.assert_not_called()
+            reading.update(weapon_id='14149', weapon_name='Test W-Engine')
+            reading['current']['weapon'] = 60  # read at its target level: nothing more to farm
+            answer['weapon_consume'] = []
+            synced = goals.sync(g['id'])
+        self.assertIsNone(synced['weapon_wait'])
+        self.assertEqual(self.body['weapon_info']['weapon_id'], 14149)
+        self.assertEqual([c.args[0] for c in event.call_args_list], ['goal_done'])
 
     # ------------------------------------------------ what stayed right
     def test_controls(self):

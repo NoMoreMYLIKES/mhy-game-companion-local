@@ -292,8 +292,8 @@ def observe(goal: dict, force: bool = False) -> dict:
             result = {'current': current, 'talent_groups': {k: t['group'] for k, t in talents.items()},
                       'weapon_id': None, 'weapon_name': ''}
             weapon = row.get('weapon') or {}
-            if weapon.get('id'):
-                current['weapon'] = int(weapon.get('level_current') or 1)
+            if weapon.get('id') and int(weapon.get('level_current') or 0) > 0:  # without its level it is not read
+                current['weapon'] = int(weapon['level_current'])
                 result.update(weapon_id=str(weapon['id']), weapon_name=weapon.get('name', ''))
             await _genshin_gear(c, goal, result, force)
             return result
@@ -342,11 +342,28 @@ def _quantity(item: dict) -> int:
     return found.pop()
 
 
+WEAPON_LOW = {'genshin': 1, 'zzz': 0}  # the lowest weapon level: a target there asks for nothing
+
+
+def weapon_wait(goal: dict) -> str | None:
+    """The message key of why a calculation leaves the weapon (W-Engine) out: its target asks for levels, but the
+    weapon or its current level was not read. None when the weapon is calculated or nothing is asked of it. Only the
+    weapon waits: the level and talents are calculated and farmed without it."""
+    cur = (goal.get('current') or {}).get('weapon')
+    tgt = (goal.get('target') or {}).get('weapon')
+    if tgt is None or tgt <= (WEAPON_LOW[goal['game']] if cur is None else cur):
+        return None
+    if goal.get('weapon_id') and cur is not None:
+        return None
+    return 'weapon_unread' if goal['game'] == 'genshin' else 'wengine_unread'
+
+
 def calculate(goal: dict) -> list[dict]:
     """Official requirement rows: need, owned (ZZZ) and remaining (official gap).
 
     Every current level the request needs must have been read or entered: an unknown one is never taken as
-    level 1. A saved target below the current level asks for nothing; the target itself stays as saved."""
+    level 1. A weapon that was not read, or whose level was not, is left out of the request instead of failing it
+    (weapon_wait says why). A saved target below the current level asks for nothing; the target itself stays as saved."""
     from . import materials
     game, cid = goal['game'], int(goal['character_id'])
     cur = goal.get('current') or {}
@@ -354,18 +371,15 @@ def calculate(goal: dict) -> list[dict]:
            for k, v in (goal.get('target') or {}).items()}
     talents = ('attack', 'skill', 'burst') if game == 'genshin' else tuple(SKILLS)
     needed = ['level'] + [k for k in talents if k in tgt]
-    if goal.get('weapon_id') and 'weapon' in tgt:
-        needed.append('weapon')
     missing = [k for k in needed if cur.get(k) is None]
     if missing:
         raise ValueError(tr('calc_current_unknown', fields=tr('sep').join(missing)))
+    weapon = bool(goal.get('weapon_id')) and cur.get('weapon') is not None  # asked only when read
 
     async def genshin_calc():
         c = client(game)
         b = c.calculator().set_character(cid, int(cur['level']), int(tgt.get('level', cur['level'])))
-        if 'weapon' in tgt and (cur.get('weapon') is None or tgt['weapon'] > cur['weapon']):
-            if not goal.get('weapon_id'):
-                raise ValueError(tr('weapon_needed'))
+        if weapon and tgt.get('weapon', cur['weapon']) > cur['weapon']:
             b.set_weapon(int(goal['weapon_id']), int(cur['weapon']), int(tgt['weapon']))
         levels = {k: int(tgt[k]) for k in talents if k in tgt}
         wanted = [k for k in levels if levels[k] > int(cur[k])]
@@ -414,18 +428,19 @@ def calculate(goal: dict) -> list[dict]:
                   for k, kind in SKILLS.items() if k in tgt or cur.get(k) is not None]  # targeted ones are known
         bounds = [10, 20, 30, 40, 50]
         level = int(cur['level'])
-        wlevel = int(cur.get('weapon') or 0)  # 0 is a real W-Engine level; unknown only without a W-Engine id
         body = {'avatar_id': cid, 'avatar_level': int(tgt.get('level', level)), 'avatar_current_level': level,
                 'avatar_current_promotes': int(cur.get('promotion', 1 + sum(level > b for b in bounds))),
-                'skills': skills,
-                'weapon_info': {'weapon_id': int(goal.get('weapon_id') or 0), 'weapon_level': int(tgt.get('weapon', wlevel)),
-                                'weapon_init_level': wlevel, 'weapon_promotes': sum(wlevel > b for b in bounds)}}
-        if int(tgt.get('weapon', 0)) > wlevel and not goal.get('weapon_id'):
-            raise ValueError(tr('wengine_needed'))
+                'skills': skills}
+        if weapon:  # without a W-Engine read the request has no weapon_info
+            wlevel = int(cur['weapon'])  # 0 is a real W-Engine level
+            body['weapon_info'] = {'weapon_id': int(goal['weapon_id']), 'weapon_level': int(tgt.get('weapon', wlevel)),
+                                   'weapon_init_level': wlevel, 'weapon_promotes': sum(wlevel > b for b in bounds)}
         raw = await c._request_upgrade_guide('user/avatar_calc', uid, body=body)
         owns = raw.get('user_owns_materials') if isinstance(raw.get('user_owns_materials'), dict) else {}
         merged: dict[str, dict] = {}
         for field, category in (('avatar_consume', 'level'), ('skill_consume', 'talents'), ('weapon_consume', 'weapon')):
+            if field == 'weapon_consume' and not weapon and raw.get(field) is None:
+                continue  # no W-Engine was asked for
             if not isinstance(raw.get(field), list):
                 raise ValueError(tr('calc_format'))
             for item in raw[field]:
